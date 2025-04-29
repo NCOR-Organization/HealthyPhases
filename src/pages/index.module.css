@@ -1,0 +1,239 @@
+/**
+ * CSS files with the .module.css suffix will be treated as CSS modules
+ * and scoped locally.
+ */
+
+/* Hero section styles with dark theme */
+.heroBanner {
+  position: relative;
+  text-align: center;
+  overflow: hidden;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #253746 0%, #1a2a3a 100%);
+  padding: 0;
+}
+
+/* Primary network layer */
+.heroBanner::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    radial-gradient(circle at 15% 75%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%),
+    radial-gradient(circle at 85% 25%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%),
+    radial-gradient(circle at 45% 40%, rgba(255,255,255,0.12) 0%, rgba(255,255,255,0) 60%);
+  opacity: 1;
+  z-index: 0;
+}
+
+/* Secondary network layer with rotation */
+.heroBanner::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+  background-size: 30px 30px;
+  opacity: 0.7;
+  animation: pulse 8s infinite alternate, drift 20s infinite linear;
+  z-index: 0;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes rotate {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.container {
+  position: relative;
+  z-index: 1;
+  max-width: 1000px;
+  padding: 2rem;
+  margin: 0 auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.heroContent {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem 0;
+}
+
+.tagline {
+  display: inline-block;
+  background: rgba(77, 159, 255, 0.15);
+  color: #4d9fff;
+  font-size: 1rem;
+  font-weight: 500;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  margin-bottom: 1.5rem;
+}
+
+.heroTitle {
+  font-family: 'Merriweather', serif;
+  font-weight: 700;
+  font-size: 4rem;
+  line-height: 1.15;
+  margin-bottom: 1.5rem;
+  color: white;
+}
+
+.heroTitleHighlight {
+  font-family: 'Merriweather', serif;
+  color: var(--ifm-color-primary);
+  display: block;
+}
+
+.heroSubtitle {
+  font-size: 1.25rem;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 2.5rem;
+  max-width: 700px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.heroButtons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.heroButton {
+  padding: 0.75rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  min-width: 180px;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.heroButtonPrimary {
+  background: #0a66c2;
+  border: none;
+  color: white;
+}
+
+.heroButtonPrimary:hover {
+  background: #0958a7;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(10, 102, 194, 0.25);
+}
+
+.heroButtonSecondary {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.heroButtonSecondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Light mode overrides */
+[data-theme='light'] .heroBanner {
+  background: #2c2d31;
+}
+
+/* Media Queries */
+@media screen and (max-width: 996px) {
+  .heroBanner {
+    padding: 3rem 0;
+  }
+  
+  
+  .heroSubtitle {
+    font-size: 1.1rem;
+  }
+}
+
+@media screen and (max-width: 576px) {
+  .heroTitle, .heroTitleHighlight {
+    font-size: 3rem;
+  }
+}
+
+/* Content section (after hero) styles */
+.contentSection {
+  padding: 5rem 0;
+  background-color: var(--custom-background-color);
+}
+
+.contentTitle {
+  font-size: 2.5rem;
+  margin-bottom: 2rem;
+  text-align: center;
+  position: relative;
+  padding-bottom: 1rem;
+}
+
+.contentTitle::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 80px;
+  height: 4px;
+  background: var(--ifm-color-primary);
+  border-radius: 2px;
+}
+
+.contentText {
+  font-size: 1.1rem;
+  line-height: 1.7;
+  margin-bottom: 2rem;
+}
+
+/* Add these to your media query */
+@media screen and (max-width: 996px) {
+  .contentTitle {
+    font-size: 2rem;
+  }
+  
+  .contentText {
+    font-size: 1rem;
+  }
+  
+  .heroButtons {
+    flex-direction: column;
+    align-items: center;
+  }
+}
