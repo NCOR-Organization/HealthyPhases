@@ -99,7 +99,7 @@ For inquiries about the HealthPhases Project, please contact:
 **John Beverley, PhD**  
 Department of Philosophy  
 University at Buffalo  
-Email: jcb26@buffalo.edu
+Email: johnbeve@buffalo.edu 
 
 ## License
 
