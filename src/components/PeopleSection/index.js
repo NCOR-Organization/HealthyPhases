@@ -99,7 +99,7 @@ export default function PeopleSection() {
           <div className={styles.joinContent}>
             <h3 className={styles.joinTitle}>Join Our Research</h3>
             <p className={styles.joinDescription}>
-              Interested in participating in the HealthPhases Project? We welcome 
+              Interested in participating in the HealthyPhases Project? We welcome 
               collaborators, students, and volunteers to help advance our 
               understanding of solitude and healthy aging.
             </p>

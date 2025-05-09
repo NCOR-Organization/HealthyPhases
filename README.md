@@ -1,14 +1,14 @@
-# HealthPhases Project
+# HealthyPhases Project
 
-![HealthPhases Banner](./static/img/healthyphases-banner.png)
+![HealthyPhases Banner](./static/img/healthyphases-banner.png)
 
 [![Website Status](https://img.shields.io/website?url=https%3A%2F%2Fhealthyphases.org&label=website&style=flat-square&logo=docusaurus)](https://healthyphases.org)
 
-This repository contains the website for the HealthPhases Project: Promoting Healthy Aging through Semantic Enrichment of Solitude Research (PHASES).
+This repository contains the website for the HealthyPhases Project: Promoting Healthy Aging through Semantic Enrichment of Solitude Research (PHASES).
 
-## What is the HealthPhases Project?
+## What is the HealthyPhases Project?
 
-The HealthPhases Project is a multidisciplinary research initiative focused on promoting healthy aging through the semantic enrichment of solitude research. Our team brings together expertise in ontology development, psychology, computer science, and gerontology to address the challenges of terminological ambiguity and data interoperability in research on solitude and gerotranscendence.
+The HealthyPhases Project is a multidisciplinary research initiative focused on promoting healthy aging through the semantic enrichment of solitude research. Our team brings together expertise in ontology development, psychology, computer science, and gerontology to address the challenges of terminological ambiguity and data interoperability in research on solitude and gerotranscendence.
 
 Through the development of standardized ontologies and data models, we aim to bridge isolated research areas, foster interoperability of research data, and advance our understanding of how solitude impacts healthy aging processes.
 
@@ -94,7 +94,7 @@ HealthyPhases/
 
 ## Contact
 
-For inquiries about the HealthPhases Project, please contact:
+For inquiries about the HealthyPhases Project, please contact:
 
 **John Beverley, PhD**  
 Department of Philosophy  

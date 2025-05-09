@@ -84,7 +84,7 @@ function JoinPage() {
     try {
       // Format the email body with all form data
       const emailBody = `
-        New HealthPhases Project Participation Request
+        New HealthyPhases Project Participation Request
         
         Name: ${formData.firstName} ${formData.lastName}
         Email: ${formData.email}
@@ -105,11 +105,11 @@ function JoinPage() {
         'YOUR_SERVICE_ID', // Create an EmailJS account and get these values
         'YOUR_TEMPLATE_ID',
         {
-          to_email: 'jcb26@buffalo.edu',
+          to_email: 'johnbeve@buffalo.edu',
           from_name: `${formData.firstName} ${formData.lastName}`,
           from_email: formData.email,
           message: emailBody,
-          subject: `HealthPhases Project Interest: ${formData.firstName} ${formData.lastName}`,
+          subject: `HealthyPhases Project Interest: ${formData.firstName} ${formData.lastName}`,
         },
         'YOUR_USER_ID'
       );
@@ -139,7 +139,7 @@ function JoinPage() {
       setFormStatus({
         submitted: true,
         success: false,
-        error: 'There was a problem submitting your application. Please try again or contact us directly at jcb26@buffalo.edu.',
+        error: 'There was a problem submitting your application. Please try again or contact us directly at johnbeve@buffalo.edu.',
       });
     } finally {
       setIsSubmitting(false);
@@ -148,8 +148,8 @@ function JoinPage() {
   
   return (
     <Layout
-      title="Join the HealthPhases Project"
-      description="Join the HealthPhases Project to collaborate on research promoting healthy aging through semantic enrichment of solitude research"
+      title="Join the HealthyPhases Project"
+      description="Join the HealthyPhases Project to collaborate on research promoting healthy aging through semantic enrichment of solitude research"
     >
       <div className={styles.joinHero}>
         <div className="container">
@@ -158,7 +158,7 @@ function JoinPage() {
               <h1 className={styles.heroTitle}>Join Our Research</h1>
               <div className={styles.heroLine}></div>
               <p className={styles.heroSubtitle}>
-                Participate in the HealthPhases Project to advance research on solitude and healthy aging
+                Participate in the HealthyPhases Project to advance research on solitude and healthy aging
               </p>
             </div>
           </div>
@@ -244,8 +244,8 @@ function JoinPage() {
                 </div>
                 <h2>Thank You For Your Interest!</h2>
                 <p>
-                  We've received your application to participate in the HealthPhases Project and will be in touch soon. 
-                  In the meantime, feel free to explore our resources or learn more about our research aims.
+                  We've received your application to participate in the HealthyPhases Project and will be in touch soon. 
+                  In the meantime, feel free to explore our resources or learn more about our Research Areas.
                 </p>
                 <div className={styles.successButtons}>
                   <Link 
@@ -258,7 +258,7 @@ function JoinPage() {
                     to="/docs/research/aims" 
                     className={styles.secondaryButton}
                   >
-                    Research Aims
+                    Research Areas
                   </Link>
                 </div>
               </div>
@@ -266,7 +266,7 @@ function JoinPage() {
               <div className={styles.formCard}>
                 <div className={styles.formHeader}>
                   <h2>Participation Request</h2>
-                  <p>Complete the form below to express interest in participating in the HealthPhases Project</p>
+                  <p>Complete the form below to express interest in participating in the HealthyPhases Project</p>
                 </div>
                 
                 <div className={styles.formBody}>
@@ -443,7 +443,7 @@ function JoinPage() {
                         className={styles.formTextarea}
                         value={formData.message}
                         onChange={handleChange}
-                        placeholder="Tell us about your background, specific interests, or how you'd like to contribute to the HealthPhases Project."
+                        placeholder="Tell us about your background, specific interests, or how you'd like to contribute to the HealthyPhases Project."
                       />
                     </div>
                     
@@ -481,7 +481,7 @@ function JoinPage() {
                   </div>
                   <div>
                     <h3>Email Us</h3>
-                    <a href="mailto:jcb26@buffalo.edu">jcb26@buffalo.edu</a>
+                    <a href="mailto:johnbeve@buffalo.edu">johnbeve@buffalo.edu</a>
                   </div>
                 </div>
                 

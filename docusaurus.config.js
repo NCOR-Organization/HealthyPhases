@@ -1,16 +1,12 @@
-// @ts-check
-// `@type` JSDoc annotations allow editor autocompletion and type checking
-// (when paired with `@ts-check`).
-// There are various equivalent ways to declare your Docusaurus config.
-// See: https://docusaurus.io/docs/api/docusaurus-config
+import { themes as prismThemes } from 'prism-react-renderer';
 
-import {themes as prismThemes} from 'prism-react-renderer';
+// @ts-check
 
 // This runs in Node.js - Don't use client-side code here (browser APIs, JSX...)
 
 /** @type {import('@docusaurus/types').Config} */
 const config = {
-  title: 'HealthPhases Project',
+  title: 'HealthyPhases Project',
   tagline: 'Promoting Healthy Aging through Semantic Enrichment of Solitude Research',
   favicon: 'img/favicon.ico',
 
@@ -55,19 +51,8 @@ const config = {
     ],
   ],
   
-  // Add the wiki as a separate plugin instead of in the preset
-  plugins: [
-    [
-      '@docusaurus/plugin-content-docs',
-      {
-        id: 'wiki',
-        path: 'wiki',
-        routeBasePath: 'wiki',
-        sidebarPath: require.resolve('./wikiSidebars.js'),
-        editUrl: 'https://github.com/NCOR-Organization/NCOR-Network/tree/main/',
-      },
-    ],
-  ],
+  // Wiki plugin has been removed
+  plugins: [],
 
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -75,92 +60,20 @@ const config = {
       // Replace with your project's social card
       image: 'img/healthyphases-social-card.png',
       navbar: {
-        title: 'HealthPhases',
+        title: 'HealthyPhases',
         logo: {
-          alt: 'HealthPhases Logo',
+          alt: 'HealthyPhases Logo',
           src: 'img/healthyphases-logo.png',
           srcDark: 'img/healthyphases-logo.png',
         },
         items: [
           {
-            type: 'docSidebar',
-            sidebarId: 'docsSidebar',
+            to: '/docs/about/overview',
+            label: 'Documentation',
             position: 'right',
-            label: 'Get Started',
           },
           {
-            type: 'dropdown',
-            label: 'About',
-            position: 'right',
-            items: [
-              {
-                label: 'Project Overview',
-                to: '/docs/about/overview',
-              },
-              {
-                label: 'Team',
-                to: '/docs/about/team',
-              },
-              {
-                label: 'Research Background',
-                to: '/docs/about/background',
-              },
-            ],
-          },
-          {
-            type: 'dropdown',
-            label: 'Research',
-            position: 'right',
-            items: [
-              {
-                label: 'Aims',
-                to: '/docs/research/aims',
-              },
-              {
-                label: 'Ontology Development',
-                to: '/docs/research/ontology-development',
-              },
-              {
-                label: 'Web Resources',
-                to: '/docs/research/web-resources',
-              },
-              {
-                label: 'Publications',
-                to: '/docs/research/publications',
-              },
-            ],
-          },
-          {
-            type: 'dropdown',
-            label: 'Resources',
-            position: 'right',
-            items: [
-              {
-                label: 'Common Data Model',
-                to: '/wiki/common-data-model',
-              },
-              {
-                label: 'Semantic Enrichment',
-                to: '/wiki/semantic-enrichment',
-              },
-              {
-                label: 'Knowledge Graph',
-                to: '/wiki/knowledge-graph',
-              },
-              {
-                label: 'Glossary',
-                to: '/wiki/glossary',
-              },
-            ],
-          },
-          {
-            to: '/docs/events/workshops',
-            position: 'right',
-            label: 'Events',
-            activeBasePath: '/docs/events',
-          },
-          {
-            href: 'https://github.com/HealthyPhases',
+            href: 'https://github.com/NCOR-Organization/HealthyPhases',
             label: 'GitHub',
             position: 'right',
           },
@@ -176,12 +89,12 @@ const config = {
         style: 'dark',
         links: [
           {
-            title: 'HealthPhases',
+            title: 'HealthyPhases',
             items: [
               {
                 html: `
                   <p style="text-align: left; max-width: 300px; margin-top: -5px;">
-                    The HealthPhases Project promotes healthy aging through semantic enrichment of solitude research, creating standardized ontologies for better understanding gerotranscendence and solitude.
+                    The HealthyPhases Project promotes healthy aging through semantic enrichment of solitude research, creating standardized ontologies for better understanding gerotranscendence and solitude.
                   </p>
                 `,
               },
@@ -217,19 +130,19 @@ const config = {
             items: [
               {
                 label: 'Publications',
-                to: '/docs/research/publications',
+                to: '/docs/resources/publications',
               },
               {
                 label: 'Ontologies',
-                to: '/docs/research/ontology-development',
+                to: '/docs/resources/ontology-development',
               },
               {
-                label: 'Web Resources',
-                to: '/docs/research/web-resources',
+                label: 'Terms & References',
+                to: '/docs/resources/terms-references',
               },
               {
                 label: 'GitHub',
-                href: 'https://github.com/HealthyPhases',
+                href: 'https://github.com/NCOR-Organization/HealthyPhases',
               },
             ],
           },
@@ -252,14 +165,14 @@ const config = {
                     <svg style="min-width: 20px; margin-right: 8px;" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M20 4H4C2.9 4 2.01 4.9 2.01 6L2 18C2 19.1 2.9 20 4 20H20C21.1 20 22 19.1 22 18V6C22 4.9 21.1 4 20 4ZM20 8L12 13L4 8V6L12 11L20 6V8Z" fill="#adbac7"/>
                     </svg>
-                    <a href="mailto:jcb26@buffalo.edu">jcb26@buffalo.edu</a>
+                    <a href="mailto:johnbeve@buffalo.edu">johnbeve@buffalo.edu</a>
                   </div>
                 `,
               },
             ],
           },
         ],
-        copyright: `© ${new Date().getFullYear()} HealthPhases Project. All rights reserved. | <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a>`,
+        copyright: `© ${new Date().getFullYear()} HealthyPhases Project. All rights reserved. | <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a>`,
       },
       prism: {
         theme: prismThemes.github,
@@ -270,10 +183,16 @@ const config = {
         disableSwitch: true,
         respectPrefersColorScheme: false,
       },
+      docs: {
+        sidebar: {
+          hideable: false,
+          autoCollapseCategories: false
+        }
+      },
       announcementBar: {
         id: 'project_announcement',
         content: 
-          '🔬 <strong>HealthPhases Project:</strong> Promoting Healthy Aging through Semantic Enrichment of Solitude Research (PHASES) 🔬',
+          '🔬 <strong>HealthyPhases Project:</strong> Promoting Healthy Aging through Semantic Enrichment of Solitude Research (PHASES) 🔬',
         backgroundColor: '#e6f7ff', // Light blue background
         textColor: '#0066cc',        // Blue text
         isCloseable: false,          // Make it persistent
@@ -307,4 +226,4 @@ const config = {
   ],
 };
 
-export default config;
+export default config; 

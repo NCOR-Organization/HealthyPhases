@@ -1,8 +1,8 @@
-# HealthPhases Project Deployment Instructions
+# HealthyPhases Project Deployment Instructions
 
 ## Changes Made
 
-We've successfully transformed the website to represent the HealthPhases Project with the following changes:
+We've successfully transformed the website to represent the HealthyPhases Project with the following changes:
 
 1. **Core Configuration**
    - Updated site title, description, and metadata in `docusaurus.config.js`
@@ -11,8 +11,8 @@ We've successfully transformed the website to represent the HealthPhases Project
 
 2. **Content**
    - Created new pages for the project overview, team, and research background
-   - Created pages for research aims, ontology development, and web resources
-   - Updated the join page to reflect participation options for the HealthPhases Project
+   - Created pages for Research Areas, ontology development, and web resources
+   - Updated the join page to reflect participation options for the HealthyPhases Project
    - Created wiki resources on common data models, semantic enrichment, and knowledge graphs
    - Updated the glossary with terminology relevant to solitude and gerotranscendence research
 

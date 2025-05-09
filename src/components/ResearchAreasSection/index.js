@@ -41,10 +41,10 @@ export default function ResearchAreasSection() {
       <div className="container">
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>
-            Research <span className={styles.highlight}>Focus</span>
+            Research <span className={styles.highlight}>Areas</span>
           </h2>
           <p className={styles.sectionDescription}>
-            The HealthPhases Project bridges isolated research areas through semantic enrichment and standardization,
+            The HealthyPhases Project bridges isolated research areas through semantic enrichment and standardization,
             transforming our understanding of solitude's role in healthy aging.
           </p>
         </div>
@@ -89,7 +89,7 @@ export default function ResearchAreasSection() {
             to="/docs/research/aims"
             className={styles.viewAllButton}
           >
-            View Research Aims{' '}
+            View Research Areas{' '}
             <svg
               width="20"
               height="20"

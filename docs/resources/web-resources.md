@@ -6,7 +6,7 @@ description: Online tools and resources for solitude and gerotranscendence resea
 
 # Ontology-Based Web Resources
 
-The HealthPhases Project is developing a suite of web-based resources that implement our ontological framework to support research and practice in understanding solitude and gerotranscendence.
+The HealthyPhases Project is developing a suite of web-based resources that implement our ontological framework to support research and practice in understanding solitude and gerotranscendence.
 
 ## Common Data Model
 
@@ -108,4 +108,4 @@ Our web resources are designed with accessibility and long-term sustainability i
 - **Preservation Strategy**: Long-term data and resource preservation plan
 - **Governance Model**: Community-based oversight of resource development
 
-Through these web resources, the HealthPhases Project aims to provide practical tools that implement our ontological framework, making it easier for researchers to conduct rigorous, interoperable, and semantically rich studies of solitude and gerotranscendence. 
+Through these web resources, the HealthyPhases Project aims to provide practical tools that implement our ontological framework, making it easier for researchers to conduct rigorous, interoperable, and semantically rich studies of solitude and gerotranscendence. 

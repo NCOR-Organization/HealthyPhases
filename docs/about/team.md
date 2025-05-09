@@ -1,12 +1,12 @@
 ---
 sidebar_position: 2
 title: Team
-description: HealthPhases Project Research Team
+description: HealthyPhases Project Research Team
 ---
 
 # Research Team
 
-The HealthPhases Project brings together a multidisciplinary team of researchers with expertise in ontology development, psychology, computer science, and gerontology.
+The HealthyPhases Project brings together a multidisciplinary team of researchers with expertise in ontology development, psychology, computer science, and gerontology.
 
 ## Principal Investigators
 
@@ -80,9 +80,9 @@ The HealthPhases Project brings together a multidisciplinary team of researchers
 
 ## Contact
 
-For inquiries about the HealthPhases Project, please contact:
+For inquiries about the HealthyPhases Project, please contact:
 
 **John Beverley, PhD**  
 Department of Philosophy  
 University at Buffalo  
-Email: jcb26@buffalo.edu 
+Email: johnbeve@buffalo.edu 

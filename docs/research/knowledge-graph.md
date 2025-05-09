@@ -1,143 +1,131 @@
 ---
 sidebar_position: 3
 title: Knowledge Graph
-description: Connecting solitude research data in a semantic network
+description: Exploring interconnected solitude and gerotranscendence knowledge
 ---
 
-# HealthPhases Knowledge Graph
+# Knowledge Graph
 
-The HealthPhases Knowledge Graph is a semantically rich network of connected information about solitude, gerotranscendence, and healthy aging research.
+The HealthyPhases Knowledge Graph is a semantically-rich, interconnected representation of solitude and gerotranscendence research findings, concepts, and data.
 
 ## What is a Knowledge Graph?
 
-A knowledge graph is a structured representation of knowledge that:
+A knowledge graph is a structured representation of knowledge where:
 
-- Organizes information as entities (nodes) and relationships (edges)
-- Integrates data from multiple sources into a unified structure
-- Enables complex queries across connected information
-- Supports inference to derive new insights from existing knowledge
-- Provides context and provenance for information
+- **Entities** (people, concepts, studies, measures) are represented as nodes
+- **Relationships** between entities are represented as labeled connections
+- **Properties** provide attributes and details about the entities
+- **Context** gives meaning and provenance to the information
 
-## The HealthPhases Knowledge Graph
+Unlike traditional databases, knowledge graphs excel at representing complex, interconnected information from diverse sources.
 
-Our knowledge graph integrates diverse information related to solitude and gerotranscendence research:
+## The HealthyPhases Knowledge Graph
 
-### Core Components
+Our knowledge graph integrates multiple types of information:
 
-#### Entities (Nodes)
-- **Research Concepts**: Terms and constructs like "solitude," "loneliness," "isolation"
-- **Measurement Instruments**: Scales and assessment tools
-- **Research Studies**: Publications, datasets, and findings
-- **Researchers**: Authors, investigators, and research groups
-- **Population Groups**: Demographic and clinical populations studied
+- **Research Findings**: Results from published studies
+- **Concepts and Definitions**: Terminology and formal definitions
+- **Measurement Instruments**: Structure and use of assessment tools
+- **Expert Knowledge**: Insights from domain specialists
+- **Data Patterns**: Derived trends and relationships
 
-#### Relationships (Edges)
-- **Conceptual Relations**: How concepts relate to each other (e.g., "subtypeOf," "partOf")
-- **Evidential Links**: How findings support or contradict hypotheses
-- **Measurement Relations**: How instruments measure specific constructs
-- **Temporal Connections**: How concepts and findings evolve over time
-- **Causal Relationships**: How factors influence outcomes
+## Key Features
 
-### Knowledge Graph Schema
+### Interconnected Structure
 
-The HealthPhases Knowledge Graph is structured according to a formal schema:
+The knowledge graph connects related concepts across traditional boundaries:
 
-- **Based on HealthPhases Ontology**: Aligned with our core ontological framework
-- **RDF/OWL Format**: Uses standard semantic web technologies
-- **Linked Data Principles**: Follows best practices for knowledge representation
-- **Named Graphs**: Tracks provenance and context for all assertions
-- **Formal Axioms**: Enables reasoning and inference
+- Links between psychological, social, and physical aspects of aging
+- Connections between subjective experiences and objective measures
+- Integration of findings across disciplines and methodologies
+
+### Semantic Foundation
+
+Built on formal ontological principles:
+
+- Aligned with the Basic Formal Ontology (BFO)
+- Incorporates terms from multiple domain ontologies
+- Provides precise definitions for all concepts
+- Supports logical inference and reasoning
+
+### Flexible Exploration
+
+The graph can be explored from multiple perspectives:
+
+- By concept (e.g., "voluntary solitude")
+- By study or publication
+- By measurement approach
+- By population characteristics
+- By outcomes and correlates
 
 ## Applications
 
-The knowledge graph supports multiple applications within the HealthPhases Project:
+### For Researchers
 
-### Research Discovery
-- Finding relevant studies and publications
-- Identifying gaps in current research
-- Discovering unexpected connections between concepts
-- Tracking the evolution of research over time
+- **Hypothesis Generation**: Discover potential relationships to investigate
+- **Literature Exploration**: Find relevant research across disciplinary boundaries
+- **Research Context**: Understand how your work fits into the broader knowledge landscape
+- **Gap Analysis**: Identify understudied areas or relationships
 
-### Data Integration
-- Integrating findings from diverse studies
-- Harmonizing data across different measurement instruments
-- Connecting results across disciplines
-- Contextualizing findings within broader knowledge
+### For Practitioners
 
-### Question Answering
-- Powering semantic search capabilities
-- Supporting natural language queries
-- Providing evidence-based answers to research questions
-- Explaining relationships between concepts
+- **Evidence Summary**: Access integrated evidence on specific questions
+- **Intervention Planning**: Identify factors that influence outcomes
+- **Assessment Selection**: Find appropriate measures for specific contexts
+- **Client Education**: Visualize relationships for client discussions
 
-### Hypothesis Generation
-- Identifying promising research directions
-- Suggesting novel conceptual connections
-- Highlighting unexplored causal pathways
-- Supporting evidence-based research planning
+### For Data Scientists
+
+- **Data Integration**: Connect your datasets to a broader knowledge context
+- **Enrichment Source**: Use the graph to enrich your data
+- **Feature Identification**: Discover potential variables for models
+- **Pattern Validation**: Compare discovered patterns with known relationships
 
 ## Accessing the Knowledge Graph
 
-The HealthPhases Knowledge Graph is accessible through multiple interfaces:
+### Visual Explorer
 
-### SPARQL Endpoint
-For direct querying using the SPARQL query language:
-```sparql
-PREFIX hp: <https://healthyphases.org/ontology/>
+Our web-based interface allows visual exploration of the graph through:
 
-SELECT ?study ?finding
-WHERE {
-  ?study a hp:ResearchStudy ;
-         hp:investigates hp:Solitude ;
-         hp:reports ?finding .
-  ?finding hp:aboutConcept hp:Gerotranscendence .
-}
-```
+- Interactive network visualizations
+- Guided exploration paths
+- Filtering by entity types and relationships
+- Custom visualizations for specific questions
 
-### Knowledge Graph Browser
-An interactive visual interface for exploring connections between entities.
+### Query Interface
 
-### API Access
-Programmatic access for integration with research tools and applications.
+For more technical users, we provide:
 
-### Data Downloads
-Downloadable subsets of the knowledge graph in various formats (RDF, JSON-LD, CSV).
-
-## Contributing to the Knowledge Graph
-
-The HealthPhases Knowledge Graph is a community resource that grows through contributions:
-
-### How to Contribute
-- **Add Publications**: Submit relevant papers for inclusion
-- **Contribute Datasets**: Share your research data with semantic annotations
-- **Suggest Relationships**: Identify conceptual connections
-- **Report Errors**: Help improve accuracy and completeness
-- **Extend the Schema**: Propose new entity types or relationships
-
-### Contribution Guidelines
-- All contributions must include appropriate provenance
-- Assertions should be linked to supporting evidence
-- Contributions undergo review before integration
-- Conflicts are resolved through community consensus
+- SPARQL endpoint for custom queries
+- GraphQL API for application integration
+- Downloadable subgraphs for specific topics
+- Query templates for common research questions
 
 ## Technical Implementation
 
-The HealthPhases Knowledge Graph is implemented using modern semantic technologies:
+The HealthyPhases Knowledge Graph is implemented using:
 
-- **Triple Store**: High-performance graph database
-- **Reasoning Engine**: OWL2 reasoning capabilities
-- **Entity Resolution**: Automatic linking of identical entities
-- **Versioning**: Tracking changes over time
-- **Authentication**: Secure access controls for contributors
+- RDF/OWL for semantic representation
+- Named graphs for tracking provenance
+- SHACL for validation and quality control
+- Triple store technology for storage and querying
+
+## Contributing
+
+The knowledge graph is continuously expanded through:
+
+- Automated extraction from publications
+- Contributed datasets
+- Expert curation
+- User feedback and suggestions
 
 ## Resources
 
 - [Knowledge Graph Documentation](#)
 - [Query Examples](#)
-- [API Reference](#)
-- [Contribution Guide](#)
-- [Browser Tutorial](#)
+- [API Documentation](#)
+- [Visual Explorer Guide](#)
 
 ## Contact
 
-For questions about the HealthPhases Knowledge Graph, please contact [jcb26@buffalo.edu](mailto:jcb26@buffalo.edu).
+For questions about using or contributing to the Knowledge Graph, please contact [johnbeve@buffalo.edu](mailto:johnbeve@buffalo.edu). 

@@ -6,7 +6,7 @@ description: Building the semantic framework for solitude and gerotranscendence 
 
 # Ontology Development
 
-Ontology development is a central focus of the HealthPhases Project, providing the semantic foundation for our research on solitude and gerotranscendence.
+Ontology development is a central focus of the HealthyPhases Project, providing the semantic foundation for our research on solitude and gerotranscendence.
 
 ## What is an Ontology?
 
@@ -106,4 +106,4 @@ The ontology is implemented using:
 - Automated reasoning for consistency checking
 - ROBOT for ontology management tasks
 
-Through rigorous ontology development, the HealthPhases Project aims to create a semantic foundation that enables more precise, interoperable, and computationally tractable research on solitude and gerotranscendence. 
+Through rigorous ontology development, the HealthyPhases Project aims to create a semantic foundation that enables more precise, interoperable, and computationally tractable research on solitude and gerotranscendence. 

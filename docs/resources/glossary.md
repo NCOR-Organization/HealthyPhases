@@ -6,7 +6,7 @@ description: Definitions of key terms in solitude and gerotranscendence research
 
 # Glossary of Terms
 
-This glossary provides definitions of key terms used in the HealthPhases Project and in solitude and gerotranscendence research more broadly.
+This glossary provides definitions of key terms used in the HealthyPhases Project and in solitude and gerotranscendence research more broadly.
 
 ## Solitude and Social Concepts
 
@@ -136,4 +136,4 @@ A language for validating RDF graphs against a set of conditions, used for data 
 
 ## Contact
 
-If you encounter a term not included in this glossary or have suggestions for improving the definitions, please contact [jcb26@buffalo.edu](mailto:jcb26@buffalo.edu). 
+If you encounter a term not included in this glossary or have suggestions for improving the definitions, please contact [johnbeve@buffalo.edu](mailto:johnbeve@buffalo.edu). 

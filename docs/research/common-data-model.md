@@ -1,141 +1,68 @@
 ---
 sidebar_position: 1
 title: Common Data Model
-description: Standardized data structure for solitude and gerotranscendence research
+description: A standardized framework for organizing solitude and gerotranscendence data
 ---
 
-# HealthPhases Common Data Model
+# Common Data Model
 
-The HealthPhases Common Data Model (CDM) provides a standardized structure for collecting, representing, and sharing data related to solitude and gerotranscendence research.
+The HealthyPhases Common Data Model (CDM) provides a standardized framework for organizing and integrating data related to solitude, social connection, and gerotranscendence research.
 
-## Purpose
+## Overview
 
-The Common Data Model addresses several challenges in current research:
+The CDM defines a consistent representation of data that enables researchers and practitioners to:
 
-- **Inconsistent Terminology**: Different studies use different terms for similar concepts
-- **Variable Definitions**: Measurements and variables are defined inconsistently
-- **Data Integration Barriers**: Different data formats make comparison and integration difficult
-- **Limited Reusability**: Specialized data structures inhibit reuse across studies
+1. Share data using common terminology and formats
+2. Integrate findings across diverse studies and populations
+3. Compare results using standardized measures and definitions
+4. Build knowledge graphs and semantic tools that operate across datasets
 
-## Core Components
+## Key Features
 
-The HealthPhases CDM includes the following components:
+### Standardized Entity Types
 
-### 1. Demographic Variables
-Standardized demographic attributes with precise definitions:
-- Age (with specific age ranges for older adults)
-- Gender and sex
-- Cultural and ethnic background
-- Socioeconomic factors
-- Living situation
-- Relationship status
+The CDM defines core entity types required for representing solitude and gerotranscendence phenomena:
 
-### 2. Solitude Assessment
-Standardized measures of solitude experiences:
-- Time spent alone (objective measures)
-- Quality of solitude experiences
-- Voluntary vs. involuntary solitude
-- Context of solitude (e.g., at home, in nature)
-- Activities during solitude
+- **Person**: Demographic and baseline information about study participants
+- **Assessment**: Standardized measures used to evaluate solitude, loneliness, etc.
+- **Social Context**: Environmental and social factors influencing experiences
+- **Temporal Patterns**: Changes and trajectories over time
+- **Wellbeing Outcomes**: Physical, psychological, and social outcomes
 
-### 3. Loneliness Assessment
-Validated instruments for measuring loneliness:
-- UCLA Loneliness Scale
-- De Jong Gierveld Loneliness Scale
-- Campaign to End Loneliness Measurement Tool
-- Three-Item Loneliness Scale
+### Semantic Mappings
 
-### 4. Social Isolation Measures
-Objective measures of social connection:
-- Social network size
-- Frequency of social interactions
-- Types of relationships
-- Social participation
+Each entity and relationship in the CDM is mapped to formal ontology terms, enabling:
 
-### 5. Gerotranscendence Scales
-Standardized instruments for assessing gerotranscendence:
-- Gerotranscendence Scale (GS)
-- Modified Gerotranscendence Scale
-- Gerotranscendence Interview Assessment
+- Clear definition of meaning
+- Resolution of terminological differences
+- Connection to broader biomedical knowledge
+- Automated reasoning and inference
 
-### 6. Well-being and Health Measures
-Standard instruments for assessing outcomes:
-- Life satisfaction scales
-- Depression measures
-- Anxiety measures
-- Physical health indicators
-- Cognitive health assessments
+### Flexible Implementation
 
-## Implementation
+The CDM can be implemented in various formats:
 
-### Data Dictionary
-Each variable in the CDM is accompanied by:
-- Precise definition
-- Allowed values or measurement scale
-- Mapping to standard terminologies
-- Provenance information
-- Usage notes
-
-### Data Format Standards
-The CDM can be implemented in multiple formats:
-- REDCap data collection instruments
-- CSV templates with standardized headers
-- JSON schema
-- RDF/OWL representations
-- SQL database schemas
-
-### Mapping Tools
-Tools for mapping existing datasets to the CDM:
-- Terminology crosswalks
-- Data transformation scripts
-- Validation mechanisms
-
-## Using the Common Data Model
-
-### For New Studies
-Researchers planning new studies can:
-1. Download the CDM templates
-2. Incorporate recommended measures
-3. Use standardized variable definitions
-4. Collect data according to the model
-5. Share data in the standard format
-
-### For Existing Data
-Researchers with existing datasets can:
-1. Map variables to CDM definitions
-2. Transform data to the standard format
-3. Validate data against the model
-4. Document any deviations from the standard
-
-## Benefits
-
-Using the HealthPhases CDM provides numerous benefits:
-
-- **Enhanced Comparability**: Studies using the CDM can be directly compared
-- **Simplified Meta-Analysis**: Standard variables facilitate across-study analysis
-- **Improved Data Quality**: Standardized definitions reduce ambiguity
-- **Easier Data Sharing**: Common formats streamline data exchange
-- **Semantic Enrichment**: Ready alignment with ontological frameworks
+- Relational database schemas
+- Graph database models
+- JSON schemas for API development
+- RDF/OWL for semantic web applications
 
 ## Development Process
 
-The HealthPhases CDM is developed through an iterative, community-involved process:
+The CDM was developed through a collaborative process involving:
 
-1. Literature review of existing measures
-2. Expert consultation and consensus building
-3. Draft specification development
-4. Community feedback and revision
-5. Pilot testing in research studies
-6. Ongoing refinement based on implementation experience
+1. **Domain Analysis**: Review of key research papers, existing measures, and data structures
+2. **Requirements Gathering**: Input from researchers, clinicians, and data scientists
+3. **Ontological Mapping**: Alignment with BFO, CCO, and domain ontologies
+4. **Iterative Refinement**: Testing with real datasets and use cases
+5. **Community Feedback**: Reviews by researchers and technical experts
 
 ## Resources
 
 - [Download CDM Templates](#)
-- [Data Dictionary Documentation](#)
-- [Implementation Guide](#)
-- [Mapping Tools](#)
-- [Case Studies](#)
+- [Technical Implementation Guide](#)
+- [Example Datasets](#)
 
 ## Contact
 
-For questions or suggestions regarding the HealthPhases Common Data Model, please contact [jcb26@buffalo.edu](mailto:jcb26@buffalo.edu).
+For questions about implementing the Common Data Model in your research, please contact [johnbeve@buffalo.edu](mailto:johnbeve@buffalo.edu). 

@@ -1,12 +1,12 @@
 ---
 sidebar_position: 1
 title: Project Overview
-description: Overview of the HealthPhases Project
+description: Overview of the HealthyPhases Project
 ---
 
-# HealthPhases Project Overview
+# Project Overview
 
-The **HealthPhases Project: Promoting Healthy Aging through Semantic Enrichment of SolitudeResearch (PHASES)** is a multidisciplinary research initiative aimed at improving our understanding of the relationship between solitude and healthy aging processes.
+The **HealthyPhases Project: Promoting Healthy Aging through Semantic Enrichment of SolitudeResearch (PHASES)** is a multidisciplinary research initiative aimed at improving our understanding of the relationship between solitude and healthy aging processes.
 
 ## Project Mission
 
@@ -23,7 +23,7 @@ Research on solitude and gerotranscendence faces significant challenges:
 
 ## Project Approach
 
-The HealthPhases Project addresses these challenges through:
+The HealthyPhases Project addresses these challenges through:
 
 1. **Ontology Development**: Creating standardized vocabularies and semantic frameworks that precisely define terms and relationships in solitude and gerotranscendence research
 2. **Semantic Enrichment**: Enhancing research data with rich, computer-interpretable semantic annotations
@@ -41,4 +41,4 @@ Our work has the potential to:
 - Support the development of practical interventions that promote healthy aging
 - Transform our understanding of how solitude affects well-being in older adults
 
-Through these efforts, the HealthPhases Project aims to bridge isolated research areas and advance our collective understanding of the complex relationships between solitude, gerotranscendence, and healthy aging. 
+Through these efforts, the HealthyPhases Project aims to bridge isolated research areas and advance our collective understanding of the complex relationships between solitude, gerotranscendence, and healthy aging. 

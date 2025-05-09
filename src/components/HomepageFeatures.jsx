@@ -117,7 +117,7 @@ export default function HomepageFeatures() {
             Project <span className={styles.highlight}>Components</span>
           </h2>
           <p className={styles.sectionDescription}>
-            The HealthPhases Project bridges isolated research areas by creating semantic frameworks, data models, and knowledge resources
+            The HealthyPhases Project bridges isolated research areas by creating semantic frameworks, data models, and knowledge resources
           </p>
         </div>
         

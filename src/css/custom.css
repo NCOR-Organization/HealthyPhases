@@ -292,11 +292,12 @@ p, ul, ol {
 }
 
 /* Adding Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Source+Sans+Pro:wght@400;600;700&display=swap');
 
-/* Apply Merriweather to headings */
+/* Apply Source Sans Pro to headings */
 h1, h2, h3.title, .heroTitle, .peopleTitle, .sectionTitle {
-  font-family: 'Merriweather', serif;
+  font-family: 'Source Sans Pro', sans-serif;
+  letter-spacing: -0.01em;
 }
 
 /* Regular body text using Inter */
@@ -368,7 +369,7 @@ article h1:first-child {
 }
 
 .board-member-info h3 {
-  font-family: 'Merriweather', serif;
+  font-family: 'Source Sans Pro', sans-serif;
   margin-bottom: 0.25rem;
   font-size: 1.25rem;
   color: #333;
@@ -613,7 +614,7 @@ html[data-theme='dark'] .navbar-join-button:hover {
 
 /* Override H2 font styles */
 .markdown h2 {
-  font-family: 'Open Sans', system-ui, -apple-system, sans-serif;
+  font-family: 'Source Sans Pro', sans-serif;
   font-weight: 600;
   margin-top: 1.5rem;      /* Reduced from default */
   margin-bottom: 0.75rem;  /* Reduced from default */

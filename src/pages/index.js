@@ -7,7 +7,6 @@ import Heading from '@theme/Heading';
 
 // Import the new component
 import AboutSection from '@site/src/components/AboutSection';
-import HomepageFeatures from '@site/src/components/HomepageFeatures';
 import PeopleSection from '@site/src/components/PeopleSection';
 import ResearchAreasSection from '@site/src/components/ResearchAreasSection';
 import EventsSection from '@site/src/components/EventsSection';
@@ -125,7 +124,7 @@ function HomepageHeader() {
             color: '#0066cc', 
             margin: '0 0 1rem 0' 
           }}>
-            HealthPhases Project
+            The HealthyPhases Project
           </h1>
           <p style={{ 
             fontSize: '1.5rem', 
@@ -188,7 +187,7 @@ export default function Home() {
   return (
     <Layout
       title={`${siteConfig.title}`}
-      description="HealthPhases - Promoting Healthy Aging through Semantic Enrichment of Solitude Research"
+      description="HealthyPhases - Promoting Healthy Aging through Semantic Enrichment of Solitude Research"
       className="homepage">
       <HomepageHeader />
       
@@ -207,45 +206,6 @@ export default function Home() {
       
       {/* The rest of your page content */}
       <main>
-        {/* Project Vision section */}
-        <div className="container padding-vert--xl">
-          <div className="row">
-            <div className="col col--8 col--offset-2">
-              <Heading as="h2" className="text--center margin-bottom--lg">Project Overview</Heading>
-              <div className="margin-bottom--xl" style={{ textAlign: 'justify' }}>
-                <p>
-                  The HealthPhases Project is a multidisciplinary research initiative focused on promoting healthy aging 
-                  through the semantic enrichment of solitude research.
-                </p>
-                <p>
-                  Our team of investigators from the University at Buffalo (UB), University of Florida (UF), and University of Michigan (UM) 
-                  brings together expertise in ontology development, solitude research, and gerotranscendence studies.
-                </p>
-                <p>
-                  Through the development of standardized ontologies and data models, we aim to bridge isolated research areas, 
-                  foster interoperability of research data, and advance our understanding of how solitude impacts healthy aging processes.
-                </p>
-                <div className="text--center margin-top--lg">
-                  <Link
-                    className="button button--primary button--lg"
-                    style={{ backgroundColor: '#0066cc', borderColor: '#0066cc' }}
-                    to="/docs/about/overview">
-                    Learn More
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Events section */}
-        <EventsSection />
-        
-        {/* Featured Videos section */}
-        <FeaturedVideosSection />
-        
-        <HomepageFeatures />
-        <PeopleSection />
       </main>
     </Layout>
   );

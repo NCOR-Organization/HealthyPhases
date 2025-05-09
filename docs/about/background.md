@@ -68,4 +68,4 @@ Current research faces significant challenges in knowledge representation:
 - No common framework exists for integrating findings
 - Computer-interpretable representations of key concepts are lacking
 
-The HealthPhases Project aims to address these challenges through semantic enrichment, ontology development, and the creation of a common data model that will enable researchers to better understand the complex relationships between solitude, gerotranscendence, and healthy aging. 
+The HealthyPhases Project aims to address these challenges through semantic enrichment, ontology development, and the creation of a common data model that will enable researchers to better understand the complex relationships between solitude, gerotranscendence, and healthy aging. 

@@ -23,10 +23,12 @@
   font-weight: 700;
   color: #333;
   margin-bottom: 1rem;
+  font-family: 'Source Sans Pro', sans-serif;
+  letter-spacing: -0.01em;
 }
 
 .highlight {
-  color: #9e7418;
+  color: #0066cc;
 }
 
 .sectionDescription {

@@ -6,7 +6,7 @@ import clsx from 'clsx';
 export default function EventsSection() {
   const [activeTab, setActiveTab] = useState('upcoming');
   
-  // Sample event data for HealthPhases
+  // Sample event data for HealthyPhases
   const upcomingEvents = [
     {
       id: 1,
@@ -38,7 +38,7 @@ export default function EventsSection() {
     {
       id: 4,
       title: 'Project Launch Symposium',
-      description: 'The official launch of the HealthPhases Project, featuring presentations from the principal investigators and demonstrations of initial ontology prototypes.',
+      description: 'The official launch of the HealthyPhases Project, featuring presentations from the principal investigators and demonstrations of initial ontology prototypes.',
       date: 'March 10, 2023',
       location: 'Virtual',
       url: '/docs/events/workshops'

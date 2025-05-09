@@ -10,10 +10,10 @@ export default function AboutSection() {
         <div className="col col--5">
           <div style={{ paddingRight: '2rem' }}>
             <h2 className={styles.sectionTitle}>
-              About HealthPhases
+              About HealthyPhases
             </h2>
             <p className={styles.sectionText}>
-              The HealthPhases Project promotes healthy aging through the semantic enrichment of solitude research (PHASES), creating standardized frameworks for understanding the relationship between solitude and gerotranscendence.
+              The HealthyPhases Project promotes healthy aging through the semantic enrichment of solitude research (PHASES), creating standardized frameworks for understanding the relationship between solitude and gerotranscendence.
             </p>
             <p className={styles.sectionText}>
               Our multidisciplinary team brings together expertise in ontology development, psychology, 
