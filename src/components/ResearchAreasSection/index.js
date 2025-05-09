@@ -86,7 +86,7 @@ export default function ResearchAreasSection() {
 
         <div className={styles.viewAllContainer}>
           <Link
-            to="/docs/research/aims"
+            to="/docs/research/areas"
             className={styles.viewAllButton}
           >
             View Research Areas{' '}
