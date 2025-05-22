@@ -10,7 +10,8 @@
     "deploy": "docusaurus deploy",
     "convert-wiki": "node scripts/convert-wiki.js",
     "wiki-dev": "docusaurus start --config docusaurus.wiki.config.js",
-    "wiki-build": "docusaurus build --config docusaurus.wiki.config.js"
+    "wiki-build": "docusaurus build --config docusaurus.wiki.config.js",
+    "cloudflare-build": "npm install --no-package-lock && npm run build"
   },
   "dependencies": {
     "@docusaurus/core": "3.7.0",
@@ -19,8 +20,8 @@
     "axios": "^1.8.4",
     "clsx": "^2.0.0",
     "prism-react-renderer": "^2.3.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react": "18.2.0",
+    "react-dom": "18.2.0"
   },
   "devDependencies": {
     "@docusaurus/module-type-aliases": "3.7.0",
