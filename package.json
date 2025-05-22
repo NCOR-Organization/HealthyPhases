@@ -10,8 +10,7 @@
     "deploy": "docusaurus deploy",
     "convert-wiki": "node scripts/convert-wiki.js",
     "wiki-dev": "docusaurus start --config docusaurus.wiki.config.js",
-    "wiki-build": "docusaurus build --config docusaurus.wiki.config.js",
-    "cloudflare-build": "npm install --no-package-lock && npm run build"
+    "wiki-build": "docusaurus build --config docusaurus.wiki.config.js"
   },
   "dependencies": {
     "@docusaurus/core": "3.7.0",

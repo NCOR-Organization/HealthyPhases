@@ -1,6 +1,6 @@
-# Contributing to the Common Core Ontologies Website
+# Contributing to the HealthyPhases Project
 
-Thank you for considering contributing to the Common Core Ontologies (CCO) website! This document provides guidelines and instructions for contributing.
+Thank you for considering contributing to the HealthyPhases Project! This document provides guidelines and instructions for contributing to our mission of promoting healthy aging through semantic enrichment of solitude research.
 
 ## Code of Conduct
 
@@ -12,15 +12,15 @@ By participating in this project, you agree to maintain a respectful and inclusi
 
 If you find a bug in the website:
 
-1. Check if the bug has already been reported in the [Issues](https://github.com/CommonCoreOntology/cco-webpage/issues)
+1. Check if the bug has already been reported in the [Issues](https://github.com/NCOR-Organization/HealthyPhases/issues)
 2. If not, create a new issue with a clear title and description
 3. Include steps to reproduce the bug and screenshots if applicable
 
 ### Suggesting Enhancements
 
-Have an idea for improving the website?
+Have an idea for improving the project?
 
-1. Check if a similar enhancement has been suggested in the [Issues](https://github.com/CommonCoreOntology/cco-webpage/issues)
+1. Check if a similar enhancement has been suggested in the [Issues](https://github.com/NCOR-Organization/HealthyPhases/issues)
 2. Create a new issue with the tag "enhancement"
 3. Clearly describe your idea and how it would benefit users
 
@@ -75,14 +75,14 @@ If you need help with your contribution:
 
 - Review the project README and documentation
 - Ask questions in the relevant issue thread
-- Contact the team at info@ncor.us
+- Contact the team at johnbeve@buffalo.edu
 
 ## Review Process
 
-The CCO team will review your contribution as soon as possible. We may:
+The HealthyPhases team will review your contribution as soon as possible. We may:
 
 - Ask for clarification or changes
 - Suggest alternative approaches
 - Merge your contribution as is
 
-Thank you for contributing to the Common Core Ontologies website! 
+Thank you for contributing to the HealthyPhases Project!
