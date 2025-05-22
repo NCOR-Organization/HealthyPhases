@@ -119,7 +119,7 @@ function HomepageHeader() {
           minHeight: '80vh'
         }}>
           <h1 style={{ 
-            fontSize: '3.75rem', 
+            fontSize: '3.5rem', 
             fontWeight: '700', 
             color: '#0066cc', 
             margin: '0 0 1rem 0' 
