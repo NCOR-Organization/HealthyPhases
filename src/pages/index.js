@@ -49,19 +49,19 @@ function HomepageHeader() {
           {/* Research nodes and connections */}
           <g transform="translate(600, 400)">
             <circle cx="-250" cy="-150" r="40" fill="none" stroke="#0066cc" strokeWidth="1.5" opacity="0.5" />
-            <text x="-250" y="-145" text-anchor="middle" fill="#0066cc" opacity="0.7" font-size="12">Solitude</text>
+            <text x="-250" y="-145" textAnchor="middle" fill="#0066cc" opacity="0.7" fontSize="12">Solitude</text>
             
             <circle cx="250" cy="-150" r="40" fill="none" stroke="#0066cc" strokeWidth="1.5" opacity="0.5" />
-            <text x="250" y="-145" text-anchor="middle" fill="#0066cc" opacity="0.7" font-size="12">Gerotranscendence</text>
+            <text x="250" y="-145" textAnchor="middle" fill="#0066cc" opacity="0.7" fontSize="12">Gerotranscendence</text>
             
             <circle cx="0" cy="50" r="60" fill="none" stroke="#0066cc" strokeWidth="1.5" opacity="0.5" />
-            <text x="0" y="55" text-anchor="middle" fill="#0066cc" opacity="0.7" font-size="12">Semantic Enrichment</text>
+            <text x="0" y="55" textAnchor="middle" fill="#0066cc" opacity="0.7" fontSize="12">Semantic Enrichment</text>
             
             <circle cx="-180" cy="150" r="40" fill="none" stroke="#0066cc" strokeWidth="1.5" opacity="0.5" />
-            <text x="-180" y="155" text-anchor="middle" fill="#0066cc" opacity="0.7" font-size="12">Ontology</text>
+            <text x="-180" y="155" textAnchor="middle" fill="#0066cc" opacity="0.7" fontSize="12">Ontology</text>
             
             <circle cx="180" cy="150" r="40" fill="none" stroke="#0066cc" strokeWidth="1.5" opacity="0.5" />
-            <text x="180" y="155" text-anchor="middle" fill="#0066cc" opacity="0.7" font-size="12">Knowledge Graph</text>
+            <text x="180" y="155" textAnchor="middle" fill="#0066cc" opacity="0.7" fontSize="12">Knowledge Graph</text>
             
             {/* Connection lines */}
             <line x1="-250" y1="-150" x2="0" y2="50" stroke="#0066cc" strokeWidth="1" opacity="0.3" />
@@ -119,7 +119,7 @@ function HomepageHeader() {
           minHeight: '80vh'
         }}>
           <h1 style={{ 
-            fontSize: '3.5rem', 
+            fontSize: '3rem', 
             fontWeight: '700', 
             color: '#0066cc', 
             margin: '0 0 1rem 0' 
@@ -127,7 +127,7 @@ function HomepageHeader() {
             The HealthyPhases Project
           </h1>
           <p style={{ 
-            fontSize: '1.5rem', 
+            fontSize: '1.25rem', 
             maxWidth: '800px', 
             margin: '0 auto 1rem auto', 
             color: '#333333', 
