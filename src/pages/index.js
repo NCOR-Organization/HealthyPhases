@@ -79,7 +79,7 @@ function HomepageHeader() {
             objectFit: 'cover'
           }}
         >
-          <source src="/videos/HealthPhases-Hero-v0.mp4" type="video/mp4" />
+          <source src="/videos/HealthPhases-compressed.mp4" type="video/mp4" />
         </video>
         
         {/* Video Overlay */}
