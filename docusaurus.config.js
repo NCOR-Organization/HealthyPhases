@@ -192,8 +192,8 @@ const config = {
       announcementBar: {
         id: 'project_announcement',
         content: 
-          '🔬 <strong>HealthyPhases Project:</strong> Promoting Healthy Aging through Semantic Enrichment of Solitude Research (PHASES) 🔬',
-        backgroundColor: '#e6f7ff', // Light blue background
+          '🚧 <strong>Work in Progress:</strong> This site is currently under development. Check back soon for updates! 🚧',
+        backgroundColor: '#fff3cd', // Light yellow background
         textColor: '#0066cc',        // Blue text
         isCloseable: false,          // Make it persistent
       },
