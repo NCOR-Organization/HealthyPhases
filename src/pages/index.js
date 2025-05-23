@@ -117,20 +117,11 @@ function HomepageHeader() {
           <p style={{ 
             fontSize: '1.25rem', 
             maxWidth: '800px', 
-            margin: '0 auto 1rem auto', 
-            color: '#ffffff', 
-            lineHeight: '1.6' 
-          }}>
-            Promoting Healthy Aging through Semantic Enrichment of Solitude Research
-          </p>
-          <p style={{ 
-            fontSize: '1.25rem', 
-            maxWidth: '800px', 
             margin: '0 auto 2rem auto', 
             color: '#ffffff', 
             lineHeight: '1.6' 
           }}>
-            A collaborative research initiative to standardize and enrich data on solitude and gerotranscendence
+            Promoting Healthy Aging through Semantic Enrichment of Solitude Research
           </p>
           <div style={{ 
             display: 'flex', 
@@ -187,10 +178,87 @@ export default function Home() {
   const {siteConfig} = useDocusaurusContext();
   return (
     <Layout
-      title={`${siteConfig.title}`}
+      title={`Home`}
       description="HealthyPhases - Promoting Healthy Aging through Semantic Enrichment of Solitude Research"
       className="homepage">
       <HomepageHeader />
+      
+      {/* University Collaboration Banner */}
+      <section style={{ 
+        background: '#fff',
+        padding: '2rem 0', 
+        borderBottom: '1px solid #eee',
+        position: 'relative'
+      }}>
+        <div className="container">
+          <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
+            <h3 style={{ 
+              fontSize: '1.5rem', 
+              color: '#333',
+              marginBottom: '0.5rem'
+            }}>
+              A Collaborative Research Initiative
+            </h3>
+            <p style={{
+              fontSize: '1.1rem',
+              color: '#555',
+              maxWidth: '800px',
+              margin: '0 auto 1rem auto'
+            }}>
+              To standardize and enrich data on solitude and gerotranscendence
+            </p>
+          </div>
+          <div style={{ 
+            display: 'flex', 
+            flexDirection: 'row', 
+            justifyContent: 'center', 
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '2rem',
+            margin: '0 auto'
+          }}>
+            <div style={{ 
+              maxWidth: '250px', 
+              padding: '0.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <img 
+                src="/img/university-at-buffalo-logo-horizontal.png" 
+                alt="University at Buffalo" 
+                style={{ width: '100%', height: 'auto' }} 
+              />
+            </div>
+            <div style={{ 
+              maxWidth: '250px', 
+              padding: '0.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <img 
+                src="/img/university-of-florida-logo-horizontal.png" 
+                alt="University of Florida" 
+                style={{ width: '100%', height: 'auto' }} 
+              />
+            </div>
+            <div style={{ 
+              maxWidth: '250px', 
+              padding: '0.5rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center' 
+            }}>
+              <img 
+                src="/img/university-of-michigan-logo-horizontal.png" 
+                alt="University of Michigan" 
+                style={{ width: '100%', height: 'auto' }} 
+              />
+            </div>
+          </div>
+        </div>
+      </section>
       
       {/* About Section */}
       <section style={{ 

@@ -113,11 +113,7 @@ const config = {
               },
               {
                 label: 'Research',
-                to: '/docs/research/aims',
-              },
-              {
-                label: 'Events',
-                to: '/docs/events/workshops',
+                to: '/docs/research/areas',
               },
               {
                 label: 'Team',
