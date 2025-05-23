@@ -41,7 +41,7 @@ const config = {
         docs: {
           sidebarPath: require.resolve('./sidebars.js'),
           // Remove or update this if needed
-          editUrl: 'https://github.com/NCOR-Organization/NCOR-Network/tree/main/',
+          editUrl: 'https://github.com/NCOR-Organization/HealthyPhases/tree/main/',
         },
         blog: false,
         theme: {
@@ -69,7 +69,7 @@ const config = {
         items: [
           {
             to: '/docs/about/overview',
-            label: 'Documentation',
+            label: 'Learn more',
             position: 'right',
           },
           {
@@ -168,7 +168,7 @@ const config = {
             ],
           },
         ],
-        copyright: `© ${new Date().getFullYear()} HealthyPhases Project. All rights reserved. | <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a>`,
+        copyright: `© ${new Date().getFullYear()} HealthyPhases Project. All rights reserved. | <a href="#">Privacy Policy</a> | <a href="#">Terms of Use</a> | Technology Partner: <a href="https://home.naas.ai" target="_blank" rel="noopener noreferrer">Naas.ai</a>`,
       },
       prism: {
         theme: prismThemes.github,
