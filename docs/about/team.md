@@ -10,13 +10,13 @@ The HealthyPhases Project brings together a multidisciplinary team of researcher
 
 ## Principal Investigators
 
-### John Beverley (UB)
+### [John Beverley](https://johnbeverley.com/) (UB)
 **Role**: Co-Principal Investigator  
 **Expertise**: Ontology Engineering 
 **Affiliation**: University at Buffalo  
 **Research Focus**: Ontology engineering, formal logic, and semantic data integration
 
-### Bill Duncan (UF) 
+### [Bill Duncan](https://www.linkedin.com/in/biduncan/) (UF) 
 **Role**: Co-Principal Investigator  
 **Expertise**: Ontology Engineering 
 **Affiliation**: University of Florida  
@@ -24,49 +24,64 @@ The HealthyPhases Project brings together a multidisciplinary team of researcher
 
 ## Co-Investigators
 
-### Julie Bowker (UB)
+### [Julie Bowker](https://arts-sciences.buffalo.edu/psychology/faculty/faculty-directory/bowker.html) (UB)
 **Role**: Subject Matter Expert  
 **Expertise**: Solitude   
 **Affiliation**: University at Buffalo  
 **Research Focus**: Psychological impacts of solitude, social isolation, and loneliness
 
-### Hollen Reischer (UB)
+### [Hollen Reischer](https://arts-sciences.buffalo.edu/psychology/faculty/faculty-directory/reischer.html) (UB)
 **Role**: Subject Matter Expert  
 **Expertise**: Gerotranscendence   
 **Affiliation**: University at Buffalo  
 **Research Focus**: Narrative identity, mixed methods, life stories
 
-### Oliver He (UM)
+
+## Other Team Members
+
+### [Oliver He](https://hegroup.org/aboutUs/Oliver.html) (UM)
 **Role**: UM Lead  
 **Expertise**: Ontology  
 **Affiliation**: University of Michigan  
 **Research Focus**: Biomedical ontologies, knowledge representation, and bioinformatics
 
-## Project Team
-
-### Damayanthi Jesudas
-**Role**: Post-Doctoral Researcher  
-**Expertise**: Knowledge graph development  
-**Research Focus**: Semantic technologies and data integration
-
-### Jie Zheng
+### [Jie Zheng](https://scholar.google.com/citations?user=LY69DAsAAAAJ)
 **Role**: Developer  
 **Expertise**: Software engineering  
 **Research Focus**: Web application development and data visualization
 
+### [Sam Smith](https://observablehq.com/@smithgit)
+**Role**: Developer  
+**Expertise**: Technology  
+**Research Focus**: Data visualization and interactive web development  
+**Portfolio**: [Observable Notebooks](https://observablehq.com/@smithgit)
+
+
+### [Damayanthi Jesudas](https://orcid.org/0000-0001-6906-5548)
+**Role**: Post-Doctoral Researcher  
+**Expertise**: Knowledge graph development  
+**Research Focus**: Semantic technologies and data integration
+
 ## Volunteers
 
-### Regina Hurley
+### [Regina Hurley](https://www.linkedin.com/in/regina-hurley-166232170/)
 **Role**: Volunteer  
 **Research Focus**: Ontology annotation and curation
 
-### Sean Kindya
+### [Sean Kindya](https://www.linkedin.com/in/sean-kindya/)
 **Role**: Volunteer  
 **Research Focus**: Data collection and literature review
 
-### Rachel A. Mavrovich
+### [Rachel A. Mavrovich](https://www.linkedin.com/in/rachel-mavrovich-123533359/)
 **Role**: Volunteer  
 **Research Focus**: User testing and community engagement
+
+## Technology Partners
+
+### [NaasAI Open Source Core Team](https://github.com/jupyter-naas
+**Role**: Technology Partner  
+**Expertise**: AI, Machine Learning, Web Development, Software Development 
+**Research Focus**: Ontology-Driven Agentic AI and semantic enrichment
 
 ## Contact
 
