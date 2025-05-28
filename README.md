@@ -21,13 +21,13 @@ Through the development of standardized ontologies and data models, we aim to br
 ## Research Team
 
 **Principal Investigators**
-- John Beverley (University at Buffalo)
-- Bill Duncan (University of Florida)
+- [John Beverley](https://johnbeverley.com/) (University at Buffalo)
+- [Bill Duncan](https://dental.ufl.edu/profile/duncan-bill/) (University of Florida)
 
 **Co-Investigators**
-- Hollen Reischer (University at Buffalo)
-- Julie Bowker (University at Buffalo)
-- Oliver He (University of Michigan)
+- [Hollen Reischer](https://arts-sciences.buffalo.edu/psychology/faculty/faculty-directory/reischer.html) (University at Buffalo)
+- [Julie Bowker](https://arts-sciences.buffalo.edu/psychology/faculty/faculty-directory/bowker.html) (University at Buffalo)
+- [Oliver He](https://medschool.umich.edu/profile/4900/yongqun-oliver-he) (University of Michigan)
 
 ## Website Setup
 

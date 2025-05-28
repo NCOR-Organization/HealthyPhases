@@ -12,29 +12,29 @@ The HealthyPhases Project brings together a multidisciplinary team of researcher
 
 ### John Beverley (UB)
 **Role**: Co-Principal Investigator  
-**Expertise**: Ontology, Subject Matter Expert  
+**Expertise**: Ontology Engineering 
 **Affiliation**: University at Buffalo  
-**Research Focus**: Philosophical ontology, applied ontology, and semantic data integration
+**Research Focus**: Ontology engineering, formal logic, and semantic data integration
 
 ### Bill Duncan (UF) 
 **Role**: Co-Principal Investigator  
-**Expertise**: Ontology  
+**Expertise**: Ontology Engineering 
 **Affiliation**: University of Florida  
 **Research Focus**: Information sciences, ontology engineering, and data interoperability
 
 ## Co-Investigators
 
-### Hollen Reischer (UB)
+### Julie Bowker (UB)
 **Role**: Subject Matter Expert  
-**Expertise**: Solitude research  
+**Expertise**: Solitude   
 **Affiliation**: University at Buffalo  
 **Research Focus**: Psychological impacts of solitude, social isolation, and loneliness
 
-### Julie Bowker (UB)
+### Hollen Reischer (UB)
 **Role**: Subject Matter Expert  
-**Expertise**: Psychological development  
+**Expertise**: Gerotranscendence   
 **Affiliation**: University at Buffalo  
-**Research Focus**: Social withdrawal, peer relationships, and psychological adjustment
+**Research Focus**: Narrative identity, mixed methods, life stories
 
 ### Oliver He (UM)
 **Role**: UM Lead  
@@ -67,16 +67,6 @@ The HealthyPhases Project brings together a multidisciplinary team of researcher
 ### Rachel A. Mavrovich
 **Role**: Volunteer  
 **Research Focus**: User testing and community engagement
-
-## Team Expertise Matrix
-
-| Investigator | Ontology | Subject Matter Expert |
-|--------------|:--------:|:---------------------:|
-| John Beverley | ✓ | ✓ |
-| Bill Duncan | ✓ | |
-| Oliver He | ✓ | |
-| Hollen Reischer | | ✓ |
-| Julie Bowker | | ✓ |
 
 ## Contact
 
