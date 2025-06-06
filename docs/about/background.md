@@ -6,6 +6,8 @@ description: Background on solitude and gerotranscendence research
 
 # Research Background
 
+This is a change
+
 ## Understanding Solitude
 
 The concept of "being alone" encompasses several distinct phenomena that are often conflated in both research literature and popular discourse:
