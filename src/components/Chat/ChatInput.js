@@ -34,7 +34,7 @@ function ChatInput({ onSendMessage, placeholder = 'Send message', disabled = fal
           value={message}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? 'ELO is thinking...' : placeholder}
+          placeholder={disabled ? 'Generating response...' : placeholder}
           rows={1}
           aria-label="Chat input"
           disabled={disabled}

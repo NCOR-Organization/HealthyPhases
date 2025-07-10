@@ -1,7 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
-import ModeSelector from './ModeSelector';
 import styles from './Chat.module.css';
 import ExecutionEnvironment from '@docusaurus/ExecutionEnvironment';
 import { generateResponse } from '../../../api';
@@ -19,7 +18,6 @@ function ChatContainer() {
     return [];
   });
 
-  const [mode, setMode] = useState('test'); // Default to test mode
   const [isLoading, setIsLoading] = useState(false);
 
   const showLoadingAndGreeting = useCallback(() => {
@@ -58,18 +56,6 @@ function ChatContainer() {
     localStorage.setItem('chatMessages', JSON.stringify(messages));
   }, [messages]);
 
-  const handleTestModeResponse = (content) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        if (content.toLowerCase().includes('table')) {
-          resolve(`Here's a research data example:\n\n| Study ID | Age Group | Solitude Hours/Week | Wellbeing Score |\n|----------|-----------|--------------------|-----------------|\n| HP001 | 65-74 | 8 | 7.2 |\n| HP002 | 75-84 | 12 | 8.1 |\n| HP003 | 85+ | 15 | 8.5 |`);
-        } else {
-          resolve('This is a test mode response for the HealthyPhases AI. I can help you explore topics about healthy aging, solitude research, and gerotranscendence. Try asking for a "table" to see research data formatting.');
-        }
-      }, 1000);
-    });
-  };
-
   const handleSendMessage = useCallback(async (content) => {
     if (!ExecutionEnvironment.canUseDOM) return;
 
@@ -94,9 +80,7 @@ function ChatContainer() {
     
     setIsLoading(true);
     try {
-      const response = mode === 'test' 
-        ? await handleTestModeResponse(content)
-        : await generateResponse(content);
+      const response = await generateResponse(content);
 
       // Remove typing message and add real response
       setMessages(prev => prev.filter(msg => !msg.isTyping));
@@ -116,9 +100,7 @@ function ChatContainer() {
       
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        content: error.message.includes('API key') 
-          ? 'Naas API authentication failed. Please check your credentials or switch to Test Mode.'
-          : 'I apologize, but I encountered an error. Please try again.',
+        content: 'I apologize, but I encountered an error. Please try again.',
         timestamp: new Date().toISOString(),
         role: 'assistant',
       };
@@ -126,7 +108,7 @@ function ChatContainer() {
     } finally {
       setIsLoading(false);
     }
-  }, [mode]);
+  }, []);
 
   const handleClearChat = useCallback(() => {
     if (!ExecutionEnvironment.canUseDOM) return;
@@ -139,11 +121,6 @@ function ChatContainer() {
   const handleReload = useCallback(() => {
     showLoadingAndGreeting();
   }, [showLoadingAndGreeting]);
-
-  const handleModeChange = useCallback((newMode) => {
-    setMode(newMode);
-    handleClearChat(); // Clear chat when mode changes
-  }, [handleClearChat]);
 
   return (
     <div className={styles.chatWrapper}>
@@ -161,7 +138,6 @@ function ChatContainer() {
             >
               Reload Chat
             </button>
-            <ModeSelector mode={mode} onModeChange={handleModeChange} />
             <button
               onClick={handleClearChat}
               className={styles.clearButton}
