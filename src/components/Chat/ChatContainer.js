@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import MessageList from './MessageList';
 import ChatInput from './ChatInput';
 import styles from './Chat.module.css';
@@ -7,6 +7,8 @@ import { generateResponse } from '../../../api';
 
 function ChatContainer() {
   console.log('ChatContainer is rendering');
+  
+  const scrollContainerRef = useRef(null);
   
   const [messages, setMessages] = useState(() => {
     if (ExecutionEnvironment.canUseDOM) {
@@ -19,6 +21,15 @@ function ChatContainer() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+
+  const scrollToBottom = useCallback(() => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({
+        top: scrollContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+    }
+  }, []);
 
   const showLoadingAndGreeting = useCallback(() => {
     // Clear existing messages first
@@ -54,7 +65,12 @@ function ChatContainer() {
 
     console.log('Messages updated:', messages);
     localStorage.setItem('chatMessages', JSON.stringify(messages));
-  }, [messages]);
+    
+    // Auto-scroll to bottom when messages change
+    setTimeout(() => {
+      scrollToBottom();
+    }, 100); // Small delay to ensure DOM is updated
+  }, [messages, scrollToBottom]);
 
   const handleSendMessage = useCallback(async (content) => {
     if (!ExecutionEnvironment.canUseDOM) return;
@@ -125,7 +141,7 @@ function ChatContainer() {
   return (
     <div className={styles.chatWrapper}>
       <div className={styles.container}>
-        <div className={styles.scrollContainer}>
+        <div className={styles.scrollContainer} ref={scrollContainerRef}>
           <MessageList messages={messages} />
         </div>
         <div className={styles.inputContainer}>
