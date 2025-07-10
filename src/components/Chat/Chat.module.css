@@ -69,7 +69,7 @@
 
 /* Remove the duplicate .inputWrapper class and merge styles */
 .inputWrapper {
-  max-width: calc(100% - 2rem);
+  max-width: 72rem;
   margin: 0 auto;
   width: 100%;
   display: flex;
@@ -170,7 +170,7 @@
 }
 
 .messageWrapper {
-  max-width: 100%;
+  max-width: 72rem;
   margin: 0 auto;
   width: 100%;
   display: flex;
