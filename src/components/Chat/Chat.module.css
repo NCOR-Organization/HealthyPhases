@@ -544,7 +544,7 @@
   background: #f3f4f6;
 }
 
-/* Mobile responsive styles */
+/* Tablet responsive styles */
 @media (max-width: 768px) {
   .chatWrapper {
     height: calc(100vh - var(--ifm-navbar-height));
@@ -574,11 +574,6 @@
   
   .textArea {
     font-size: 0.95rem;
-  }
-  
-  .buttonGroup {
-    flex-direction: column;
-    gap: 0.75rem;
   }
   
   .reloadButton,
@@ -644,6 +639,8 @@
   }
   
   .buttonGroup {
+    flex-direction: column;
+    gap: 0.5rem;
     margin: 0.5rem auto;
   }
   
