@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import styles from './Chat.module.css';
 
-function ChatInput({ onSendMessage, placeholder = 'Message BOB...', disabled = false }) {
+function ChatInput({ onSendMessage, placeholder = 'Send message', disabled = false }) {
   const [message, setMessage] = useState('');
 
   const handleSend = useCallback(() => {
@@ -34,7 +34,7 @@ function ChatInput({ onSendMessage, placeholder = 'Message BOB...', disabled = f
           value={message}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          placeholder={disabled ? 'BOB is thinking...' : placeholder}
+          placeholder={disabled ? 'ELO is thinking...' : placeholder}
           rows={1}
           aria-label="Chat input"
           disabled={disabled}

@@ -144,8 +144,8 @@ const Message = memo(function Message({ role, content, isTyping }) {
         <div className={`${styles.avatar} ${isUser ? styles.user : styles.assistant}`}>
           {isUser ? 'U' : (
             <img 
-              src="img/BOB-Avatar.png" 
-              alt="Bob Avatar" 
+              src="img/ELO.png" 
+              alt="ELO Avatar" 
               className={styles.avatarImage}
               onError={(e) => console.error('Image failed to load:', e)}
             />

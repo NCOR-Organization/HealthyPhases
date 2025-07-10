@@ -34,7 +34,7 @@ function ChatContainer() {
     setTimeout(() => {
       const greetingMessage = {
         id: 'initial-greeting',
-        content: "Hi, ici Bob, comment puis-je vous aider ?\n\n**Available Intentions:**\n1. **@ontology** - Access knowledge base\n2. **@chatgpt** - Use ChatGPT integration\n3. **@perplexity** - Web search capabilities\n4. **@support** - Get help and support\n\n*For specific Forvis Mazars information, I have detailed data about leadership, official mission, projects, and more. Let me know what you'd like to explore!*\n\n**Sample Table:**\n\n| Date | Ouverture | Haut | Bas | Clôture | Volume |\n|------|-----------|------|-----|---------|--------|\n| 01-10-2023 | 250.00 € | 252.50 € | 248.00 € | 251.00 € | 3,200,000 |\n| 02-10-2023 | 251.00 € | 253.00 € | 250.00 € | 252.50 € | 3,500,000 |\n| 03-10-2023 | 252.50 € | 255.00 € | 251.50 € | 254.00 € | 4,100,000 |",
+        content: "Hi, I'm ELO, the experimental AI for the HealthyPhases Project. How can I help you today?",
         timestamp: new Date().toISOString(),
         role: 'assistant',
       };
@@ -62,9 +62,9 @@ function ChatContainer() {
     return new Promise((resolve) => {
       setTimeout(() => {
         if (content.toLowerCase().includes('table')) {
-          resolve(`Here's a test table:\n\n| Name | Age | City |\n|------|-----|------|\n| John | 25 | Paris |\n| Jane | 30 | London |\n| Bob | 35 | Berlin |`);
+          resolve(`Here's a research data example:\n\n| Study ID | Age Group | Solitude Hours/Week | Wellbeing Score |\n|----------|-----------|--------------------|-----------------|\n| HP001 | 65-74 | 8 | 7.2 |\n| HP002 | 75-84 | 12 | 8.1 |\n| HP003 | 85+ | 15 | 8.5 |`);
         } else {
-          resolve('This is a test mode response. The AI is simulated. Try asking for a "table" to see table rendering.');
+          resolve('This is a test mode response for the HealthyPhases AI. I can help you explore topics about healthy aging, solitude research, and gerotranscendence. Try asking for a "table" to see research data formatting.');
         }
       }, 1000);
     });

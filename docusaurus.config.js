@@ -73,15 +73,9 @@ const config = {
             position: 'right',
           },
           {
-            href: 'https://github.com/NCOR-Organization/HealthyPhases',
-            label: 'GitHub',
-            position: 'right',
-          },
-          {
             to: '/chat',
-            label: 'Chat with Phases AI',
+            label: 'Chat with AI',
             position: 'right',
-            className: 'navbar-chat-ai',
           },
           {
             to: '/join',
