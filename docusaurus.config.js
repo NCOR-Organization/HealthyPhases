@@ -78,6 +78,12 @@ const config = {
             position: 'right',
           },
           {
+            to: '/chat',
+            label: 'Chat with Phases AI',
+            position: 'right',
+            className: 'navbar-chat-ai',
+          },
+          {
             to: '/join',
             label: 'Join Us',
             position: 'right',

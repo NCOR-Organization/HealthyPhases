@@ -256,6 +256,23 @@ export default function Home() {
                 style={{ width: '100%', height: 'auto' }}
               />
             </div>
+            <div style={{
+              maxWidth: '300px',
+              padding: '0.5rem',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}>
+              <img
+                src="/img/NIH-Logo.jpg"
+                alt="National Institutes of Health"
+                style={{ 
+                  width: '100%', 
+                  height: 'auto',
+                  filter: 'brightness(1.1) contrast(1.05)'
+                }}
+              />
+            </div>
           </div>
         </div>
       </section>
