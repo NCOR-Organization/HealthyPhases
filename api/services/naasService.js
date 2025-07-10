@@ -1,6 +1,6 @@
 export async function generateResponse(message, onChunk = null, threadId = 123) {
   const myHeaders = new Headers();
-  myHeaders.append("Authorization", "Bearer mazars2025*!!!");
+  myHeaders.append("Authorization", "Bearer naas2025!");
   myHeaders.append("Content-Type", "application/json");
 
   const raw = JSON.stringify({
@@ -16,7 +16,7 @@ export async function generateResponse(message, onChunk = null, threadId = 123) 
   };
 
   try {
-    const response = await fetch("https://abi-healthyphases.default.space.naas.ai/agents/ELO/completion", requestOptions);
+    const response = await fetch("https://abi-healthyphases-api.default.space.naas.ai/agents/elo/completion", requestOptions);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
