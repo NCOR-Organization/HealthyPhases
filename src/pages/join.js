@@ -101,20 +101,22 @@ function JoinPage() {
       
       // Using EmailJS to send the form (you'll need to set this up)
       // Replace with your own EmailJS credentials
-      const response = await emailjs.send(
-        'YOUR_SERVICE_ID', // Create an EmailJS account and get these values
-        'YOUR_TEMPLATE_ID',
-        {
-          to_email: 'johnbeve@buffalo.edu',
-          from_name: `${formData.firstName} ${formData.lastName}`,
-          from_email: formData.email,
-          message: emailBody,
-          subject: `HealthyPhases Project Interest: ${formData.firstName} ${formData.lastName}`,
-        },
-        'YOUR_USER_ID'
-      );
-      
-      if (response.status === 200) {
+    const response = await emailjs.send(
+  'service_3ea4ynh',      // your Gmail Service ID
+  'template_90ly1lf',      // your Template ID from EmailJS
+  {
+    from_name: `${formData.firstName} ${formData.lastName}`,
+    from_email: formData.email,
+    organization: formData.organization || 'Not provided',
+    role: formData.role || 'Not provided',
+    participationType: formData.participationType || 'Not specified',
+    interests: (formData.interests?.length ? formData.interests.join(', ') : 'None selected'),
+    message: formData.message || 'None provided',
+  },
+  '-O0vROTS44d07Jky9'    // your EmailJS Public Key
+);
+
+ if (response.status === 200) {
         setFormStatus({
           submitted: true,
           success: true,
@@ -462,8 +464,19 @@ function JoinPage() {
                           'Submit Request'
                         )}
                       </button>
-                    </div>
-                  </form>
+                     </div>
+                         {formStatus.success && (
+  <p style={{ color: "green", marginTop: "0.5rem" }}>
+    ✅ Submission successful!
+  </p>
+)}
+
+{formStatus.error && (
+  <p style={{ color: "red", marginTop: "0.5rem" }}>
+    ❌ {formStatus.error}
+  </p>
+)}
+                </form>
                 </div>
               </div>
             )}
