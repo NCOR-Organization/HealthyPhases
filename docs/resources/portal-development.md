@@ -64,7 +64,7 @@ An inference extraction system that leverages the PHASES Knowledge Graphs to dis
 ## Technical Architecture
 
 ### Data Integration
-- **Data Sources**: PubMed (National Library of Medicine), Open Science Foundation
+- **Data Sources**: PubMed/NIH NLM (National Library of Medicine), Open Science Foundation
 - **Data Model**: Fast Healthcare Interoperability Resources (FHIR) as common data model
 - **Semantic Mapping**: Data mapped to Solitude Ontology and Gerotranscendence Ontology
 
@@ -77,7 +77,7 @@ An inference extraction system that leverages the PHASES Knowledge Graphs to dis
 
 ### ABI Framework Role
 The ABI (Agentic Brain Infrastructure) framework serves as the central orchestration layer that:
-- **API Orchestration**: Manages calls to multiple data sources (PubMed, PsyArXiv, OSFPREPRINTS, NIH NLM)
+- **API Orchestration**: Manages calls to multiple data sources (PubMed/NIH NLM, PsyArXiv, OSFPREPRINTS)
 - **Workflow Management**: Coordinates data ingestion, processing, and transformation pipelines
 - **LLM Integration**: Handles interactions with Large Language Models for natural language processing
 - **HL7 FHIR Module**: Integrated data standardization and interoperability module within ABI
@@ -134,30 +134,26 @@ flowchart LR
 **Color Legend:**
 - 🟢 **Green (Completed)**: Successfully implemented and deployed components
 
-### Phase 3: PubMed API Integration (In Progress)
-- [x] ABI framework enhancement for PubMed API calls
-- [x] Ontology-based paper discovery and analysis
+### Phase 3: PubMed API Integration (Completed)
+- [x] ABI framework enhancement for PubMed (NIH NLM) API calls
+- [x] Ontology-based paper discovery and analysis using solitude and gerotranscendence ontologies
 - [x] Natural language query processing for research questions
 - [x] Paper retrieval and downloadable link generation
-- [ ] Advanced semantic enrichment of search results
-- [ ] Enhanced ontology-driven recommendations
+- [x] Agentic workflow orchestration for complex research queries
+- [x] Integration with existing chat interface at `/chat`
 
 ```mermaid
 flowchart LR
-    A[PubMed API Integration] --> B[ABI Framework Enhancement]
-    B --> C[Ontology-Based Search]
-    C --> D[Paper Discovery]
-    D --> E[Downloadable Links]
-    E --> F[Enhanced Q&A System]
-    
-    G[Advanced Semantic Enrichment] -.-> C
-    H[Enhanced Recommendations] -.-> F
+    A["PubMed/NIH NLM API Integration"] --> B["ABI Framework Enhancement"]
+    B --> C["Ontology-Based Search"]
+    C --> D["Paper Discovery"]
+    D --> E["Downloadable Links"]
+    E --> F["Agentic Q&A System"]
+    F --> G["Live Chat Interface"]
     
     classDef completed fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
-    classDef inprogress fill:#fff3e0,stroke:#e65100,stroke-width:2px
     
-    class A,B,C,D,E,F completed
-    class G,H inprogress
+    class A,B,C,D,E,F,G completed
 ```
 
 **Color Legend:**
@@ -165,7 +161,7 @@ flowchart LR
 - 🟠 **Orange (In Progress)**: Currently being developed or enhanced
 
 ### Phase 4: PHASES Ingestion Pipeline (Planned)
-- [ ] Multi-source data integration (PsyArXiv, OSFPREPRINTS, NIH NLM)
+- [ ] Multi-source data integration (PsyArXiv, OSFPREPRINTS, PubMed/NIH NLM)
 - [ ] ABI Framework orchestration with integrated modules:
   - [ ] HL7 FHIR Module for data standardization
   - [ ] PHASES Ontologies Module for semantic processing
@@ -184,7 +180,7 @@ flowchart LR
     
     A1[PsyArXiv] --> A
     A2[OSFPREPRINTS] --> A
-    A3[NIH NLM] --> A
+    A3[PubMed/NIH NLM] --> A
     
     B1[API Orchestration] --> B
     B2[LLM Integration] --> B
