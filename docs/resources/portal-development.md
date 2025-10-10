@@ -61,7 +61,7 @@ A question-answer system for solitude and gerotranscendence research allows stak
 ### Current State (Phase 3)
 
 ```mermaid
-flowchart TD
+flowchart LR
     A[User Query] --> B[Chat Interface]
     B --> C[Gemini API]
     C --> D[ABI Framework]
@@ -87,7 +87,7 @@ flowchart TD
 ### Target State (Phase 4)
 
 ```mermaid
-flowchart TD
+flowchart LR
     A[User Query] --> B[Enhanced Chat Interface]
     B --> C[User Profile System]
     C --> D[Advanced LLM Integration]
