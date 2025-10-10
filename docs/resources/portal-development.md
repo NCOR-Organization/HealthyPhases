@@ -58,6 +58,8 @@ A question-answer system for solitude and gerotranscendence research allows stak
 - 🟢 **Data Sources**: External APIs and data models
 - 🟠 **Ontologies**: Semantic frameworks for knowledge representation
 
+### Current State (Phase 3)
+
 ```mermaid
 flowchart TD
     A[User Query] --> B[Chat Interface]
@@ -69,35 +71,50 @@ flowchart TD
     G --> H[Downloadable Links]
     H --> I[Response to User]
     
-    J[User Query] --> K[Enhanced Chat Interface]
-    K --> L[User Profile System]
-    L --> M[Advanced LLM Integration]
-    M --> N[ABI Framework v2]
-    N --> O[Multi-Source APIs]
-    O --> P[Intelligent Recommender]
-    P --> Q[Knowledge Graph]
-    Q --> R[Semantic Enrichment]
-    R --> S[Personalized Results]
-    S --> T[Analytics Dashboard]
-    T --> U[Community Features]
+    J[PubMed] --> E
+    K[Solitude Ontology] --> G
+    L[Gerotranscendence Ontology] --> G
     
-    V[PubMed] --> E
-    W[Open Science Foundation] --> O
-    X[FHIR Data Model] --> O
-    
-    Y[Solitude Ontology] --> G
-    Z[Gerotranscendence Ontology] --> G
-    AA[Behavior Change Intervention Ontology] --> Q
-    
-    classDef current fill:#e1f5fe,stroke:#01579b,stroke-width:2px
-    classDef target fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef process fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef ontology fill:#fff3e0,stroke:#e65100,stroke-width:2px
     
-    class A,B,C,D,E,F,G,H,I current
-    class J,K,L,M,N,O,P,Q,R,S,T,U target
-    class V,W,X data
-    class Y,Z,AA ontology
+    class A,B,C,D,E,F,G,H,I process
+    class J data
+    class K,L ontology
+```
+
+### Target State (Phase 4)
+
+```mermaid
+flowchart TD
+    A[User Query] --> B[Enhanced Chat Interface]
+    B --> C[User Profile System]
+    C --> D[Advanced LLM Integration]
+    D --> E[ABI Framework v2]
+    E --> F[Multi-Source APIs]
+    F --> G[Intelligent Recommender]
+    G --> H[Knowledge Graph]
+    H --> I[Semantic Enrichment]
+    I --> J[Personalized Results]
+    J --> K[Analytics Dashboard]
+    K --> L[Community Features]
+    
+    M[PubMed] --> F
+    N[Open Science Foundation] --> F
+    O[FHIR Data Model] --> F
+    
+    P[Solitude Ontology] --> H
+    Q[Gerotranscendence Ontology] --> H
+    R[Behavior Change Intervention Ontology] --> H
+    
+    classDef process fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef ontology fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    class A,B,C,D,E,F,G,H,I,J,K,L process
+    class M,N,O data
+    class P,Q,R ontology
 ```
 
 ## Technical Architecture
