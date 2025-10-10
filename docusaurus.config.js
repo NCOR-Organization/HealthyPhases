@@ -185,6 +185,9 @@ const config = {
           autoCollapseCategories: false
         }
       },
+      mermaid: {
+        theme: {light: 'neutral', dark: 'dark'},
+      },
       announcementBar: {
         id: 'project_announcement',
         content: 

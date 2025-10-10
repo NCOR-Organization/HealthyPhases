@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 4
 title: Semantic Enrichment
 description: Enhancing solitude and gerotranscendence data with ontological meaning
 ---

@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 2
 title: Research Portal
 description: Web portal for exploring solitude and gerotranscendence constructs with AI-powered tools
 ---
@@ -47,6 +47,59 @@ A question-answer system for solitude and gerotranscendence research allows stak
 - Direct links to downloadable research papers
 
 **Current Status:** Phase 3 Active - Access the Q&A system at [/chat](/chat)
+
+## Portal Architecture
+
+### Current vs Target State
+
+```mermaid
+graph TB
+    subgraph "Current State (Phase 3)"
+        A[User Query] --> B[Chat Interface]
+        B --> C[Gemini API]
+        C --> D[ABI Framework]
+        D --> E[PubMed API]
+        E --> F[Paper Discovery]
+        F --> G[Ontology Enhancement]
+        G --> H[Downloadable Links]
+        H --> I[Response to User]
+    end
+    
+    subgraph "Target State (Phase 4)"
+        J[User Query] --> K[Enhanced Chat Interface]
+        K --> L[User Profile System]
+        L --> M[Advanced LLM Integration]
+        M --> N[ABI Framework v2]
+        N --> O[Multi-Source APIs]
+        O --> P[Intelligent Recommender]
+        P --> Q[Knowledge Graph]
+        Q --> R[Semantic Enrichment]
+        R --> S[Personalized Results]
+        S --> T[Analytics Dashboard]
+        T --> U[Community Features]
+    end
+    
+    subgraph "Data Sources"
+        V[PubMed]
+        W[Open Science Foundation]
+        X[FHIR Data Model]
+    end
+    
+    subgraph "Ontologies"
+        Y[Solitude Ontology]
+        Z[Gerotranscendence Ontology]
+        AA[Behavior Change Intervention Ontology]
+    end
+    
+    E --> V
+    O --> V
+    O --> W
+    G --> Y
+    G --> Z
+    Q --> Y
+    Q --> Z
+    Q --> AA
+```
 
 ## Technical Architecture
 
