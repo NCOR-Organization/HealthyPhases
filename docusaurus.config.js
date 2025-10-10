@@ -53,7 +53,12 @@ const config = {
   
   // Wiki plugin has been removed
   plugins: [
-    '@docusaurus/theme-mermaid',
+    [
+      '@docusaurus/theme-mermaid',
+      {
+        theme: {light: 'neutral', dark: 'dark'},
+      },
+    ],
   ],
 
   themeConfig:
