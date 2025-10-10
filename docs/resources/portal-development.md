@@ -58,54 +58,46 @@ A question-answer system for solitude and gerotranscendence research allows stak
 - 🟢 **Data Sources**: External APIs and data models
 - 🟠 **Ontologies**: Semantic frameworks for knowledge representation
 
-**Current Architecture Flow:**
-
-```
-User Query
-    ↓
-Chat Interface
-    ↓
-Gemini API
-    ↓
-ABI Framework
-    ↓
-PubMed API
-    ↓
-Paper Discovery
-    ↓
-Ontology Enhancement
-    ↓
-Downloadable Links
-    ↓
-Response to User
-```
-
-**Target Architecture (Phase 4):**
-
-```
-User Query
-    ↓
-Enhanced Chat Interface
-    ↓
-User Profile System
-    ↓
-Advanced LLM Integration
-    ↓
-ABI Framework v2
-    ↓
-Multi-Source APIs
-    ↓
-Intelligent Recommender
-    ↓
-Knowledge Graph
-    ↓
-Semantic Enrichment
-    ↓
-Personalized Results
-    ↓
-Analytics Dashboard
-    ↓
-Community Features
+```mermaid
+flowchart TD
+    A[User Query] --> B[Chat Interface]
+    B --> C[Gemini API]
+    C --> D[ABI Framework]
+    D --> E[PubMed API]
+    E --> F[Paper Discovery]
+    F --> G[Ontology Enhancement]
+    G --> H[Downloadable Links]
+    H --> I[Response to User]
+    
+    J[User Query] --> K[Enhanced Chat Interface]
+    K --> L[User Profile System]
+    L --> M[Advanced LLM Integration]
+    M --> N[ABI Framework v2]
+    N --> O[Multi-Source APIs]
+    O --> P[Intelligent Recommender]
+    P --> Q[Knowledge Graph]
+    Q --> R[Semantic Enrichment]
+    R --> S[Personalized Results]
+    S --> T[Analytics Dashboard]
+    T --> U[Community Features]
+    
+    V[PubMed] --> E
+    W[Open Science Foundation] --> O
+    X[FHIR Data Model] --> O
+    
+    Y[Solitude Ontology] --> G
+    Z[Gerotranscendence Ontology] --> G
+    AA[Behavior Change Intervention Ontology] --> Q
+    
+    classDef current fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef target fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef ontology fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    class A,B,C,D,E,F,G,H,I current
+    class J,K,L,M,N,O,P,Q,R,S,T,U target
+    class V,W,X data
+    class Y,Z,AA ontology
 ```
 
 ## Technical Architecture
