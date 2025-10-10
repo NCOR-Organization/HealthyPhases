@@ -16,7 +16,7 @@ In the context of the solitude and gerotranscendence literatures, the growth and
 
 The portal will provide three major services to stakeholders through the PHASES Ingestion Pipeline:
 
-### 1. Recommender System
+### Recommender System
 
 A recommender system for solitude and gerotranscendence research provides automated recommendations for research themes, articles, and authors based on stakeholder profiles and preferences.
 
@@ -29,7 +29,7 @@ A recommender system for solitude and gerotranscendence research provides automa
 
 **Current Status:** In Development
 
-### 2. Question-Answer System
+### Question-Answer System
 
 A question-answer system for solitude and gerotranscendence research allows stakeholders to pose natural language questions about constructs, methods, and findings across solitude and gerotranscendence literatures.
 
@@ -48,7 +48,7 @@ A question-answer system for solitude and gerotranscendence research allows stak
 
 **Current Status:** Phase 3 Active - Access the Q&A system at [/chat](/chat)
 
-### 3. Inference Extraction System
+### Inference Extraction System
 
 An inference extraction system that leverages the PHASES Knowledge Graphs to discover new relationships and insights across solitude and gerotranscendence research domains.
 
@@ -63,19 +63,19 @@ An inference extraction system that leverages the PHASES Knowledge Graphs to dis
 
 ## Technical Architecture
 
-### Data Integration
+#### Data Integration
 - **Data Sources**: PubMed/NIH NLM (National Library of Medicine), Open Science Foundation
 - **Data Model**: Fast Healthcare Interoperability Resources (FHIR) as common data model
 - **Semantic Mapping**: Data mapped to Solitude Ontology and Gerotranscendence Ontology
 
-### AI Components
+#### AI Components
 - **ABI Framework**: Agentic Brain Infrastructure orchestrates all AI operations and data processing workflows
 - **LLM Integration**: Gemini API with ABI framework orchestration
 - **PubMed API**: Direct integration for research paper discovery
 - **Ontology Integration**: Solitude and gerotranscendence ontologies for enhanced search
 - **Semantic Enrichment**: Ontological annotations and relationship mapping (in development)
 
-### ABI Framework Role
+#### ABI Framework Role
 The ABI (Agentic Brain Infrastructure) framework serves as the central orchestration layer that:
 - **API Orchestration**: Manages calls to multiple data sources (PubMed/NIH NLM, PsyArXiv, OSFPREPRINTS)
 - **Workflow Management**: Coordinates data ingestion, processing, and transformation pipelines
@@ -85,14 +85,14 @@ The ABI (Agentic Brain Infrastructure) framework serves as the central orchestra
 - **Data Processing**: Manages the flow from raw data sources through integrated modules to knowledge graphs
 - **Portal Services**: Powers the Recommender, Q/A, and Inference systems in the final portal
 
-### User Interface
+#### User Interface
 - **Web Portal**: Accessible interface for researchers, clinicians, educators, and students
 - **Natural Language Queries**: Support for complex questions about research constructs
 - **Personalized Recommendations**: Profile-based article and author suggestions
 
 ## Development Progress
 
-### Phase 1: Project Website (Completed)
+#### Phase 1: Project Website (Completed)
 - [x] Portal architecture design
 - [x] Web portal development (this website)
 - [x] Project documentation and research area descriptions
@@ -145,7 +145,7 @@ flowchart LR
 ```mermaid
 flowchart LR
     A[Data Sources] --> B[ABI Framework]
-    B --> C[Portal Services]
+    B --> C[Portal]
     
     A1["PubMed/NIH NLM"] --> A
     
