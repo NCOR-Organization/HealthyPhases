@@ -80,7 +80,9 @@ The ABI (Agentic Brain Infrastructure) framework serves as the central orchestra
 - **API Orchestration**: Manages calls to multiple data sources (PubMed, PsyArXiv, OSFPREPRINTS, NIH NLM)
 - **Workflow Management**: Coordinates data ingestion, processing, and transformation pipelines
 - **LLM Integration**: Handles interactions with Large Language Models for natural language processing
-- **Data Processing**: Manages the flow from raw data sources through ontologies to knowledge graphs
+- **HL7 FHIR Module**: Integrated data standardization and interoperability module within ABI
+- **PHASES Ontologies Module**: Integrated semantic processing and ontology management within ABI
+- **Data Processing**: Manages the flow from raw data sources through integrated modules to knowledge graphs
 - **Portal Services**: Powers the Recommender, Q/A, and Inference systems in the final portal
 
 ### User Interface
@@ -108,6 +110,9 @@ flowchart LR
     class A,B,C,D,E,F completed
 ```
 
+**Color Legend:**
+- 🟢 **Green (Completed)**: Successfully implemented and deployed components
+
 ### Phase 2: Basic LLM Integration (Completed)
 - [x] LLM integration with Gemini free API
 - [x] Basic system prompt implementation
@@ -125,6 +130,9 @@ flowchart LR
     classDef completed fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     class A,B,C,D,E,F completed
 ```
+
+**Color Legend:**
+- 🟢 **Green (Completed)**: Successfully implemented and deployed components
 
 ### Phase 3: PubMed API Integration (In Progress)
 - [x] ABI framework enhancement for PubMed API calls
@@ -152,11 +160,15 @@ flowchart LR
     class G,H inprogress
 ```
 
+**Color Legend:**
+- 🟢 **Green (Completed)**: Successfully implemented and deployed components
+- 🟠 **Orange (In Progress)**: Currently being developed or enhanced
+
 ### Phase 4: PHASES Ingestion Pipeline (Planned)
 - [ ] Multi-source data integration (PsyArXiv, OSFPREPRINTS, NIH NLM)
-- [ ] ABI Framework orchestration of data ingestion and processing
-- [ ] HL7 FHIR common data model implementation
-- [ ] PHASES Ontologies development and integration
+- [ ] ABI Framework orchestration with integrated modules:
+  - [ ] HL7 FHIR Module for data standardization
+  - [ ] PHASES Ontologies Module for semantic processing
 - [ ] PHASES Knowledge Graphs construction
 - [ ] UMLS and W3C metadata enrichment
 - [ ] SHACL validation and SPARQL querying
@@ -165,12 +177,10 @@ flowchart LR
 ```mermaid
 flowchart LR
     A[Data Sources] --> B[ABI Framework]
-    B --> C[Common Data Model]
-    C --> D[PHASES Ontologies]
-    D --> E[PHASES Knowledge Graphs]
-    E --> F[Portal]
+    B --> C[PHASES Knowledge Graphs]
+    C --> D[Portal]
     
-    G[Metadata] --> E
+    E[Metadata] --> C
     
     A1[PsyArXiv] --> A
     A2[OSFPREPRINTS] --> A
@@ -179,26 +189,32 @@ flowchart LR
     B1[API Orchestration] --> B
     B2[LLM Integration] --> B
     B3[Workflow Management] --> B
+    B4[HL7 FHIR Module] --> B
+    B5[PHASES Ontologies Module] --> B
     
-    C1[HL7 FHIR] --> C
+    E1[UMLS] --> E
+    E2[W3C] --> E
     
-    G1[UMLS] --> G
-    G2[W3C] --> G
-    
-    F1[Recommender System] --> F
-    F2[Q/A System] --> F
-    F3[Inference Extraction] --> F
+    D1[Recommender System] --> D
+    D2[Q/A System] --> D
+    D3[Inference Extraction] --> D
     
     classDef planned fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef metadata fill:#fff3e0,stroke:#e65100,stroke-width:2px
     classDef abi fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     
-    class A,C,D,E,F,F1,F2,F3 planned
-    class A1,A2,A3,C1 data
-    class G,G1,G2 metadata
-    class B,B1,B2,B3 abi
+    class A,C,D,D1,D2,D3 planned
+    class A1,A2,A3 data
+    class E,E1,E2 metadata
+    class B,B1,B2,B3,B4,B5 abi
 ```
+
+**Color Legend:**
+- 🔵 **Blue (ABI Framework)**: Central orchestration layer managing all AI operations and workflows
+- 🟣 **Purple (Planned Components)**: Future system components and services
+- 🟢 **Green (Data Sources)**: External data repositories and standards
+- 🟠 **Orange (Metadata)**: Enrichment and validation standards
 
 ## Access and Usage
 
