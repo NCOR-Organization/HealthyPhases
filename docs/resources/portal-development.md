@@ -14,7 +14,7 @@ In the context of the solitude and gerotranscendence literatures, the growth and
 
 ## Core Services
 
-The portal provides two major services to stakeholders:
+The portal will provide three major services to stakeholders through the PHASES Ingestion Pipeline:
 
 ### 1. Recommender System
 
@@ -24,7 +24,7 @@ A recommender system for solitude and gerotranscendence research provides automa
 - Ontologies and knowledge graphs enrich the recommender system
 - Reduces the need for large amounts of training data through formal specification of entities and relationships
 - Provides robust explanations for recommendations through clear logical reasoning
-- Hosted recommender system enriched by the ontologies developed in Aim 1
+- Hosted recommender system enriched by the PHASES ontologies
 - Allows researchers to remain up-to-date on cutting-edge work in these respective fields
 
 **Current Status:** In Development
@@ -47,6 +47,19 @@ A question-answer system for solitude and gerotranscendence research allows stak
 - Direct links to downloadable research papers
 
 **Current Status:** Phase 3 Active - Access the Q&A system at [/chat](/chat)
+
+### 3. Inference Extraction System
+
+An inference extraction system that leverages the PHASES Knowledge Graphs to discover new relationships and insights across solitude and gerotranscendence research domains.
+
+**Planned Technical Implementation:**
+- **SHACL Validation**: Shapes Constraint Language for data quality and validation
+- **SPARQL Querying**: Advanced semantic queries across the knowledge graphs
+- **Multi-source Integration**: PsyArXiv, OSFPREPRINTS, NIH NLM data sources
+- **Metadata Enrichment**: UMLS and W3C standards integration
+- **Semantic Interoperability**: FHIR-aligned datasets across domains
+
+**Current Status:** Planned for Phase 4
 
 ## Technical Architecture
 
@@ -130,22 +143,44 @@ flowchart LR
     class G,H inprogress
 ```
 
-### Phase 4: Advanced Features (Planned)
-- [ ] Recommender system implementation
-- [ ] User accounts and personalized profiles
-- [ ] Advanced analytics and research trend analysis
-- [ ] Community features and collaboration tools
+### Phase 4: PHASES Ingestion Pipeline (Planned)
+- [ ] Multi-source data integration (PsyArXiv, OSFPREPRINTS, NIH NLM)
+- [ ] HL7 FHIR common data model implementation
+- [ ] PHASES Ontologies development and integration
+- [ ] PHASES Knowledge Graphs construction
+- [ ] UMLS and W3C metadata enrichment
+- [ ] SHACL validation and SPARQL querying
+- [ ] Complete portal with Recommender, Q/A, and Inference systems
 
 ```mermaid
 flowchart LR
-    A[User Profile System] --> B[Advanced LLM Integration]
-    B --> C[Intelligent Recommender]
-    C --> D[Knowledge Graph]
-    D --> E[Analytics Dashboard]
-    E --> F[Community Features]
+    A[Data Sources] --> B[Common Data Model]
+    B --> C[PHASES Ontologies]
+    C --> D[PHASES Knowledge Graphs]
+    D --> E[Portal]
+    
+    F[Metadata] --> D
+    
+    A1[PsyArXiv] --> A
+    A2[OSFPREPRINTS] --> A
+    A3[NIH NLM] --> A
+    
+    B1[HL7 FHIR] --> B
+    
+    F1[UMLS] --> F
+    F2[W3C] --> F
+    
+    E1[Recommender System] --> E
+    E2[Q/A System] --> E
+    E3[Inference Extraction] --> E
     
     classDef planned fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
-    class A,B,C,D,E,F planned
+    classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef metadata fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    class A,B,C,D,E,E1,E2,E3 planned
+    class A1,A2,A3,B1 data
+    class F,F1,F2 metadata
 ```
 
 ## Access and Usage
