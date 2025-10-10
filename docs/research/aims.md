@@ -1,6 +1,6 @@
 ---
 sidebar_position: 1
-title: Research Aims
+title: Aims
 description: Primary aims of the HealthyPhases Project
 ---
 

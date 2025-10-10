@@ -1,10 +1,10 @@
 ---
 sidebar_position: 2
-title: Research Portal
+title: Portal Development
 description: Web portal for exploring solitude and gerotranscendence constructs with AI-powered tools
 ---
 
-# Research Portal
+# Portal Development
 
 The HealthyPhases website serves as our comprehensive research portal - a web-based platform designed to facilitate exploration, discovery, and analysis of solitude and gerotranscendence research through semantic enrichment and AI-powered tools.
 
@@ -89,10 +89,10 @@ graph TD
     Z[Gerotranscendence Ontology] --> G
     AA[Behavior Change Intervention Ontology] --> Q
     
-    classDef current fill:#e1f5fe
-    classDef target fill:#f3e5f5
-    classDef data fill:#e8f5e8
-    classDef ontology fill:#fff3e0
+    classDef current fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef target fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef ontology fill:#fff3e0,stroke:#e65100,stroke-width:2px
     
     class A,B,C,D,E,F,G,H,I current
     class J,K,L,M,N,O,P,Q,R,S,T,U target

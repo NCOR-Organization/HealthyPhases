@@ -52,7 +52,9 @@ const config = {
   ],
   
   // Wiki plugin has been removed
-  plugins: [],
+  plugins: [
+    '@docusaurus/theme-mermaid',
+  ],
 
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -184,9 +186,6 @@ const config = {
           hideable: false,
           autoCollapseCategories: false
         }
-      },
-      mermaid: {
-        theme: {light: 'neutral', dark: 'dark'},
       },
       announcementBar: {
         id: 'project_announcement',
