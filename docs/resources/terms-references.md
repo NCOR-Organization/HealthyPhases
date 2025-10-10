@@ -1,3 +1,9 @@
+---
+sidebar_position: 5
+title: Terms & References
+description: Glossary of key terms and references for solitude and gerotranscendence research
+---
+
 # Terms & References
 
 ## Core Concepts

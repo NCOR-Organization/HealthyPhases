@@ -51,8 +51,11 @@ const config = {
     ],
   ],
   
-  // Wiki plugin has been removed
-  plugins: [],
+  themes: ['@docusaurus/theme-mermaid'],
+  
+  markdown: {
+    mermaid: true,
+  },
 
   themeConfig:
     /** @type {import('@docusaurus/preset-classic').ThemeConfig} */
@@ -176,7 +179,7 @@ const config = {
       },
       colorMode: {
         defaultMode: 'light',
-        disableSwitch: true,
+        disableSwitch: false,
         respectPrefersColorScheme: false,
       },
       docs: {
