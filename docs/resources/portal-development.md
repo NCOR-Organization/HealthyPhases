@@ -143,11 +143,35 @@ flowchart LR
 - [x] Project documentation and research area descriptions
 - [x] Basic website infrastructure and navigation
 
+```mermaid
+flowchart LR
+    A[Project Planning] --> B[Website Design]
+    B --> C[Docusaurus Setup]
+    C --> D[Documentation]
+    D --> E[Basic Navigation]
+    E --> F[Live Website]
+    
+    classDef completed fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    class A,B,C,D,E,F completed
+```
+
 ### Phase 2: Basic LLM Integration (Completed)
 - [x] LLM integration with Gemini free API
 - [x] Basic system prompt implementation
 - [x] Open source ABI (Agentic Brain Infrastructure) framework integration
 - [x] Initial chat interface at [/chat](/chat)
+
+```mermaid
+flowchart LR
+    A[Gemini API Setup] --> B[System Prompt Design]
+    B --> C[ABI Framework Integration]
+    C --> D[Chat Interface Development]
+    D --> E[Basic Q&A Functionality]
+    E --> F[Live Chat System]
+    
+    classDef completed fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    class A,B,C,D,E,F completed
+```
 
 ### Phase 3: PubMed API Integration (In Progress)
 - [x] ABI framework enhancement for PubMed API calls
@@ -157,11 +181,41 @@ flowchart LR
 - [ ] Advanced semantic enrichment of search results
 - [ ] Enhanced ontology-driven recommendations
 
+```mermaid
+flowchart LR
+    A[PubMed API Integration] --> B[ABI Framework Enhancement]
+    B --> C[Ontology-Based Search]
+    C --> D[Paper Discovery]
+    D --> E[Downloadable Links]
+    E --> F[Enhanced Q&A System]
+    
+    G[Advanced Semantic Enrichment] -.-> C
+    H[Enhanced Recommendations] -.-> F
+    
+    classDef completed fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef inprogress fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    
+    class A,B,C,D,E,F completed
+    class G,H inprogress
+```
+
 ### Phase 4: Advanced Features (Planned)
 - [ ] Recommender system implementation
 - [ ] User accounts and personalized profiles
 - [ ] Advanced analytics and research trend analysis
 - [ ] Community features and collaboration tools
+
+```mermaid
+flowchart LR
+    A[User Profile System] --> B[Advanced LLM Integration]
+    B --> C[Intelligent Recommender]
+    C --> D[Knowledge Graph]
+    D --> E[Analytics Dashboard]
+    E --> F[Community Features]
+    
+    classDef planned fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    class A,B,C,D,E,F planned
+```
 
 ## Access and Usage
 
