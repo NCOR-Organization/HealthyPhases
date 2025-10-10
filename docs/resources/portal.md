@@ -52,53 +52,52 @@ A question-answer system for solitude and gerotranscendence research allows stak
 
 ### Current vs Target State
 
+**Legend:**
+- 🔵 **Current State (Phase 3)**: Live functionality with Gemini API and PubMed integration
+- 🟣 **Target State (Phase 4)**: Planned advanced features with user profiles and recommender systems
+- 🟢 **Data Sources**: External APIs and data models
+- 🟠 **Ontologies**: Semantic frameworks for knowledge representation
+
 ```mermaid
-graph TB
-    subgraph "Current State (Phase 3)"
-        A[User Query] --> B[Chat Interface]
-        B --> C[Gemini API]
-        C --> D[ABI Framework]
-        D --> E[PubMed API]
-        E --> F[Paper Discovery]
-        F --> G[Ontology Enhancement]
-        G --> H[Downloadable Links]
-        H --> I[Response to User]
-    end
+graph TD
+    A[User Query] --> B[Chat Interface]
+    B --> C[Gemini API]
+    C --> D[ABI Framework]
+    D --> E[PubMed API]
+    E --> F[Paper Discovery]
+    F --> G[Ontology Enhancement]
+    G --> H[Downloadable Links]
+    H --> I[Response to User]
     
-    subgraph "Target State (Phase 4)"
-        J[User Query] --> K[Enhanced Chat Interface]
-        K --> L[User Profile System]
-        L --> M[Advanced LLM Integration]
-        M --> N[ABI Framework v2]
-        N --> O[Multi-Source APIs]
-        O --> P[Intelligent Recommender]
-        P --> Q[Knowledge Graph]
-        Q --> R[Semantic Enrichment]
-        R --> S[Personalized Results]
-        S --> T[Analytics Dashboard]
-        T --> U[Community Features]
-    end
+    J[User Query] --> K[Enhanced Chat Interface]
+    K --> L[User Profile System]
+    L --> M[Advanced LLM Integration]
+    M --> N[ABI Framework v2]
+    N --> O[Multi-Source APIs]
+    O --> P[Intelligent Recommender]
+    P --> Q[Knowledge Graph]
+    Q --> R[Semantic Enrichment]
+    R --> S[Personalized Results]
+    S --> T[Analytics Dashboard]
+    T --> U[Community Features]
     
-    subgraph "Data Sources"
-        V[PubMed]
-        W[Open Science Foundation]
-        X[FHIR Data Model]
-    end
+    V[PubMed] --> E
+    W[Open Science Foundation] --> O
+    X[FHIR Data Model] --> O
     
-    subgraph "Ontologies"
-        Y[Solitude Ontology]
-        Z[Gerotranscendence Ontology]
-        AA[Behavior Change Intervention Ontology]
-    end
+    Y[Solitude Ontology] --> G
+    Z[Gerotranscendence Ontology] --> G
+    AA[Behavior Change Intervention Ontology] --> Q
     
-    E --> V
-    O --> V
-    O --> W
-    G --> Y
-    G --> Z
-    Q --> Y
-    Q --> Z
-    Q --> AA
+    classDef current fill:#e1f5fe
+    classDef target fill:#f3e5f5
+    classDef data fill:#e8f5e8
+    classDef ontology fill:#fff3e0
+    
+    class A,B,C,D,E,F,G,H,I current
+    class J,K,L,M,N,O,P,Q,R,S,T,U target
+    class V,W,X data
+    class Y,Z,AA ontology
 ```
 
 ## Technical Architecture
