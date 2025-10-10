@@ -58,23 +58,54 @@ A question-answer system for solitude and gerotranscendence research allows stak
 - 🟢 **Data Sources**: External APIs and data models
 - 🟠 **Ontologies**: Semantic frameworks for knowledge representation
 
-**Test Diagram:**
-```mermaid
-graph TD
-    A[Start] --> B[End]
+**Current Architecture Flow:**
+
+```
+User Query
+    ↓
+Chat Interface
+    ↓
+Gemini API
+    ↓
+ABI Framework
+    ↓
+PubMed API
+    ↓
+Paper Discovery
+    ↓
+Ontology Enhancement
+    ↓
+Downloadable Links
+    ↓
+Response to User
 ```
 
-**Current Architecture:**
-```mermaid
-flowchart TD
-    A[User Query] --> B[Chat Interface]
-    B --> C[Gemini API]
-    C --> D[ABI Framework]
-    D --> E[PubMed API]
-    E --> F[Paper Discovery]
-    F --> G[Ontology Enhancement]
-    G --> H[Downloadable Links]
-    H --> I[Response to User]
+**Target Architecture (Phase 4):**
+
+```
+User Query
+    ↓
+Enhanced Chat Interface
+    ↓
+User Profile System
+    ↓
+Advanced LLM Integration
+    ↓
+ABI Framework v2
+    ↓
+Multi-Source APIs
+    ↓
+Intelligent Recommender
+    ↓
+Knowledge Graph
+    ↓
+Semantic Enrichment
+    ↓
+Personalized Results
+    ↓
+Analytics Dashboard
+    ↓
+Community Features
 ```
 
 ## Technical Architecture
