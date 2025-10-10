@@ -69,10 +69,19 @@ An inference extraction system that leverages the PHASES Knowledge Graphs to dis
 - **Semantic Mapping**: Data mapped to Solitude Ontology and Gerotranscendence Ontology
 
 ### AI Components
+- **ABI Framework**: Agentic Brain Infrastructure orchestrates all AI operations and data processing workflows
 - **LLM Integration**: Gemini API with ABI framework orchestration
 - **PubMed API**: Direct integration for research paper discovery
 - **Ontology Integration**: Solitude and gerotranscendence ontologies for enhanced search
 - **Semantic Enrichment**: Ontological annotations and relationship mapping (in development)
+
+### ABI Framework Role
+The ABI (Agentic Brain Infrastructure) framework serves as the central orchestration layer that:
+- **API Orchestration**: Manages calls to multiple data sources (PubMed, PsyArXiv, OSFPREPRINTS, NIH NLM)
+- **Workflow Management**: Coordinates data ingestion, processing, and transformation pipelines
+- **LLM Integration**: Handles interactions with Large Language Models for natural language processing
+- **Data Processing**: Manages the flow from raw data sources through ontologies to knowledge graphs
+- **Portal Services**: Powers the Recommender, Q/A, and Inference systems in the final portal
 
 ### User Interface
 - **Web Portal**: Accessible interface for researchers, clinicians, educators, and students
@@ -145,6 +154,7 @@ flowchart LR
 
 ### Phase 4: PHASES Ingestion Pipeline (Planned)
 - [ ] Multi-source data integration (PsyArXiv, OSFPREPRINTS, NIH NLM)
+- [ ] ABI Framework orchestration of data ingestion and processing
 - [ ] HL7 FHIR common data model implementation
 - [ ] PHASES Ontologies development and integration
 - [ ] PHASES Knowledge Graphs construction
@@ -154,33 +164,40 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A[Data Sources] --> B[Common Data Model]
-    B --> C[PHASES Ontologies]
-    C --> D[PHASES Knowledge Graphs]
-    D --> E[Portal]
+    A[Data Sources] --> B[ABI Framework]
+    B --> C[Common Data Model]
+    C --> D[PHASES Ontologies]
+    D --> E[PHASES Knowledge Graphs]
+    E --> F[Portal]
     
-    F[Metadata] --> D
+    G[Metadata] --> E
     
     A1[PsyArXiv] --> A
     A2[OSFPREPRINTS] --> A
     A3[NIH NLM] --> A
     
-    B1[HL7 FHIR] --> B
+    B1[API Orchestration] --> B
+    B2[LLM Integration] --> B
+    B3[Workflow Management] --> B
     
-    F1[UMLS] --> F
-    F2[W3C] --> F
+    C1[HL7 FHIR] --> C
     
-    E1[Recommender System] --> E
-    E2[Q/A System] --> E
-    E3[Inference Extraction] --> E
+    G1[UMLS] --> G
+    G2[W3C] --> G
+    
+    F1[Recommender System] --> F
+    F2[Q/A System] --> F
+    F3[Inference Extraction] --> F
     
     classDef planned fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
     classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     classDef metadata fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    classDef abi fill:#e1f5fe,stroke:#01579b,stroke-width:2px
     
-    class A,B,C,D,E,E1,E2,E3 planned
-    class A1,A2,A3,B1 data
-    class F,F1,F2 metadata
+    class A,C,D,E,F,F1,F2,F3 planned
+    class A1,A2,A3,C1 data
+    class G,G1,G2 metadata
+    class B,B1,B2,B3 abi
 ```
 
 ## Access and Usage
