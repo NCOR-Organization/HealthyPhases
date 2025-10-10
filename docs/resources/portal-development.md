@@ -144,21 +144,34 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    A["PubMed/NIH NLM API Integration"] --> B["ABI Framework Enhancement"]
-    B --> C["Ontology-Based Search"]
-    C --> D["Paper Discovery"]
-    D --> E["Downloadable Links"]
-    E --> F["Agentic Q&A System"]
-    F --> G["Live Chat Interface"]
+    A[Data Sources] --> B[ABI Framework]
+    B --> C[Portal Services]
+    
+    A1["PubMed/NIH NLM"] --> A
+    
+    B1[API Orchestration] --> B
+    B2[LLM Integration] --> B
+    B3[Workflow Management] --> B
+    B4[Ontologies Module] --> B
+    
+    C1[Q/A System] --> C
+    C2[Paper Discovery] --> C
+    C3[Downloadable Links] --> C
     
     classDef completed fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef data fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    classDef abi fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    classDef portal fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
     
-    class A,B,C,D,E,F,G completed
+    class A,C completed
+    class A1 data
+    class B,B1,B2,B3,B4 abi
+    class C1,C2,C3 portal
 ```
 
 **Color Legend:**
 - 🟢 **Green (Completed)**: Successfully implemented and deployed components
-- 🟠 **Orange (In Progress)**: Currently being developed or enhanced
+- 🔵 **Blue (ABI Framework)**: Central orchestration layer with integrated modules
 
 ### Phase 4: PHASES Ingestion Pipeline (Planned)
 - [ ] Multi-source data integration (PsyArXiv, OSFPREPRINTS, PubMed/NIH NLM)
