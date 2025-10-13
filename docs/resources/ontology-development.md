@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
 title: Ontology Development
 description: Building the semantic framework for solitude and gerotranscendence research
 ---

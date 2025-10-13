@@ -1,0 +1,2215 @@
+classes:
+- definition: (Elucidation) A one-dimensional spatial region is a whole consisting
+    of a line together with zero or more lines which may have points as parts
+  example: An edge of a cube-shaped portion of space; a line connecting two points;
+    two parallel lines extended in space
+  id: bfo:BFO_0000026
+  name: one-dimensional spatial region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000006
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'one-dimensional spatial region (id: bfo:BFO_0000026)
+
+      Definition: (Elucidation) A one-dimensional spatial region is a whole consisting
+      of a line together with zero or more lines which may have points as parts
+
+      Examples: An edge of a cube-shaped portion of space; a line connecting two points;
+      two parallel lines extended in space
+
+      '
+    x: -1800.0
+    y: 375.0
+- definition: (Elucidation) A generically dependent continuant is an entity that exists
+    in virtue of the fact that there is at least one of what may be multiple copies
+    which is the content or the pattern that multiple copies would share
+  example: The pdf file on your laptop; the pdf file that is a copy thereof on my
+    laptop; the sequence of this protein molecule; the sequence that is a copy thereof
+    in that protein molecule; the content that is shared by a string of dots and dashes
+    written on a page and the transmitted Morse code signal; the content of a sentence;
+    an engineering blueprint
+  id: bfo:BFO_0000031
+  name: generically dependent continuant
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000002
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'generically dependent continuant (id: bfo:BFO_0000031)
+
+      Definition: (Elucidation) A generically dependent continuant is an entity that
+      exists in virtue of the fact that there is at least one of what may be multiple
+      copies which is the content or the pattern that multiple copies would share
+
+      Examples: The pdf file on your laptop; the pdf file that is a copy thereof on
+      my laptop; the sequence of this protein molecule; the sequence that is a copy
+      thereof in that protein molecule; the content that is shared by a string of
+      dots and dashes written on a page and the transmitted Morse code signal; the
+      content of a sentence; an engineering blueprint
+
+      '
+    x: -900.0
+    y: -750.0
+- definition: (Elucidation) A two-dimensional spatial region is a spatial region that
+    is a whole consisting of a surface together with zero or more surfaces which may
+    have spatial regions of lower dimension as parts
+  example: The surface of a sphere-shaped part of space; an infinitely thin plane
+    in space
+  id: bfo:BFO_0000009
+  name: two-dimensional spatial region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000006
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'two-dimensional spatial region (id: bfo:BFO_0000009)
+
+      Definition: (Elucidation) A two-dimensional spatial region is a spatial region
+      that is a whole consisting of a surface together with zero or more surfaces
+      which may have spatial regions of lower dimension as parts
+
+      Examples: The surface of a sphere-shaped part of space; an infinitely thin plane
+      in space
+
+      '
+    x: -1650.0
+    y: 375.0
+- definition: (Elucidation) A temporal region is an occurrent over which processes
+    can unfold
+  example: As for zero-dimensional temporal region and one-dimensional temporal region
+  id: bfo:BFO_0000008
+  name: temporal region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000003
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'temporal region (id: bfo:BFO_0000008)
+
+      Definition: (Elucidation) A temporal region is an occurrent over which processes
+      can unfold
+
+      Examples: As for zero-dimensional temporal region and one-dimensional temporal
+      region
+
+      '
+    x: 1050.0
+    y: -750.0
+- definition: (Elucidation) A spatiotemporal region is an occurrent that is an occurrent
+    part of spacetime
+  example: The spatiotemporal region occupied by the development of a cancer tumour;
+    the spatiotemporal region occupied by an orbiting satellite
+  id: bfo:BFO_0000011
+  name: spatiotemporal region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000003
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'spatiotemporal region (id: bfo:BFO_0000011)
+
+      Definition: (Elucidation) A spatiotemporal region is an occurrent that is an
+      occurrent part of spacetime
+
+      Examples: The spatiotemporal region occupied by the development of a cancer
+      tumour; the spatiotemporal region occupied by an orbiting satellite
+
+      '
+    x: 1500.0
+    y: -750.0
+- definition: b is an independent continuant =Def b is a continuant & there is no
+    c such that b specifically depends on c or b generically depends on c
+  example: An atom; a molecule; an organism; a heart; a chair; the bottom right portion
+    of a human torso; a leg; the interior of your mouth; a spatial region; an orchestra
+  id: bfo:BFO_0000004
+  name: independent continuant
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000002
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'independent continuant (id: bfo:BFO_0000004)
+
+      Definition: b is an independent continuant =Def b is a continuant & there is
+      no c such that b specifically depends on c or b generically depends on c
+
+      Examples: An atom; a molecule; an organism; a heart; a chair; the bottom right
+      portion of a human torso; a leg; the interior of your mouth; a spatial region;
+      an orchestra
+
+      '
+    x: -1500.0
+    y: -750.0
+- definition: (Elucidation) A continuant is an entity that persists, endures, or continues
+    to exist through time while maintaining its identity
+  example: A human being; a tennis ball; a cave; a region of space; someone's temperature
+  id: bfo:BFO_0000002
+  name: continuant
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000001
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'continuant (id: bfo:BFO_0000002)
+
+      Definition: (Elucidation) A continuant is an entity that persists, endures,
+      or continues to exist through time while maintaining its identity
+
+      Examples: A human being; a tennis ball; a cave; a region of space; someone''s
+      temperature
+
+      '
+    x: -750.0
+    y: -1125.0
+- definition: (Elucidation) A fiat point is a zero-dimensional continuant fiat boundary
+    that consists of a single point
+  example: The geographic North Pole; the quadripoint where the boundaries of Colorado,
+    Utah, New Mexico and Arizona meet; the point of origin of some spatial coordinate
+    system
+  id: bfo:BFO_0000147
+  name: fiat point
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000140
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'fiat point (id: bfo:BFO_0000147)
+
+      Definition: (Elucidation) A fiat point is a zero-dimensional continuant fiat
+      boundary that consists of a single point
+
+      Examples: The geographic North Pole; the quadripoint where the boundaries of
+      Colorado, Utah, New Mexico and Arizona meet; the point of origin of some spatial
+      coordinate system
+
+      '
+    x: -1050.0
+    y: 375.0
+- definition: (Elucidation) A temporal instant is a zero-dimensional temporal region
+    that has no proper temporal part
+  example: The millennium
+  id: bfo:BFO_0000203
+  name: temporal instant
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000148
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'temporal instant (id: bfo:BFO_0000203)
+
+      Definition: (Elucidation) A temporal instant is a zero-dimensional temporal
+      region that has no proper temporal part
+
+      Examples: The millennium
+
+      '
+    x: 1350.0
+    y: 0.0
+- definition: (Elucidation) A three-dimensional spatial region is a whole consisting
+    of a spatial volume together with zero or more spatial volumes which may have
+    spatial regions of lower dimension as parts
+  example: A cube-shaped region of space; a sphere-shaped region of space; the region
+    of space occupied by all and only the planets in the solar system at some point
+    in time
+  id: bfo:BFO_0000028
+  name: three-dimensional spatial region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000006
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'three-dimensional spatial region (id: bfo:BFO_0000028)
+
+      Definition: (Elucidation) A three-dimensional spatial region is a whole consisting
+      of a spatial volume together with zero or more spatial volumes which may have
+      spatial regions of lower dimension as parts
+
+      Examples: A cube-shaped region of space; a sphere-shaped region of space; the
+      region of space occupied by all and only the planets in the solar system at
+      some point in time
+
+      '
+    x: -1500.0
+    y: 375.0
+- definition: (Elucidation) A zero-dimensional temporal region is a temporal region
+    that is a whole consisting of one or more separated temporal instants as parts
+  example: A temporal region that is occupied by a process boundary; the moment at
+    which a finger is detached in an industrial accident
+  id: bfo:BFO_0000148
+  name: zero-dimensional temporal region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000008
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'zero-dimensional temporal region (id: bfo:BFO_0000148)
+
+      Definition: (Elucidation) A zero-dimensional temporal region is a temporal region
+      that is a whole consisting of one or more separated temporal instants as parts
+
+      Examples: A temporal region that is occupied by a process boundary; the moment
+      at which a finger is detached in an industrial accident
+
+      '
+    x: 1350.0
+    y: -375.0
+- definition: (Elucidation) A one-dimensional temporal region is a temporal region
+    that is a whole that has a temporal interval and zero or more temporal intervals
+    and temporal instants as parts
+  example: The temporal region during which a process occurs
+  id: bfo:BFO_0000038
+  name: one-dimensional temporal region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000008
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'one-dimensional temporal region (id: bfo:BFO_0000038)
+
+      Definition: (Elucidation) A one-dimensional temporal region is a temporal region
+      that is a whole that has a temporal interval and zero or more temporal intervals
+      and temporal instants as parts
+
+      Examples: The temporal region during which a process occurs
+
+      '
+    x: 900.0
+    y: -375.0
+- definition: (Elucidation) p is a process means p is an occurrent that has some temporal
+    proper part and for some time t, p has some material entity as participant
+  example: An act of selling; the life of an organism; a process of sleeping; a process
+    of cell-division; a beating of the heart; a process of meiosis; the taxiing of
+    an aircraft; the programming of a computer
+  id: bfo:BFO_0000015
+  name: process
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000003
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'process (id: bfo:BFO_0000015)
+
+      Definition: (Elucidation) p is a process means p is an occurrent that has some
+      temporal proper part and for some time t, p has some material entity as participant
+
+      Examples: An act of selling; the life of an organism; a process of sleeping;
+      a process of cell-division; a beating of the heart; a process of meiosis; the
+      taxiing of an aircraft; the programming of a computer
+
+      '
+    x: 150.0
+    y: -750.0
+- definition: (Elucidation) A fiat surface is a two-dimensional continuant fiat boundary
+    that is self-connected
+  example: The surface of the Earth; the plane separating the smoking from the non-smoking
+    zone in a restaurant
+  id: bfo:BFO_0000146
+  name: fiat surface
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000140
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'fiat surface (id: bfo:BFO_0000146)
+
+      Definition: (Elucidation) A fiat surface is a two-dimensional continuant fiat
+      boundary that is self-connected
+
+      Examples: The surface of the Earth; the plane separating the smoking from the
+      non-smoking zone in a restaurant
+
+      '
+    x: -1200.0
+    y: 375.0
+- definition: p is a process boundary =Def p is a temporal part of a process & p has
+    no proper temporal parts
+  example: The boundary between the 2nd and 3rd year of your life
+  id: bfo:BFO_0000035
+  name: process boundary
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000003
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'process boundary (id: bfo:BFO_0000035)
+
+      Definition: p is a process boundary =Def p is a temporal part of a process &
+      p has no proper temporal parts
+
+      Examples: The boundary between the 2nd and 3rd year of your life
+
+      '
+    x: 600.0
+    y: -750.0
+- definition: b is a specifically dependent continuant =Def b is a continuant & there
+    is some independent continuant c which is not a spatial region & which is such
+    that b specifically depends on c
+  example: (with one bearer) The mass of this tomato; the pink colour of a medium
+    rare piece of grilled filet mignon at its centre; the smell of this portion of
+    mozzarella; the disposition of this fish to decay; the role of being a doctor;
+    the function of this heart to pump blood; the shape of this hole| (with multiple
+    bearers) John's love for Mary; the ownership relation between John and this statue;
+    the relation of authority between John and his subordinates
+  id: bfo:BFO_0000020
+  name: specifically dependent continuant
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000002
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'specifically dependent continuant (id: bfo:BFO_0000020)
+
+      Definition: b is a specifically dependent continuant =Def b is a continuant
+      & there is some independent continuant c which is not a spatial region & which
+      is such that b specifically depends on c
+
+      Examples: (with one bearer) The mass of this tomato; the pink colour of a medium
+      rare piece of grilled filet mignon at its centre; the smell of this portion
+      of mozzarella; the disposition of this fish to decay; the role of being a doctor;
+      the function of this heart to pump blood; the shape of this hole| (with multiple
+      bearers) John''s love for Mary; the ownership relation between John and this
+      statue; the relation of authority between John and his subordinates
+
+      '
+    x: -450.0
+    y: -750.0
+- definition: (Elucidation) A disposition b is a realizable entity such that if b
+    ceases to exist then its bearer is physically changed & b's realization occurs
+    when and because this bearer is in some special physical circumstances & this
+    realization occurs in virtue of the bearer's physical make-up
+  example: An atom of element X has the disposition to decay to an atom of element
+    Y; the cell wall is disposed to transport cellular material through endocytosis
+    and exocytosis; certain people have a predisposition to colon cancer; children
+    are innately disposed to categorize objects in certain ways
+  id: bfo:BFO_0000016
+  name: disposition
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000017
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'disposition (id: bfo:BFO_0000016)
+
+      Definition: (Elucidation) A disposition b is a realizable entity such that if
+      b ceases to exist then its bearer is physically changed & b''s realization occurs
+      when and because this bearer is in some special physical circumstances & this
+      realization occurs in virtue of the bearer''s physical make-up
+
+      Examples: An atom of element X has the disposition to decay to an atom of element
+      Y; the cell wall is disposed to transport cellular material through endocytosis
+      and exocytosis; certain people have a predisposition to colon cancer; children
+      are innately disposed to categorize objects in certain ways
+
+      '
+    x: -150.0
+    y: 0.0
+- definition: (Elucidation) A fiat object part b is a material entity & such that
+    if b exists then it is continuant part of some object c & demarcated from the
+    remainder of c by one or more fiat surfaces
+  example: The upper and lower lobes of the left lung; the dorsal and ventral surfaces
+    of the body; the Western hemisphere of the Earth; the FMA:regional parts of an
+    intact human body
+  id: bfo:BFO_0000024
+  name: fiat object part
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000040
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'fiat object part (id: bfo:BFO_0000024)
+
+      Definition: (Elucidation) A fiat object part b is a material entity & such that
+      if b exists then it is continuant part of some object c & demarcated from the
+      remainder of c by one or more fiat surfaces
+
+      Examples: The upper and lower lobes of the left lung; the dorsal and ventral
+      surfaces of the body; the Western hemisphere of the Earth; the FMA:regional
+      parts of an intact human body
+
+      '
+    x: -2250.0
+    y: 0.0
+- definition: (Elucidation) A zero-dimensional spatial region is one or a collection
+    of more than one spatially disjoint points in space
+  example: The spatial region occupied at some time instant by the North Pole
+  id: bfo:BFO_0000018
+  name: zero-dimensional spatial region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000006
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'zero-dimensional spatial region (id: bfo:BFO_0000018)
+
+      Definition: (Elucidation) A zero-dimensional spatial region is one or a collection
+      of more than one spatially disjoint points in space
+
+      Examples: The spatial region occupied at some time instant by the North Pole
+
+      '
+    x: -1950.0
+    y: 375.0
+- definition: (Elucidation) A role b is a realizable entity such that b exists because
+    there is some single bearer that is in some special physical, social, or institutional
+    set of circumstances in which this bearer does not have to be & b is not such
+    that, if it ceases to exist, then the physical make-up of the bearer is thereby
+    changed
+  example: The priest role; the student role; the role of subject in a clinical trial;
+    the role of a stone in marking a property boundary; the role of a boundary to
+    demarcate two neighbouring administrative territories; the role of a building
+    in serving as a military target
+  id: bfo:BFO_0000023
+  name: role
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000017
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'role (id: bfo:BFO_0000023)
+
+      Definition: (Elucidation) A role b is a realizable entity such that b exists
+      because there is some single bearer that is in some special physical, social,
+      or institutional set of circumstances in which this bearer does not have to
+      be & b is not such that, if it ceases to exist, then the physical make-up of
+      the bearer is thereby changed
+
+      Examples: The priest role; the student role; the role of subject in a clinical
+      trial; the role of a stone in marking a property boundary; the role of a boundary
+      to demarcate two neighbouring administrative territories; the role of a building
+      in serving as a military target
+
+      '
+    x: -450.0
+    y: 0.0
+- definition: (Elucidation) An occurrent is an entity that unfolds itself in time
+    or it is the start or end of such an entity or it is a temporal or spatiotemporal
+    region
+  example: As for process, history, process boundary, spatiotemporal region, zero-dimensional
+    temporal region, one-dimensional temporal region, temporal interval, temporal
+    instant.
+  id: bfo:BFO_0000003
+  name: occurrent
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000001
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'occurrent (id: bfo:BFO_0000003)
+
+      Definition: (Elucidation) An occurrent is an entity that unfolds itself in time
+      or it is the start or end of such an entity or it is a temporal or spatiotemporal
+      region
+
+      Examples: As for process, history, process boundary, spatiotemporal region,
+      zero-dimensional temporal region, one-dimensional temporal region, temporal
+      interval, temporal instant.
+
+      '
+    x: 750.0
+    y: -1125.0
+- definition: (Elucidation) A site is a three-dimensional immaterial entity whose
+    boundaries either (partially or wholly) coincide with the boundaries of one or
+    more material entities or have locations determined in relation to some material
+    entity
+  example: A hole in a portion of cheese; a rabbit hole; the Grand Canyon; the Piazza
+    San Marco; the kangaroo-joey-containing hole of a kangaroo pouch; your left nostril
+    (a fiat part - the opening - of your left nasal cavity); the lumen of your gut;
+    the hold of a ship; the interior of the trunk of your car; hole in an engineered
+    floor joist
+  id: bfo:BFO_0000029
+  name: site
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000141
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'site (id: bfo:BFO_0000029)
+
+      Definition: (Elucidation) A site is a three-dimensional immaterial entity whose
+      boundaries either (partially or wholly) coincide with the boundaries of one
+      or more material entities or have locations determined in relation to some material
+      entity
+
+      Examples: A hole in a portion of cheese; a rabbit hole; the Grand Canyon; the
+      Piazza San Marco; the kangaroo-joey-containing hole of a kangaroo pouch; your
+      left nostril (a fiat part - the opening - of your left nasal cavity); the lumen
+      of your gut; the hold of a ship; the interior of the trunk of your car; hole
+      in an engineered floor joist
+
+      '
+    x: -1050.0
+    y: 0.0
+- definition: (Elucidation) A function is a disposition that exists in virtue of its
+    bearer's physical make-up & this physical make-up is something the bearer possesses
+    because it came into being either through evolution (in the case of natural biological
+    entities) or through intentional design (in the case of artefacts) in order to
+    realize processes of a certain sort
+  example: The function of a hammer to drive in nails; the function of a heart pacemaker
+    to regulate the beating of a heart through electricity
+  id: bfo:BFO_0000034
+  name: function
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000016
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'function (id: bfo:BFO_0000034)
+
+      Definition: (Elucidation) A function is a disposition that exists in virtue
+      of its bearer''s physical make-up & this physical make-up is something the bearer
+      possesses because it came into being either through evolution (in the case of
+      natural biological entities) or through intentional design (in the case of artefacts)
+      in order to realize processes of a certain sort
+
+      Examples: The function of a hammer to drive in nails; the function of a heart
+      pacemaker to regulate the beating of a heart through electricity
+
+      '
+    x: -150.0
+    y: 375.0
+- definition: (Elucidation) A material entity is an independent continuant has some
+    portion of matter as continuant part
+  example: A human being; the undetached arm of a human being; an aggregate of human
+    beings
+  id: bfo:BFO_0000040
+  name: material entity
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000004
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'material entity (id: bfo:BFO_0000040)
+
+      Definition: (Elucidation) A material entity is an independent continuant has
+      some portion of matter as continuant part
+
+      Examples: A human being; the undetached arm of a human being; an aggregate of
+      human beings
+
+      '
+    x: -1650.0
+    y: -375.0
+- definition: (Elucidation) A fiat line is a one-dimensional continuant fiat boundary
+    that is continuous
+  example: The Equator; all geopolitical boundaries; all lines of latitude and longitude;
+    the median sulcus of your tongue; the line separating the outer surface of the
+    mucosa of the lower lip from the outer surface of the skin of the chin
+  id: bfo:BFO_0000142
+  name: fiat line
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000140
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'fiat line (id: bfo:BFO_0000142)
+
+      Definition: (Elucidation) A fiat line is a one-dimensional continuant fiat boundary
+      that is continuous
+
+      Examples: The Equator; all geopolitical boundaries; all lines of latitude and
+      longitude; the median sulcus of your tongue; the line separating the outer surface
+      of the mucosa of the lower lip from the outer surface of the skin of the chin
+
+      '
+    x: -1350.0
+    y: 375.0
+- definition: (Elucidation) An entity is anything that exists or has existed or will
+    exist
+  example: Julius Caesar; the Second World War; your body mass index; Verdi's Requiem
+  id: bfo:BFO_0000001
+  name: entity
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'entity (id: bfo:BFO_0000001)
+
+      Definition: (Elucidation) An entity is anything that exists or has existed or
+      will exist
+
+      Examples: Julius Caesar; the Second World War; your body mass index; Verdi''s
+      Requiem
+
+      '
+    x: 0.0
+    y: -1500.0
+- definition: (Elucidation) A realizable entity is a specifically dependent continuant
+    that inheres in some independent continuant which is not a spatial region & which
+    is of a type some instances of which are realized in processes of a correlated
+    type
+  example: The role of being a doctor; the role of this boundary to delineate where
+    Utah and Colorado meet; the function of your reproductive organs; the disposition
+    of your blood to coagulate; the disposition of this piece of metal to conduct
+    electricity
+  id: bfo:BFO_0000017
+  name: realizable entity
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000020
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'realizable entity (id: bfo:BFO_0000017)
+
+      Definition: (Elucidation) A realizable entity is a specifically dependent continuant
+      that inheres in some independent continuant which is not a spatial region &
+      which is of a type some instances of which are realized in processes of a correlated
+      type
+
+      Examples: The role of being a doctor; the role of this boundary to delineate
+      where Utah and Colorado meet; the function of your reproductive organs; the
+      disposition of your blood to coagulate; the disposition of this piece of metal
+      to conduct electricity
+
+      '
+    x: -300.0
+    y: -375.0
+- definition: "(Elucidation) An object aggregate is a material entity consisting exactly
+    of a plurality (\u22651) of objects as member parts which together form a unit"
+  example: The aggregate of the musicians in a symphony orchestra and their instruments;
+    the aggregate of bearings in a constant velocity axle joint; the nitrogen atoms
+    in the atmosphere; a collection of cells in a blood biobank
+  id: bfo:BFO_0000027
+  name: object aggregate
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000040
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: "object aggregate (id: bfo:BFO_0000027)\nDefinition: (Elucidation) An object
+      aggregate is a material entity consisting exactly of a plurality (\u22651) of
+      objects as member parts which together form a unit\nExamples: The aggregate
+      of the musicians in a symphony orchestra and their instruments; the aggregate
+      of bearings in a constant velocity axle joint; the nitrogen atoms in the atmosphere;
+      a collection of cells in a blood biobank\n"
+    x: -2550.0
+    y: 0.0
+- definition: (Elucidation) A quality is a specifically dependent continuant that,
+    in contrast to roles and dispositions, does not require any further process in
+    order to be realized
+  example: The colour of a tomato; the ambient temperature of this portion of air;
+    the length of the circumference of your waist; the shape of your nose; the shape
+    of your nostril; the mass of this piece of gold
+  id: bfo:BFO_0000019
+  name: quality
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000020
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'quality (id: bfo:BFO_0000019)
+
+      Definition: (Elucidation) A quality is a specifically dependent continuant that,
+      in contrast to roles and dispositions, does not require any further process
+      in order to be realized
+
+      Examples: The colour of a tomato; the ambient temperature of this portion of
+      air; the length of the circumference of your waist; the shape of your nose;
+      the shape of your nostril; the mass of this piece of gold
+
+      '
+    x: -600.0
+    y: -375.0
+- definition: b is a relational quality =Def b is a quality & there exists c and d
+    such that c and d are not identical & b specifically depends on c & b specifically
+    depends on d
+  example: A marriage bond; an instance of love; an obligation between one person
+    and another
+  id: bfo:BFO_0000145
+  name: relational quality
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000019
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'relational quality (id: bfo:BFO_0000145)
+
+      Definition: b is a relational quality =Def b is a quality & there exists c and
+      d such that c and d are not identical & b specifically depends on c & b specifically
+      depends on d
+
+      Examples: A marriage bond; an instance of love; an obligation between one person
+      and another
+
+      '
+    x: -750.0
+    y: 0.0
+- definition: (Elucidation) A temporal interval is a one-dimensional temporal region
+    that is continuous, thus without gaps or breaks
+  example: The year 2018.
+  id: bfo:BFO_0000202
+  name: temporal interval
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000038
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'temporal interval (id: bfo:BFO_0000202)
+
+      Definition: (Elucidation) A temporal interval is a one-dimensional temporal
+      region that is continuous, thus without gaps or breaks
+
+      Examples: The year 2018.
+
+      '
+    x: 900.0
+    y: 0.0
+- definition: (Elucidation) A history is a process that is the sum of the totality
+    of processes taking place in the spatiotemporal region occupied by the material
+    part of a material entity
+  example: The life of an organism from the beginning to the end of its existence
+  id: bfo:BFO_0000182
+  name: history
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000015
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'history (id: bfo:BFO_0000182)
+
+      Definition: (Elucidation) A history is a process that is the sum of the totality
+      of processes taking place in the spatiotemporal region occupied by the material
+      part of a material entity
+
+      Examples: The life of an organism from the beginning to the end of its existence
+
+      '
+    x: 450.0
+    y: -375.0
+- definition: (Elucidation) An object is a material entity which manifests causal
+    unity & is of a type instances of which are maximal relative to the sort of causal
+    unity manifested
+  example: An organism; a fish tank; a planet; a laptop; a valve; a block of marble;
+    an ice cube
+  id: bfo:BFO_0000030
+  name: object
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000040
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'object (id: bfo:BFO_0000030)
+
+      Definition: (Elucidation) An object is a material entity which manifests causal
+      unity & is of a type instances of which are maximal relative to the sort of
+      causal unity manifested
+
+      Examples: An organism; a fish tank; a planet; a laptop; a valve; a block of
+      marble; an ice cube
+
+      '
+    x: -1950.0
+    y: 0.0
+- definition: (Elucidation) A spatial region is a continuant entity that is a continuant
+    part of the spatial projection of a portion of spacetime at a given time
+  example: As for zero-dimensional spatial region, one-dimensional spatial region,
+    two-dimensional spatial region, three-dimensional spatial region
+  id: bfo:BFO_0000006
+  name: spatial region
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000141
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'spatial region (id: bfo:BFO_0000006)
+
+      Definition: (Elucidation) A spatial region is a continuant entity that is a
+      continuant part of the spatial projection of a portion of spacetime at a given
+      time
+
+      Examples: As for zero-dimensional spatial region, one-dimensional spatial region,
+      two-dimensional spatial region, three-dimensional spatial region
+
+      '
+    x: -1650.0
+    y: 0.0
+- definition: An occurrent that is an occurrent part of some process by virtue of
+    the rate, or pattern, or amplitude of change in an attribute of one or more participants
+    of said process.
+  example: "On a somewhat higher level of complexity are what we shall call rate process
+    profiles, which are the targets of selective abstraction focused not on determinate
+    quality magnitudes plotted over time, but rather on certain ratios between these
+    magnitudes and elapsed times. A speed process profile, for example, is represented
+    by a graph plotting against time the ratio of distance covered per unit of time.
+    Since rates may change, and since such changes, too, may have rates of change,
+    we have to deal here with a hierarchy of process profile universals at successive
+    levels; One important sub-family of rate process profiles is illustrated by the
+    beat or frequency profiles of cyclical processes, illustrated by the 60 beats
+    per minute beating process of John\u2019s heart, or the 120 beats per minute drumming
+    process involved in one of John\u2019s performances in a rock band, and so on.
+    Each such process includes what we shall call a beat process profile instance
+    as part, a subtype of rate process profile in which the salient ratio is not distance
+    covered but rather number of beat cycles per unit of time. Each beat process profile
+    instance instantiates the determinable universal beat process profile. But it
+    also instantiates multiple more specialized universals at lower levels of generality,
+    selected from rate process profilebeat process profileregular beat process profile3
+    bpm beat process profile4 bpm beat process profileirregular beat process profileincreasing
+    beat process profileand so on.In the case of a regular beat process profile, a
+    rate can be assigned in the simplest possible fashion by dividing the number of
+    cycles by the length of the temporal region occupied by the beating process profile
+    as a whole. Irregular process profiles of this sort, for example as identified
+    in the clinic, or in the readings on an aircraft instrument panel, are often of
+    diagnostic significance.; The simplest type of process profiles are what we shall
+    call \u2018quality process profiles\u2019, which are the process profiles which
+    serve as the foci of the sort of selective abstraction that is involved when measurements
+    are made of changes in single qualities, as illustrated, for example, by process
+    profiles of mass, temperature, aortic pressure, and so on."
+  id: bfo:BFO_0000144
+  name: Process Profile
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000003
+  style:
+    color: '#97c1fb'
+    group: BFO
+    title: "Process Profile (id: bfo:BFO_0000144)\nDefinition: An occurrent that is
+      an occurrent part of some process by virtue of the rate, or pattern, or amplitude
+      of change in an attribute of one or more participants of said process.\nExamples:
+      On a somewhat higher level of complexity are what we shall call rate process
+      profiles, which are the targets of selective abstraction focused not on determinate
+      quality magnitudes plotted over time, but rather on certain ratios between these
+      magnitudes and elapsed times. A speed process profile, for example, is represented
+      by a graph plotting against time the ratio of distance covered per unit of time.
+      Since rates may change, and since such changes, too, may have rates of change,
+      we have to deal here with a hierarchy of process profile universals at successive
+      levels; One important sub-family of rate process profiles is illustrated by
+      the beat or frequency profiles of cyclical processes, illustrated by the 60
+      beats per minute beating process of John\u2019s heart, or the 120 beats per
+      minute drumming process involved in one of John\u2019s performances in a rock
+      band, and so on. Each such process includes what we shall call a beat process
+      profile instance as part, a subtype of rate process profile in which the salient
+      ratio is not distance covered but rather number of beat cycles per unit of time.
+      Each beat process profile instance instantiates the determinable universal beat
+      process profile. But it also instantiates multiple more specialized universals
+      at lower levels of generality, selected from rate process profilebeat process
+      profileregular beat process profile3 bpm beat process profile4 bpm beat process
+      profileirregular beat process profileincreasing beat process profileand so on.In
+      the case of a regular beat process profile, a rate can be assigned in the simplest
+      possible fashion by dividing the number of cycles by the length of the temporal
+      region occupied by the beating process profile as a whole. Irregular process
+      profiles of this sort, for example as identified in the clinic, or in the readings
+      on an aircraft instrument panel, are often of diagnostic significance.; The
+      simplest type of process profiles are what we shall call \u2018quality process
+      profiles\u2019, which are the process profiles which serve as the foci of the
+      sort of selective abstraction that is involved when measurements are made of
+      changes in single qualities, as illustrated, for example, by process profiles
+      of mass, temperature, aortic pressure, and so on.\n"
+- definition: b is an immaterial entity =Def b is an independent continuant which
+    is such that there is no time t when it has a material entity as continuant part
+  example: As for fiat point, fiat line, fiat surface, site
+  id: bfo:BFO_0000141
+  name: immaterial entity
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000004
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'immaterial entity (id: bfo:BFO_0000141)
+
+      Definition: b is an immaterial entity =Def b is an independent continuant which
+      is such that there is no time t when it has a material entity as continuant
+      part
+
+      Examples: As for fiat point, fiat line, fiat surface, site
+
+      '
+    x: -1200.0
+    y: -375.0
+- definition: (Elucidation) A continuant fiat boundary b is an immaterial entity that
+    is of zero, one or two dimensions & such that there is no time t when b has a
+    spatial region as continuant part & whose location is determined in relation to
+    some material entity
+  example: As for fiat point, fiat line, fiat surface
+  id: bfo:BFO_0000140
+  name: continuant fiat boundary
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000141
+  style:
+    color: '#97c1fb'
+    fixed: true
+    group: BFO
+    title: 'continuant fiat boundary (id: bfo:BFO_0000140)
+
+      Definition: (Elucidation) A continuant fiat boundary b is an immaterial entity
+      that is of zero, one or two dimensions & such that there is no time t when b
+      has a spatial region as continuant part & whose location is determined in relation
+      to some material entity
+
+      Examples: As for fiat point, fiat line, fiat surface
+
+      '
+    x: -1350.0
+    y: 0.0
+- definition: A Benefit is a disposition that represents the advantageous outcomes
+    or effects realized through the use of a platform feature.
+  example: Empowering users with advanced capabilities, providing a secure environment
+    for data handling.
+  id: abi:Benefit
+  name: Benefit
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000016
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Benefit (id: abi:Benefit)
+
+      Definition: A Benefit is a disposition that represents the advantageous outcomes
+      or effects realized through the use of a platform feature.
+
+      Examples: Empowering users with advanced capabilities, providing a secure environment
+      for data handling.
+
+      '
+- definition: A Platform Feature is a realizable entity that represents a specific
+    functionality or capability provided by a platform.
+  example: Chat interface, Ontology Editor, Lab environment, Search functionality
+  id: abi:PlatformFeature
+  name: Platform Feature
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000017
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Platform Feature (id: abi:PlatformFeature)
+
+      Definition: A Platform Feature is a realizable entity that represents a specific
+      functionality or capability provided by a platform.
+
+      Examples: Chat interface, Ontology Editor, Lab environment, Search functionality
+
+      '
+- definition: An Organization focused on the research, development, and application
+    of artificial intelligence technologies.
+  example: GPT-4, Sonnet 3.5
+  id: abi:AIOrganization
+  name: AI Organization
+  relations:
+  - label: is_a
+    to: cco:ont00001180
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'AI Organization (id: abi:AIOrganization)
+
+      Definition: An Organization focused on the research, development, and application
+      of artificial intelligence technologies.
+
+      Examples: GPT-4, Sonnet 3.5
+
+      '
+- definition: A Group of Agents which can be the bearer of roles, has members, and
+    has a set of organization rules.
+  example: ''
+  id: cco:ont00001180
+  name: Organization
+  relations:
+  - label: is_a
+    to: cco:ont00000300
+  style:
+    color: '#e4c51e'
+    group: CCO
+    title: 'Organization (id: cco:ont00001180)
+
+      Definition: A Group of Agents which can be the bearer of roles, has members,
+      and has a set of organization rules.
+
+      '
+- definition: An Object Aggregate that has only Agents as parts.
+  example: ''
+  id: cco:ont00000300
+  name: Group of Agents
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000027
+  style:
+    color: '#e4c51e'
+    group: CCO
+    title: 'Group of Agents (id: cco:ont00000300)
+
+      Definition: An Object Aggregate that has only Agents as parts.
+
+      '
+- definition: An Information Content Entity representing an artificial intelligence
+    model developed by an AI Organization.
+  example: GPT-4, Sonnet 3.5
+  id: abi:AIModel
+  name: AI Model
+  relations:
+  - label: is_a
+    to: cco:ont00000958
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'AI Model (id: abi:AIModel)
+
+      Definition: An Information Content Entity representing an artificial intelligence
+      model developed by an AI Organization.
+
+      Examples: GPT-4, Sonnet 3.5
+
+      '
+- definition: A Generically Dependent Continuant that generically depends on some
+    Information Bearing Entity and stands in relation of aboutness to some Entity.
+  example: ''
+  id: cco:ont00000958
+  name: Information Content Entity
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000031
+  style:
+    color: '#e4c51e'
+    group: CCO
+    title: 'Information Content Entity (id: cco:ont00000958)
+
+      Definition: A Generically Dependent Continuant that generically depends on some
+      Information Bearing Entity and stands in relation of aboutness to some Entity.
+
+      '
+- definition: A Feature Quality is a specifically dependent continuant that represents
+    an attribute or characteristic of a platform feature.
+  example: Usability of the chat interface, speed of the search functionality
+  id: abi:FeatureQuality
+  name: Feature Quality
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000019
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Feature Quality (id: abi:FeatureQuality)
+
+      Definition: A Feature Quality is a specifically dependent continuant that represents
+      an attribute or characteristic of a platform feature.
+
+      Examples: Usability of the chat interface, speed of the search functionality
+
+      '
+- definition: A Platform is an organization that provides an integrated suite of services
+    and tools for data and AI applications, enabling users to perform various tasks
+    such as data analysis, model training, and deployment.
+  example: Naas.ai, Google Cloud Platform, Microsoft Azure
+  id: abi:Platform
+  name: Platform
+  relations:
+  - label: is_a
+    to: cco:ont00000509
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Platform (id: abi:Platform)
+
+      Definition: A Platform is an organization that provides an integrated suite
+      of services and tools for data and AI applications, enabling users to perform
+      various tasks such as data analysis, model training, and deployment.
+
+      Examples: Naas.ai, Google Cloud Platform, Microsoft Azure
+
+      '
+- definition: An Organization whose purpose is to provide a service to other Agents.
+  example: ''
+  id: cco:ont00000509
+  name: Service Provider
+  relations:
+  - label: is_a
+    to: cco:ont00001180
+  style:
+    color: '#e4c51e'
+    group: CCO
+    title: 'Service Provider (id: cco:ont00000509)
+
+      Definition: An Organization whose purpose is to provide a service to other Agents.
+
+      '
+- definition: An Organization that is the bearer of a Commercial Role and whose primary
+    objective is to make a profit from the provision of goods or services.
+  example: ''
+  id: cco:ont00000443
+  name: Commercial Organization
+  relations:
+  - label: is_a
+    to: cco:ont00001180
+  style:
+    color: '#e4c51e'
+    group: CCO
+    title: 'Commercial Organization (id: cco:ont00000443)
+
+      Definition: An Organization that is the bearer of a Commercial Role and whose
+      primary objective is to make a profit from the provision of goods or services.
+
+      '
+entities:
+- class: abi:Benefit
+  description: Provides a secure and controlled environment for sensitive data handling.
+  id: abi:Benefit#SecurityBenefit
+  name: Provides Security
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Provides Security (id: abi:Benefit#SecurityBenefit)
+
+      '
+- class: abi:PlatformFeature
+  description: "\n        A user-friendly interface that allows users to interact
+    with multiple AI models, such as GPT-4 and Sonnet 3.5, to perform tasks like generating
+    text, answering questions, and more.\n        Start chatting by tiping the Chatbar
+    on the first screen. You will start chatting with your AIA avatar.\n        Use
+    '@' to chose AI models or custom assistants in the Chat bar\",\n        "
+  id: abi:PlatformFeature#ChatInterface
+  name: Chat Interface
+  relations:
+  - label: specifically_depends_on
+    to: abi:AIModel#113f2201-9f0e-4bf1-a25f-3ea8ba88e41d
+  - label: specifically_depends_on
+    to: abi:AIModel#c6f0d70f-faa4-492f-81b7-4b6aba79e227
+  - label: specifically_depends_on
+    to: abi:AIModel#08640523-8e24-4ec7-a491-5e1b72bc2f76
+  - label: specifically_depends_on
+    to: abi:AIModel#63b149d9-f8fe-4b33-8132-75e7861c347d
+  - label: specifically_depends_on
+    to: abi:PlatformFeature#CustomAssistant
+  - label: specifically_depends_on
+    to: abi:AIModel#b80eeb35-2d60-4858-90a6-15b96be39845
+  - label: specifically_depends_on
+    to: abi:AIModel#1670e4a2-27fd-4f53-a482-6cb860f5be09
+  - label: specifically_depends_on
+    to: abi:AIModel#711fa8fa-b083-45d0-ad3b-3f725bb4a09a
+  - label: specifically_depends_on
+    to: abi:AIModel#4ff4a23e-548e-49da-a077-8c568882ab54
+  - label: specifically_depends_on
+    to: abi:AIModel#d2fd72cf-d417-45e0-8388-c38dfb6113a2
+  - label: specifically_depends_on
+    to: abi:AIModel#a274c5f1-4639-4b4a-bb8e-3633aa36ce37
+  - label: specifically_depends_on
+    to: abi:AIModel#5d04a521-9c19-48cb-9350-cab63db26301
+  - label: specifically_depends_on
+    to: abi:AIModel#8a281782-56f4-44c2-a3bc-0d5e9d1737b5
+  - label: specifically_depends_on
+    to: abi:PlatformFeature#OntologyEditor
+  - label: specifically_depends_on
+    to: abi:AIModel#c42ec35a-6494-480f-a525-27f6aed74883
+  - label: specifically_depends_on
+    to: abi:AIModel#4132275e-2377-4d22-bd0e-db6cda2d3104
+  - label: specifically_depends_on
+    to: abi:AIModel#507dbbc5-88a1-4bd7-8c35-28cea3faaf1f
+  - label: specifically_depends_on
+    to: abi:AIModel#dcce90d3-86e5-4341-8a96-2c7f920c450d
+  - label: has_benefit
+    to: abi:Benefit#FlexibilityBenefit
+  - label: has_benefit
+    to: abi:Benefit#ProductivityEnhancement
+  - label: has_quality
+    to: abi:FeatureQuality#RealTimeInteraction
+  - label: has_quality
+    to: abi:FeatureQuality#CustomAssistantCreation
+  - label: has_quality
+    to: abi:FeatureQuality#UserPersonalization
+  - label: has_quality
+    to: abi:FeatureQuality#MultipleAIModelSupport
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Chat Interface (id: abi:PlatformFeature#ChatInterface)
+
+      '
+- class: abi:AIOrganization
+  id: abi:AIOrganization#midjourney
+  name: Midjourney
+  relations: []
+  style:
+    color: '#eb2e9c'
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/midjourney_100x100.jpg
+    shape: image
+    title: 'Midjourney (id: abi:AIOrganization#midjourney)'
+- class: abi:AIModel
+  description: 16k context window, excelling in complex tasks
+  id: abi:AIModel#a274c5f1-4639-4b4a-bb8e-3633aa36ce37
+  name: gpt-3.5-turbo-16k
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#openai
+  style:
+    color: white
+    group: ABI
+    image: https://static.vecteezy.com/system/resources/previews/021/059/825/original/chatgpt-logo-chat-gpt-icon-on-green-background-free-vector.jpg
+    shape: image
+    title: 'gpt-3.5-turbo-16k (id: abi:AIModel#a274c5f1-4639-4b4a-bb8e-3633aa36ce37)
+
+      '
+- class: abi:PlatformFeature
+  description: "\n        A powerful search tool that enables users to quickly locate
+    assistants, ontologies, integrations, workflows, and analytics available within
+    the platform.\"\n        "
+  id: abi:PlatformFeature#Search
+  name: Search
+  relations:
+  - label: specifically_depends_on
+    to: abi:AIModel#08640523-8e24-4ec7-a491-5e1b72bc2f76
+  - label: specifically_depends_on
+    to: abi:AIModel#63b149d9-f8fe-4b33-8132-75e7861c347d
+  - label: specifically_depends_on
+    to: abi:AIModel#4ff4a23e-548e-49da-a077-8c568882ab54
+  - label: specifically_depends_on
+    to: abi:AIModel#a274c5f1-4639-4b4a-bb8e-3633aa36ce37
+  - label: specifically_depends_on
+    to: abi:AIModel#5d04a521-9c19-48cb-9350-cab63db26301
+  - label: specifically_depends_on
+    to: abi:AIModel#1670e4a2-27fd-4f53-a482-6cb860f5be09
+  - label: specifically_depends_on
+    to: abi:PlatformFeature#OntologyEditor
+  - label: specifically_depends_on
+    to: abi:AIModel#c42ec35a-6494-480f-a525-27f6aed74883
+  - label: specifically_depends_on
+    to: abi:AIModel#4132275e-2377-4d22-bd0e-db6cda2d3104
+  - label: specifically_depends_on
+    to: abi:AIModel#507dbbc5-88a1-4bd7-8c35-28cea3faaf1f
+  - label: specifically_depends_on
+    to: abi:PlatformFeature#Lab
+  - label: specifically_depends_on
+    to: abi:AIModel#dcce90d3-86e5-4341-8a96-2c7f920c450d
+  - label: specifically_depends_on
+    to: abi:AIModel#711fa8fa-b083-45d0-ad3b-3f725bb4a09a
+  - label: specifically_depends_on
+    to: abi:AIModel#d2fd72cf-d417-45e0-8388-c38dfb6113a2
+  - label: specifically_depends_on
+    to: abi:AIModel#8a281782-56f4-44c2-a3bc-0d5e9d1737b5
+  - label: specifically_depends_on
+    to: abi:PlatformFeature#CustomAssistant
+  - label: specifically_depends_on
+    to: abi:AIModel#b80eeb35-2d60-4858-90a6-15b96be39845
+  - label: specifically_depends_on
+    to: abi:AIModel#113f2201-9f0e-4bf1-a25f-3ea8ba88e41d
+  - label: specifically_depends_on
+    to: abi:AIModel#c6f0d70f-faa4-492f-81b7-4b6aba79e227
+  - label: has_benefit
+    to: abi:Benefit#EfficiencyBenefit
+  - label: has_benefit
+    to: abi:Benefit#UserExperienceBenefit
+  - label: has_quality
+    to: abi:FeatureQuality#FacetedSearch
+  - label: has_quality
+    to: abi:FeatureQuality#AutoSuggestions
+  - label: has_quality
+    to: abi:FeatureQuality#BookmarkingAndHistory
+  - label: has_quality
+    to: abi:FeatureQuality#ComprehensiveSearchIndex
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Search (id: abi:PlatformFeature#Search)
+
+      '
+- class: abi:PlatformFeature
+  description: "\n        The Naas API provides programmatic access to Naas platform
+    functionalities, allowing developers to integrate Naas capabilities into their
+    applications. \n        It offers a wide range of endpoints for managing chats,
+    aimodels, assistants, workspace, storage, and more.\n        For detailed documentation
+    and endpoint specifications, visit: https://api.naas.ai/redoc\n        "
+  id: abi:PlatformFeature#NaasAPI
+  name: Naas API
+  relations:
+  - label: specifically_depends_on
+    to: abi:AIModel#63b149d9-f8fe-4b33-8132-75e7861c347d
+  - label: specifically_depends_on
+    to: abi:AIModel#8a281782-56f4-44c2-a3bc-0d5e9d1737b5
+  - label: specifically_depends_on
+    to: abi:AIModel#b80eeb35-2d60-4858-90a6-15b96be39845
+  - label: specifically_depends_on
+    to: abi:AIModel#113f2201-9f0e-4bf1-a25f-3ea8ba88e41d
+  - label: specifically_depends_on
+    to: abi:AIModel#c6f0d70f-faa4-492f-81b7-4b6aba79e227
+  - label: specifically_depends_on
+    to: abi:AIModel#08640523-8e24-4ec7-a491-5e1b72bc2f76
+  - label: specifically_depends_on
+    to: abi:AIModel#4ff4a23e-548e-49da-a077-8c568882ab54
+  - label: specifically_depends_on
+    to: abi:AIModel#a274c5f1-4639-4b4a-bb8e-3633aa36ce37
+  - label: specifically_depends_on
+    to: abi:AIModel#5d04a521-9c19-48cb-9350-cab63db26301
+  - label: specifically_depends_on
+    to: abi:AIModel#1670e4a2-27fd-4f53-a482-6cb860f5be09
+  - label: specifically_depends_on
+    to: abi:AIModel#c42ec35a-6494-480f-a525-27f6aed74883
+  - label: specifically_depends_on
+    to: abi:AIModel#4132275e-2377-4d22-bd0e-db6cda2d3104
+  - label: specifically_depends_on
+    to: abi:AIModel#507dbbc5-88a1-4bd7-8c35-28cea3faaf1f
+  - label: specifically_depends_on
+    to: abi:AIModel#dcce90d3-86e5-4341-8a96-2c7f920c450d
+  - label: specifically_depends_on
+    to: abi:AIModel#711fa8fa-b083-45d0-ad3b-3f725bb4a09a
+  - label: specifically_depends_on
+    to: abi:AIModel#d2fd72cf-d417-45e0-8388-c38dfb6113a2
+  - label: has_benefit
+    to: abi:Benefit#DeveloperProductivity
+  - label: has_benefit
+    to: abi:Benefit#Integration
+  - label: has_benefit
+    to: abi:Benefit#Automation
+  - label: has_quality
+    to: abi:FeatureQuality#Scalability
+  - label: has_quality
+    to: abi:FeatureQuality#Documentation
+  - label: has_quality
+    to: abi:FeatureQuality#Extensibility
+  - label: has_quality
+    to: abi:FeatureQuality#SecurityCompliance
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Naas API (id: abi:PlatformFeature#NaasAPI)
+
+      '
+- class: abi:FeatureQuality
+  description: Ensures data privacy and security with robust access controls.
+  id: abi:FeatureQuality#SecureEnvironment
+  name: Secure Environment
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Secure Environment (id: abi:FeatureQuality#SecureEnvironment)
+
+      '
+- class: abi:AIModel
+  description: Ideal for content creation, conversational AI, language understanding,
+    R&D, and Enterprise applications.
+  id: abi:AIModel#c42ec35a-6494-480f-a525-27f6aed74883
+  name: meta.llama3-70b-instruct-v1:0
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#meta
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/meta_100x100.jpg
+    shape: image
+    title: 'meta.llama3-70b-instruct-v1:0 (id: abi:AIModel#c42ec35a-6494-480f-a525-27f6aed74883)
+
+      '
+- class: abi:Platform
+  description: Universal Data & AI Platform for your everyday business
+  id: abi:Platform#naas.ai
+  name: Naas.ai
+  relations:
+  - label: developed_by
+    to: abi:ont00000443#naas.ai_inc.
+  - label: has_feature
+    to: abi:PlatformFeature#CustomAssistant
+  - label: has_feature
+    to: abi:PlatformFeature#Search
+  - label: has_feature
+    to: abi:PlatformFeature#NaasAPI
+  - label: has_feature
+    to: abi:PlatformFeature#OntologyEditor
+  - label: has_feature
+    to: abi:PlatformFeature#ChatInterface
+  - label: has_feature
+    to: abi:PlatformFeature#Lab
+  style:
+    color: white
+    group: ABI
+    title: 'Naas.ai (id: abi:Platform#naas.ai)
+
+      '
+- class: abi:FeatureQuality
+  description: Provides real-time suggestions to refine queries.
+  id: abi:FeatureQuality#AutoSuggestions
+  name: Auto-Suggestions
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Auto-Suggestions (id: abi:FeatureQuality#AutoSuggestions)
+
+      '
+- class: abi:PlatformFeature
+  description: "\n        A dedicated Jupyter Lab for advanced users to experiment
+    with data and AI models, available exclusively to Pro plan subscribers.\n        "
+  id: abi:PlatformFeature#Lab
+  name: Lab
+  relations:
+  - label: has_benefit
+    to: abi:Benefit#EmpowermentBenefit
+  - label: has_benefit
+    to: abi:Benefit#SecurityBenefit
+  - label: has_quality
+    to: abi:FeatureQuality#SecureEnvironment
+  - label: has_quality
+    to: abi:FeatureQuality#AdvancedExperimentationTools
+  - label: has_quality
+    to: abi:FeatureQuality#DataIntegration
+  - label: has_quality
+    to: abi:FeatureQuality#ResourceManagement
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Lab (id: abi:PlatformFeature#Lab)
+
+      '
+- class: abi:AIModel
+  description: OpenAI's affordable and intelligent small model for fast, lightweight
+    tasks. GPT-4o mini is cheaper and more capable than GPT-3.5 Turbo. Currently points
+    to gpt-4o-mini-2024-07-18.
+  id: abi:AIModel#63b149d9-f8fe-4b33-8132-75e7861c347d
+  name: gpt-4o-mini-2024-07-18
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#openai
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/openai_100x100.png
+    shape: image
+    title: 'gpt-4o-mini-2024-07-18 (id: abi:AIModel#63b149d9-f8fe-4b33-8132-75e7861c347d)
+
+      '
+- class: abi:AIModel
+  description: Currently the best open model. A 7B sparse Mixture-of-Experts (SMoE).
+    Uses 12B active parameters out of 45B total.
+  id: abi:AIModel#1670e4a2-27fd-4f53-a482-6cb860f5be09
+  name: mistral.mixtral-8x7b-instruct-v0:1
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#mistral
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/mistralai_100x100.jpg
+    shape: image
+    title: 'mistral.mixtral-8x7b-instruct-v0:1 (id: abi:AIModel#1670e4a2-27fd-4f53-a482-6cb860f5be09)
+
+      '
+- class: abi:Benefit
+  description: Provides quick access to AI-powered insights.
+  id: abi:Benefit#ProductivityEnhancement
+  name: Enhances Productivity
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Enhances Productivity (id: abi:Benefit#ProductivityEnhancement)
+
+      '
+- class: abi:AIModel
+  description: "OpenAI's most advanced, multimodal flagship model that\u2019s cheaper
+    and faster than GPT-4 Turbo."
+  id: abi:AIModel#113f2201-9f0e-4bf1-a25f-3ea8ba88e41d
+  name: gpt-4o
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#openai
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/openai_100x100.png
+    shape: image
+    title: 'gpt-4o (id: abi:AIModel#113f2201-9f0e-4bf1-a25f-3ea8ba88e41d)
+
+      '
+- class: abi:AIOrganization
+  id: abi:AIOrganization#openai
+  name: Openai
+  relations: []
+  style:
+    color: '#eb2e9c'
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/openai_100x100.png
+    shape: image
+    title: 'Openai (id: abi:AIOrganization#openai)'
+- class: abi:Benefit
+  description: Enhances user experience with intuitive and responsive search capabilities.
+  id: abi:Benefit#UserExperienceBenefit
+  name: Enhances User Experience
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Enhances User Experience (id: abi:Benefit#UserExperienceBenefit)
+
+      '
+- class: abi:Benefit
+  description: Streamlines development process with well-documented API endpoints.
+  id: abi:Benefit#DeveloperProductivity
+  name: Developer Productivity
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Developer Productivity (id: abi:Benefit#DeveloperProductivity)
+
+      '
+- class: abi:AIOrganization
+  id: abi:AIOrganization#stabilityai
+  name: Stabilityai
+  relations: []
+  style:
+    color: '#eb2e9c'
+    group: ABI
+    image: https://images.squarespace-cdn.com/content/v1/6213c340453c3f502425776e/eba39670-66c6-4921-bdb9-19dce66f0a46/sdxl+coverimage+milkyweights.png?format=2500w
+    shape: image
+    title: 'Stabilityai (id: abi:AIOrganization#stabilityai)'
+- class: abi:FeatureQuality
+  description: Covers all available resources and content.
+  id: abi:FeatureQuality#ComprehensiveSearchIndex
+  name: Comprehensive Search Index
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Comprehensive Search Index (id: abi:FeatureQuality#ComprehensiveSearchIndex)
+
+      '
+- class: abi:FeatureQuality
+  description: Intuitive interface for creating and managing assistants.
+  id: abi:FeatureQuality#EaseOfUse
+  name: Ease of Use
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Ease of Use (id: abi:FeatureQuality#EaseOfUse)
+
+      '
+- class: abi:PlatformFeature
+  description: A comprehensive tool for managing ontologies, which are structured
+    representations of knowledge within specific domains. Click on the brain (2nd
+    icon) on the right pannel to access ontologies
+  id: abi:PlatformFeature#OntologyEditor
+  name: Ontology Editor
+  relations:
+  - label: specifically_depends_on
+    to: abi:PlatformFeature#CustomAssistant
+  - label: has_benefit
+    to: abi:Benefit#DataOrganizationBenefit
+  - label: has_benefit
+    to: abi:Benefit#CollaborationBenefit
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Ontology Editor (id: abi:PlatformFeature#OntologyEditor)
+
+      '
+- class: abi:FeatureQuality
+  description: Provides solutions specific to user needs.
+  id: abi:FeatureQuality#TailoredAssistance
+  name: Tailored Assistance
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Tailored Assistance (id: abi:FeatureQuality#TailoredAssistance)
+
+      '
+- class: abi:AIModel
+  description: 200k context window, enhanced core capabilities model
+  id: abi:AIModel#dcce90d3-86e5-4341-8a96-2c7f920c450d
+  name: anthropic.claude-v2:1
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#anthropic
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/anthropic_100x100.jpg
+    shape: image
+    title: 'anthropic.claude-v2:1 (id: abi:AIModel#dcce90d3-86e5-4341-8a96-2c7f920c450d)
+
+      '
+- class: abi:PlatformFeature
+  description: "\n        A Custom Assistant allows users to create personalized assistants
+    using AI models with custom instructions, temperature, and ontology.\n        The
+    temperature controls the randomness of predictions, affecting the creativity and
+    diversity of the outputs from 0 to 1. A higher temperature means the model takes
+    more risks, giving you a diverse mix of words.\n        The ontology allows you
+    to incorporate structured data to your system prompt.\n        Click on the first
+    icon of the right pannel to access the list of assistants.\n        "
+  id: abi:PlatformFeature#CustomAssistant
+  name: Custom Assistant
+  relations:
+  - label: specifically_depends_on
+    to: abi:AIModel#1670e4a2-27fd-4f53-a482-6cb860f5be09
+  - label: specifically_depends_on
+    to: abi:AIModel#711fa8fa-b083-45d0-ad3b-3f725bb4a09a
+  - label: specifically_depends_on
+    to: abi:AIModel#4ff4a23e-548e-49da-a077-8c568882ab54
+  - label: specifically_depends_on
+    to: abi:AIModel#d2fd72cf-d417-45e0-8388-c38dfb6113a2
+  - label: specifically_depends_on
+    to: abi:AIModel#a274c5f1-4639-4b4a-bb8e-3633aa36ce37
+  - label: specifically_depends_on
+    to: abi:AIModel#5d04a521-9c19-48cb-9350-cab63db26301
+  - label: specifically_depends_on
+    to: abi:AIModel#8a281782-56f4-44c2-a3bc-0d5e9d1737b5
+  - label: specifically_depends_on
+    to: abi:AIModel#c42ec35a-6494-480f-a525-27f6aed74883
+  - label: specifically_depends_on
+    to: abi:AIModel#4132275e-2377-4d22-bd0e-db6cda2d3104
+  - label: specifically_depends_on
+    to: abi:AIModel#507dbbc5-88a1-4bd7-8c35-28cea3faaf1f
+  - label: specifically_depends_on
+    to: abi:AIModel#dcce90d3-86e5-4341-8a96-2c7f920c450d
+  - label: specifically_depends_on
+    to: abi:AIModel#113f2201-9f0e-4bf1-a25f-3ea8ba88e41d
+  - label: specifically_depends_on
+    to: abi:AIModel#c6f0d70f-faa4-492f-81b7-4b6aba79e227
+  - label: specifically_depends_on
+    to: abi:AIModel#08640523-8e24-4ec7-a491-5e1b72bc2f76
+  - label: specifically_depends_on
+    to: abi:AIModel#63b149d9-f8fe-4b33-8132-75e7861c347d
+  - label: specifically_depends_on
+    to: abi:AIModel#b80eeb35-2d60-4858-90a6-15b96be39845
+  - label: has_benefit
+    to: abi:FeatureQuality#EnhancedProductivity
+  - label: has_benefit
+    to: abi:FeatureQuality#Flexibility
+  - label: has_quality
+    to: abi:FeatureQuality#Personalization
+  - label: has_quality
+    to: abi:FeatureQuality#EaseOfUse
+  - label: has_quality
+    to: abi:FeatureQuality#Versatility
+  - label: has_quality
+    to: abi:FeatureQuality#TailoredAssistance
+  style:
+    color: '#48DD82'
+    group: ABI
+    title: 'Custom Assistant (id: abi:PlatformFeature#CustomAssistant)
+
+      '
+- class: abi:FeatureQuality
+  description: Users can save searches and view history.
+  id: abi:FeatureQuality#BookmarkingAndHistory
+  name: Bookmarking and History
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Bookmarking and History (id: abi:FeatureQuality#BookmarkingAndHistory)
+
+      '
+- class: abi:AIModel
+  description: Generate images from any prompt
+  id: abi:AIModel#8a281782-56f4-44c2-a3bc-0d5e9d1737b5
+  name: midjourney/imagine-api
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#midjourney
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/midjourney_100x100.jpg
+    shape: image
+    title: 'midjourney/imagine-api (id: abi:AIModel#8a281782-56f4-44c2-a3bc-0d5e9d1737b5)
+
+      '
+- class: abi:FeatureQuality
+  description: Users can switch between different AI models based on their needs.
+  id: abi:FeatureQuality#MultipleAIModelSupport
+  name: Multiple AI Model Support
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Multiple AI Model Support (id: abi:FeatureQuality#MultipleAIModelSupport)
+
+      '
+- class: abi:FeatureQuality
+  description: Options to save conversation history and preferences.
+  id: abi:FeatureQuality#UserPersonalization
+  name: User Personalization
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'User Personalization (id: abi:FeatureQuality#UserPersonalization)
+
+      '
+- class: abi:AIModel
+  description: 100k context window, cost-effective, low latency model
+  id: abi:AIModel#b80eeb35-2d60-4858-90a6-15b96be39845
+  name: anthropic.claude-instant-v1
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#anthropic
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/anthropic_100x100.jpg
+    shape: image
+    title: 'anthropic.claude-instant-v1 (id: abi:AIModel#b80eeb35-2d60-4858-90a6-15b96be39845)
+
+      '
+- class: cco:ont00000443
+  description: Naas is a company based in USA founded by Jeremy Ravenel, Florent Ravenel
+    & Maxime Jublou.
+  id: abi:ont00000443#naas.ai_inc.
+  name: Naas.ai Inc.
+  relations: []
+  style:
+    color: '#FFD580'
+    group: ABI
+    title: 'Naas.ai Inc. (id: abi:ont00000443#naas.ai_inc.)
+
+      '
+- class: abi:FeatureQuality
+  description: Adapts to various tasks with configurable settings.
+  id: abi:FeatureQuality#Flexibility
+  name: Flexibility
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Flexibility (id: abi:FeatureQuality#Flexibility)
+
+      '
+- class: abi:AIModel
+  description: Ideal for limited computational power and resources, edge devices,
+    and faster training times.
+  id: abi:AIModel#5d04a521-9c19-48cb-9350-cab63db26301
+  name: meta.llama3-8b-instruct-v1:0
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#meta
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/meta_100x100.jpg
+    shape: image
+    title: 'meta.llama3-8b-instruct-v1:0 (id: abi:AIModel#5d04a521-9c19-48cb-9350-cab63db26301)
+
+      '
+- class: abi:FeatureQuality
+  description: Supports importing and exporting data for analysis.
+  id: abi:FeatureQuality#DataIntegration
+  name: Data Integration
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Data Integration (id: abi:FeatureQuality#DataIntegration)
+
+      '
+- class: abi:FeatureQuality
+  description: Offers control over computational resources.
+  id: abi:FeatureQuality#ResourceManagement
+  name: Resource Management
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Resource Management (id: abi:FeatureQuality#ResourceManagement)
+
+      '
+- class: abi:Benefit
+  description: Empowers users with advanced capabilities for in-depth analysis.
+  id: abi:Benefit#EmpowermentBenefit
+  name: Empowers Users
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Empowers Users (id: abi:Benefit#EmpowermentBenefit)
+
+      '
+- class: abi:Benefit
+  description: Allows easy incorporation of Naas features into existing systems.
+  id: abi:Benefit#Integration
+  name: Seamless Integration
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Seamless Integration (id: abi:Benefit#Integration)
+
+      '
+- class: abi:AIModel
+  description: 128k context window (the equivalent of 300 pages of text in a single
+    prompt)
+  id: abi:AIModel#c6f0d70f-faa4-492f-81b7-4b6aba79e227
+  name: gpt-4-1106-preview
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#openai
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/openai_100x100.png
+    shape: image
+    title: 'gpt-4-1106-preview (id: abi:AIModel#c6f0d70f-faa4-492f-81b7-4b6aba79e227)
+
+      '
+- class: abi:AIModel
+  description: ' Generate descriptive images and words within images from short prompts'
+  id: abi:AIModel#4ff4a23e-548e-49da-a077-8c568882ab54
+  name: stability.stable-diffusion-xl-v1
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#stabilityai
+  style:
+    color: white
+    group: ABI
+    image: https://images.squarespace-cdn.com/content/v1/6213c340453c3f502425776e/eba39670-66c6-4921-bdb9-19dce66f0a46/sdxl+coverimage+milkyweights.png?format=2500w
+    shape: image
+    title: 'stability.stable-diffusion-xl-v1 (id: abi:AIModel#4ff4a23e-548e-49da-a077-8c568882ab54)
+
+      '
+- class: abi:Benefit
+  description: Customizable assistants tailored to specific tasks.
+  id: abi:Benefit#FlexibilityBenefit
+  name: Offers Flexibility
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Offers Flexibility (id: abi:Benefit#FlexibilityBenefit)
+
+      '
+- class: abi:Benefit
+  description: Reduces time spent searching for resources.
+  id: abi:Benefit#EfficiencyBenefit
+  name: Improves Efficiency
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Improves Efficiency (id: abi:Benefit#EfficiencyBenefit)
+
+      '
+- class: abi:FeatureQuality
+  description: Customize assistants with specific parameters.
+  id: abi:FeatureQuality#Personalization
+  name: Personalization
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Personalization (id: abi:FeatureQuality#Personalization)
+
+      '
+- class: abi:Benefit
+  description: Supports collaborative knowledge management and sharing.
+  id: abi:Benefit#CollaborationBenefit
+  name: Supports Collaboration
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Supports Collaboration (id: abi:Benefit#CollaborationBenefit)
+
+      '
+- class: abi:Benefit
+  description: Facilitates the organization and representation of complex data.
+  id: abi:Benefit#DataOrganizationBenefit
+  name: Facilitates Organization
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Facilitates Organization (id: abi:Benefit#DataOrganizationBenefit)
+
+      '
+- class: abi:AIModel
+  description: OpenAI Assistant
+  id: abi:AIModel#711fa8fa-b083-45d0-ad3b-3f725bb4a09a
+  name: openai/assistant-alpha
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#openai
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/openai_100x100.png
+    shape: image
+    title: 'openai/assistant-alpha (id: abi:AIModel#711fa8fa-b083-45d0-ad3b-3f725bb4a09a)
+
+      '
+- class: abi:AIModel
+  description: 4k context window, cost-effective model
+  id: abi:AIModel#507dbbc5-88a1-4bd7-8c35-28cea3faaf1f
+  name: gpt-4
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#openai
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/openai_100x100.png
+    shape: image
+    title: 'gpt-4 (id: abi:AIModel#507dbbc5-88a1-4bd7-8c35-28cea3faaf1f)
+
+      '
+- class: abi:FeatureQuality
+  description: Detailed API documentation for easy implementation and usage.
+  id: abi:FeatureQuality#Documentation
+  name: Comprehensive Documentation
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Comprehensive Documentation (id: abi:FeatureQuality#Documentation)
+
+      '
+- class: abi:Benefit
+  description: Facilitates automation of Naas platform interactions.
+  id: abi:Benefit#Automation
+  name: Automation
+  relations: []
+  style:
+    color: lightgrey
+    group: ABI
+    title: 'Automation (id: abi:Benefit#Automation)
+
+      '
+- class: abi:FeatureQuality
+  description: Allows users to filter results based on categories.
+  id: abi:FeatureQuality#FacetedSearch
+  name: Faceted Search
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Faceted Search (id: abi:FeatureQuality#FacetedSearch)
+
+      '
+- class: abi:FeatureQuality
+  description: Supports high-volume requests and large-scale operations.
+  id: abi:FeatureQuality#Scalability
+  name: Scalability
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Scalability (id: abi:FeatureQuality#Scalability)
+
+      '
+- class: abi:AIModel
+  description: Top-tier reasoning for high-complexity tasks.
+  id: abi:AIModel#08640523-8e24-4ec7-a491-5e1b72bc2f76
+  name: mistral.mistral-large-2402-v1:0
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#mistral
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/mistralai_100x100.jpg
+    shape: image
+    title: 'mistral.mistral-large-2402-v1:0 (id: abi:AIModel#08640523-8e24-4ec7-a491-5e1b72bc2f76)
+
+      '
+- class: abi:FeatureQuality
+  description: Allows creation of custom assistants by configuring parameters.
+  id: abi:FeatureQuality#CustomAssistantCreation
+  name: Custom Assistant Creation
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Custom Assistant Creation (id: abi:FeatureQuality#CustomAssistantCreation)
+
+      '
+- class: abi:AIModel
+  description: A 7B transformer model, fast-deployed and easily customisable. Small,
+    yet very powerful for a variety of use cases.
+  id: abi:AIModel#4132275e-2377-4d22-bd0e-db6cda2d3104
+  name: mistral.mistral-7b-instruct-v0:2
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#mistral
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/mistralai_100x100.jpg
+    shape: image
+    title: 'mistral.mistral-7b-instruct-v0:2 (id: abi:AIModel#4132275e-2377-4d22-bd0e-db6cda2d3104)
+
+      '
+- class: abi:FeatureQuality
+  description: Use multiple AI models to suit different needs.
+  id: abi:FeatureQuality#Versatility
+  name: Versatility
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Versatility (id: abi:FeatureQuality#Versatility)
+
+      '
+- class: abi:AIModel
+  description: None
+  id: abi:AIModel#d2fd72cf-d417-45e0-8388-c38dfb6113a2
+  name: anthropic.claude-3-5-sonnet-20240620-v1:0
+  relations:
+  - label: developed_by
+    to: abi:AIOrganization#anthropic
+  style:
+    color: white
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/anthropic_100x100.jpg
+    shape: image
+    title: 'anthropic.claude-3-5-sonnet-20240620-v1:0 (id: abi:AIModel#d2fd72cf-d417-45e0-8388-c38dfb6113a2)
+
+      '
+- class: abi:FeatureQuality
+  description: Provides tools for running complex simulations.
+  id: abi:FeatureQuality#AdvancedExperimentationTools
+  name: Advanced Experimentation Tools
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Advanced Experimentation Tools (id: abi:FeatureQuality#AdvancedExperimentationTools)
+
+      '
+- class: abi:AIOrganization
+  id: abi:AIOrganization#meta
+  name: Meta
+  relations: []
+  style:
+    color: '#eb2e9c'
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/meta_100x100.jpg
+    shape: image
+    title: 'Meta (id: abi:AIOrganization#meta)'
+- class: abi:AIOrganization
+  id: abi:AIOrganization#mistral
+  name: Mistral
+  relations: []
+  style:
+    color: '#eb2e9c'
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/mistralai_100x100.jpg
+    shape: image
+    title: 'Mistral (id: abi:AIOrganization#mistral)'
+- class: abi:FeatureQuality
+  description: Enables integration of Naas functionalities into external applications.
+  id: abi:FeatureQuality#Extensibility
+  name: Extensibility
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Extensibility (id: abi:FeatureQuality#Extensibility)
+
+      '
+- class: abi:FeatureQuality
+  description: Implements secure authentication and data protection measures.
+  id: abi:FeatureQuality#SecurityCompliance
+  name: Security Compliance
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Security Compliance (id: abi:FeatureQuality#SecurityCompliance)
+
+      '
+- class: abi:FeatureQuality
+  description: Provides instant responses and supports continuous dialogue.
+  id: abi:FeatureQuality#RealTimeInteraction
+  name: Real-time Interaction
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Real-time Interaction (id: abi:FeatureQuality#RealTimeInteraction)
+
+      '
+- class: abi:FeatureQuality
+  description: Streamlines workflows with personalized AI support.
+  id: abi:FeatureQuality#EnhancedProductivity
+  name: Enhanced Productivity
+  relations: []
+  style:
+    color: '#f2d91e'
+    group: ABI
+    title: 'Enhanced Productivity (id: abi:FeatureQuality#EnhancedProductivity)
+
+      '
+- class: abi:AIOrganization
+  id: abi:AIOrganization#anthropic
+  name: Anthropic
+  relations: []
+  style:
+    color: '#eb2e9c'
+    group: ABI
+    image: https://naasai-public.s3.eu-west-3.amazonaws.com/logos/anthropic_100x100.jpg
+    shape: image
+    title: 'Anthropic (id: abi:AIOrganization#anthropic)'
+prefixes:
+  abi: http://ontology.naas.ai/abi/
+  bfo: http://purl.obolibrary.org/obo/
+  cco: https://www.commoncoreontologies.org/
+  xsd: http://www.w3.org/2001/XMLSchema#

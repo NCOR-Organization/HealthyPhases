@@ -1,0 +1,512 @@
+classes:
+- definition: A disposition that represents the capacity for harmfulness or potential negative effects
+  example: The potential harm from addictive substances, negative behavioral patterns
+  id: obo:PHASES_0000001
+  name: harmfulness
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000016
+  style:
+    color: '#ff6b6b'
+    group: PHASES
+    title: 'harmfulness (id: obo:PHASES_0000001)
+
+      Definition: A disposition that represents the capacity for harmfulness or potential
+      negative effects
+
+      Examples: The potential harm from addictive substances, negative behavioral patterns
+
+      '
+
+- definition: A psychological state characterized by compulsive engagement in rewarding stimuli despite adverse consequences
+  example: Drug addiction, gambling addiction, behavioral addictions
+  id: obo:PHASES_0000002
+  name: addiction
+  relations:
+  - label: is_a
+    to: obo:MF_0000033
+  style:
+    color: '#ff6b6b'
+    group: PHASES
+    title: 'addiction (id: obo:PHASES_0000002)
+
+      Definition: A psychological state characterized by compulsive engagement in rewarding
+      stimuli despite adverse consequences
+
+      Examples: Drug addiction, gambling addiction, behavioral addictions
+
+      '
+
+- definition: A human developmental stage typically occurring from age 18 to 65, characterized by physical maturity and cognitive development
+  example: A 25-year-old individual, a 40-year-old parent
+  id: obo:PHASES_0000003
+  name: adult
+  relations:
+  - label: is_a
+    to: obo:MF_0000016
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'adult (id: obo:PHASES_0000003)
+
+      Definition: A human developmental stage typically occurring from age 18 to 65,
+      characterized by physical maturity and cognitive development
+
+      Examples: A 25-year-old individual, a 40-year-old parent
+
+      '
+
+- definition: A psychological state of positive affect related to the fulfillment of basic needs
+  example: Satisfaction from achieving personal goals, fulfillment from meaningful relationships
+  id: obo:PHASES_0000004
+  name: feeling of need satisfaction
+  relations:
+  - label: is_a
+    to: obo:MFOEM_000006
+  style:
+    color: '#45b7d1'
+    group: PHASES
+    title: 'feeling of need satisfaction (id: obo:PHASES_0000004)
+
+      Definition: A psychological state of positive affect related to the fulfillment
+      of basic needs
+
+      Examples: Satisfaction from achieving personal goals, fulfillment from meaningful
+      relationships
+
+      '
+
+- definition: A person's conception and expression of their individuality or group affiliations
+  example: Personal identity, professional identity, cultural identity
+  id: obo:PHASES_0000005
+  name: identity
+  relations:
+  - label: is_a
+    to: obo:MF_0000031
+  style:
+    color: '#96ceb4'
+    group: PHASES
+    title: 'identity (id: obo:PHASES_0000005)
+
+      Definition: A person''s conception and expression of their individuality or group
+      affiliations
+
+      Examples: Personal identity, professional identity, cultural identity
+
+      '
+
+- definition: An intense desire or longing for something, typically associated with addiction or dependency
+  example: Craving for substances, craving for specific behaviors
+  id: obo:PHASES_0000006
+  name: craving
+  relations:
+  - label: is_a
+    to: obo:MFOEM_000006
+  style:
+    color: '#ff6b6b'
+    group: PHASES
+    title: 'craving (id: obo:PHASES_0000006)
+
+      Definition: An intense desire or longing for something, typically associated
+      with addiction or dependency
+
+      Examples: Craving for substances, craving for specific behaviors
+
+      '
+
+- definition: A shared sense of identity and belonging within a collective
+  example: Team identity, cultural group identity, professional group identity
+  id: obo:PHASES_0000007
+  name: group identity
+  relations:
+  - label: is_a
+    to: obo:MF_0000016
+  style:
+    color: '#96ceb4'
+    group: PHASES
+    title: 'group identity (id: obo:PHASES_0000007)
+
+      Definition: A shared sense of identity and belonging within a collective
+
+      Examples: Team identity, cultural group identity, professional group identity
+
+      '
+
+- definition: A human developmental stage typically occurring from age 13 to 19, characterized by physical and psychological changes
+  example: A 15-year-old high school student, a 17-year-old preparing for college
+  id: obo:PHASES_0000008
+  name: teenager
+  relations:
+  - label: is_a
+    to: obo:PHASES_0000036
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'teenager (id: obo:PHASES_0000008)
+
+      Definition: A human developmental stage typically occurring from age 13 to 19,
+      characterized by physical and psychological changes
+
+      Examples: A 15-year-old high school student, a 17-year-old preparing for college
+
+      '
+
+- definition: Identity derived from membership in social groups and categories
+  example: Social class identity, ethnic identity, gender identity
+  id: obo:PHASES_0000009
+  name: social identity
+  relations:
+  - label: is_a
+    to: obo:BCIO_050300
+  style:
+    color: '#96ceb4'
+    group: PHASES
+    title: 'social identity (id: obo:PHASES_0000009)
+
+      Definition: Identity derived from membership in social groups and categories
+
+      Examples: Social class identity, ethnic identity, gender identity
+
+      '
+
+- definition: The intensity or severity of addictive behaviors or dependency
+  example: Mild addiction strength, severe addiction strength
+  id: obo:PHASES_0000010
+  name: addiction strength
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000019
+  style:
+    color: '#ff6b6b'
+    group: PHASES
+    title: 'addiction strength (id: obo:PHASES_0000010)
+
+      Definition: The intensity or severity of addictive behaviors or dependency
+
+      Examples: Mild addiction strength, severe addiction strength
+
+      '
+
+- definition: A structured intervention designed to promote positive behavioral change
+  example: Cognitive behavioral therapy, motivational interviewing, health education programs
+  id: obo:PHASES_0000011
+  name: behaviour change intervention
+  relations:
+  - label: is_a
+    to: obo:BFO_0000027
+  style:
+    color: '#feca57'
+    group: PHASES
+    title: 'behaviour change intervention (id: obo:PHASES_0000011)
+
+      Definition: A structured intervention designed to promote positive behavioral
+      change
+
+      Examples: Cognitive behavioral therapy, motivational interviewing, health education
+      programs
+
+      '
+
+- definition: The environmental or situational factors surrounding a behavior change intervention
+  example: Clinical setting, community environment, family context
+  id: obo:PHASES_0000012
+  name: behaviour change intervention context
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000015
+  style:
+    color: '#feca57'
+    group: PHASES
+    title: 'behaviour change intervention context (id: obo:PHASES_0000012)
+
+      Definition: The environmental or situational factors surrounding a behavior
+      change intervention
+
+      Examples: Clinical setting, community environment, family context
+
+      '
+
+- definition: The underlying processes by which behavior change interventions produce their effects
+  example: Cognitive mechanisms, social mechanisms, environmental mechanisms
+  id: obo:PHASES_0000013
+  name: behaviour change intervention mechanism of action
+  relations:
+  - label: is_a
+    to: obo:ENVO_01000254
+  style:
+    color: '#feca57'
+    group: PHASES
+    title: 'behaviour change intervention mechanism of action (id: obo:PHASES_0000013)
+
+      Definition: The underlying processes by which behavior change interventions
+      produce their effects
+
+      Examples: Cognitive mechanisms, social mechanisms, environmental mechanisms
+
+      '
+
+- definition: A cognitive skill or ability related to mental processes
+  example: Problem-solving skills, memory skills, attention skills
+  id: obo:PHASES_0000014
+  name: mental skill
+  relations:
+  - label: is_a
+    to: obo:MF_0000048
+  style:
+    color: '#a8e6cf'
+    group: PHASES
+    title: 'mental skill (id: obo:PHASES_0000014)
+
+      Definition: A cognitive skill or ability related to mental processes
+
+      Examples: Problem-solving skills, memory skills, attention skills
+
+      '
+
+- definition: The ability to monitor and control one's own behavior, thoughts, and emotions
+  example: Self-control, emotional regulation, behavioral inhibition
+  id: obo:PHASES_0000015
+  name: self-regulation capability
+  relations:
+  - label: is_a
+    to: obo:MF_0000048
+  style:
+    color: '#a8e6cf'
+    group: PHASES
+    title: 'self-regulation capability (id: obo:PHASES_0000015)
+
+      Definition: The ability to monitor and control one''s own behavior, thoughts,
+      and emotions
+
+      Examples: Self-control, emotional regulation, behavioral inhibition
+
+      '
+
+- definition: The ability to regulate and control behavioral responses
+  example: Impulse control, behavioral planning, response inhibition
+  id: obo:PHASES_0000016
+  name: behavioural self-regulation capability
+  relations:
+  - label: is_a
+    to: obo:BCIO_006005
+  style:
+    color: '#a8e6cf'
+    group: PHASES
+    title: 'behavioural self-regulation capability (id: obo:PHASES_0000016)
+
+      Definition: The ability to regulate and control behavioral responses
+
+      Examples: Impulse control, behavioral planning, response inhibition
+
+      '
+
+- definition: The ability to regulate and control cognitive processes
+  example: Attention control, cognitive flexibility, working memory control
+  id: obo:PHASES_0000017
+  name: cognitive self-regulation capability
+  relations:
+  - label: is_a
+    to: obo:BCIO_006005
+  style:
+    color: '#a8e6cf'
+    group: PHASES
+    title: 'cognitive self-regulation capability (id: obo:PHASES_0000017)
+
+      Definition: The ability to regulate and control cognitive processes
+
+      Examples: Attention control, cognitive flexibility, working memory control
+
+      '
+
+- definition: The ability to regulate and control emotional responses
+  example: Emotional awareness, emotional control, emotional expression regulation
+  id: obo:PHASES_0000018
+  name: emotional self-regulation capability
+  relations:
+  - label: is_a
+    to: obo:BCIO_006005
+  style:
+    color: '#a8e6cf'
+    group: PHASES
+    title: 'emotional self-regulation capability (id: obo:PHASES_0000018)
+
+      Definition: The ability to regulate and control emotional responses
+
+      Examples: Emotional awareness, emotional control, emotional expression regulation
+
+      '
+
+- definition: The capacity to perform physical behaviors and activities
+  example: Motor skills, physical strength, coordination
+  id: obo:PHASES_0000019
+  name: physical behavioural capability
+  relations:
+  - label: is_a
+    to: obo:BCIO_050215
+  style:
+    color: '#ffd93d'
+    group: PHASES
+    title: 'physical behavioural capability (id: obo:PHASES_0000019)
+
+      Definition: The capacity to perform physical behaviors and activities
+
+      Examples: Motor skills, physical strength, coordination
+
+      '
+
+- definition: A specific ability or expertise in physical activities
+  example: Athletic skills, manual dexterity, physical coordination
+  id: obo:PHASES_0000020
+  name: physical skill
+  relations:
+  - label: is_a
+    to: obo:BCIO_006009
+  style:
+    color: '#ffd93d'
+    group: PHASES
+    title: 'physical skill (id: obo:PHASES_0000020)
+
+      Definition: A specific ability or expertise in physical activities
+
+      Examples: Athletic skills, manual dexterity, physical coordination
+
+      '
+
+- definition: A life phase characterized by specific developmental, social, and psychological features
+  example: Childhood, adolescence, young adulthood, middle age, old age
+  id: obo:PHASES_0000036
+  name: life phase
+  relations:
+  - label: is_a
+    to: bfo:BFO_0000038
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'life phase (id: obo:PHASES_0000036)
+
+      Definition: A life phase characterized by specific developmental, social, and
+      psychological features
+
+      Examples: Childhood, adolescence, young adulthood, middle age, old age
+
+      '
+
+entities:
+- class: obo:PHASES_0000036
+  description: Early childhood phase from birth to approximately 5 years
+  id: obo:PHASES_0000016
+  name: early childhood
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'early childhood (id: obo:PHASES_0000016)'
+
+- class: obo:PHASES_0000036
+  description: Middle childhood phase from approximately 6 to 11 years
+  id: obo:PHASES_0000017
+  name: middle childhood
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'middle childhood (id: obo:PHASES_0000017)'
+
+- class: obo:PHASES_0000036
+  description: Late childhood phase from approximately 12 to 13 years
+  id: obo:PHASES_0000018
+  name: late childhood
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'late childhood (id: obo:PHASES_0000018)'
+
+- class: obo:PHASES_0000036
+  description: Young adulthood phase from approximately 18 to 30 years
+  id: obo:PHASES_0000020
+  name: young adulthood
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'young adulthood (id: obo:PHASES_0000020)'
+
+- class: obo:PHASES_0000036
+  description: Middle adulthood phase from approximately 30 to 65 years
+  id: obo:PHASES_0000034
+  name: middle adulthood
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'middle adulthood (id: obo:PHASES_0000034)'
+
+- class: obo:PHASES_0000036
+  description: Late adulthood phase from approximately 65 years and beyond
+  id: obo:PHASES_0000035
+  name: late adulthood
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'late adulthood (id: obo:PHASES_0000035)'
+
+- class: obo:PHASES_0000036
+  description: Infancy phase from birth to approximately 2 years
+  id: obo:PHASES_0000037
+  name: infancy
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'infancy (id: obo:PHASES_0000037)'
+
+- class: obo:PHASES_0000036
+  description: Prenatal phase from conception to birth
+  id: obo:PHASES_0000040
+  name: prenatal
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'prenatal (id: obo:PHASES_0000040)'
+
+- class: obo:PHASES_0000036
+  description: Elderly phase characterized by advanced age and associated changes
+  id: obo:PHASES_0000043
+  name: elderly
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'elderly (id: obo:PHASES_0000043)'
+
+- class: obo:PHASES_0000036
+  description: Very old age phase characterized by extreme longevity
+  id: obo:PHASES_0000044
+  name: very old
+  relations: []
+  style:
+    color: '#4ecdc4'
+    group: PHASES
+    title: 'very old (id: obo:PHASES_0000044)'
+
+prefixes:
+  obo: http://purl.obolibrary.org/obo/
+  bfo: http://purl.obolibrary.org/obo/
+  phases: http://purl.obolibrary.org/obo/phases.owl#
+  dc: http://purl.org/dc/elements/1.1/
+  owl: http://www.w3.org/2002/07/owl#
+  rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#
+  rdfs: http://www.w3.org/2000/01/rdf-schema#
+  xsd: http://www.w3.org/2001/XMLSchema#
+  schema: https://schema.org/
+  sssom: https://w3id.org/sssom/
+  terms: http://purl.org/dc/terms/
+  sdg: http://purl.unep.org/sdg/
+  xml: http://www.w3.org/XML/1998/namespace
+  protege: http://protege.stanford.edu/plugins/owl/protege#
+  oboInOwl: http://www.geneontology.org/formats/oboInOwl#
+  Property: https://www.wikidata.org/wiki/Property:
+  owlready_ontology: http://www.lesfleursdunormal.fr/static/_downloads/owlready_ontology.owl# 

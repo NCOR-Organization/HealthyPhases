@@ -7,7 +7,7 @@ export default function ResearchAreasSection() {
     {
       title: 'Solitude & Loneliness',
       description: 'Investigating the distinct experiences of solitude, loneliness, and social isolation and their impacts on health and well-being.',
-      link: '/docs/research/aims#aim-1-ontology-development'
+      link: '/docs/research/aims'
     },
     {
       title: 'Gerotranscendence',
@@ -17,22 +17,22 @@ export default function ResearchAreasSection() {
     {
       title: 'Ontology Development',
       description: 'Creating formal representations of knowledge to standardize terminology and relationships in solitude and aging research.',
-      link: '/docs/research/ontology-development'
+      link: '/docs/resources/ontology-development'
     },
     {
       title: 'Common Data Model',
       description: 'Designing standardized frameworks for collecting, representing, and sharing data on solitude and gerotranscendence.',
-      link: '/wiki/common-data-model'
+      link: '/docs/research/common-data-model'
     },
     {
       title: 'Semantic Enrichment',
       description: 'Enhancing research data with structured, machine-interpretable annotations to enable integration and discovery.',
-      link: '/wiki/semantic-enrichment'
+      link: '/docs/resources/semantic-enrichment'
     },
     {
       title: 'Knowledge Graphs',
       description: 'Building semantic networks that represent entities and relationships to support querying, inference, and discovery.',
-      link: '/wiki/knowledge-graph'
+      link: '/docs/research/knowledge-graph'
     }
   ];
 
@@ -86,7 +86,7 @@ export default function ResearchAreasSection() {
 
         <div className={styles.viewAllContainer}>
           <Link
-            to="/docs/research/areas"
+            to="/docs/research/aims"
             className={styles.viewAllButton}
           >
             View Research Areas{' '}

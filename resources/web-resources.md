@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 6
 title: Web Resources
 description: Online tools and resources for solitude and gerotranscendence research
 ---
