@@ -116,7 +116,7 @@ function ChatContainer() {
       
       const errorMessage = {
         id: (Date.now() + 1).toString(),
-        content: 'I apologize, but I encountered an error. Please try again.',
+        content: 'I apologize, but I encountered an error. Please try again later.',
         timestamp: new Date().toISOString(),
         role: 'assistant',
       };
