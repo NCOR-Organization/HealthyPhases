@@ -1234,7 +1234,7 @@ wheels = [
 
 [[package]]
 name = "naas-abi-core"
-version = "1.1.0"
+version = "1.1.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "click" },
@@ -1263,9 +1263,9 @@ dependencies = [
     { name = "starlette" },
     { name = "types-tqdm" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/98/44/69f470b8a55d80b0066919e0fdd2ae6baf5779f5b923c6f87b083504aee5/naas_abi_core-1.1.0.tar.gz", hash = "sha256:6683dc0e1d3aaa46e8c445efff496836f05b3cb67c80721c7166fb5774937072", size = 153139, upload-time = "2025-12-05T17:02:53.503Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/8c/39db37eb0694f6e120ce648345190b414aab36cfff031bd6a285b75df90a/naas_abi_core-1.1.1.tar.gz", hash = "sha256:5242208bcb7316ad6a4b9ee585815b4e450691a0f30196ad198e356da7ce7c1b", size = 153120, upload-time = "2025-12-05T17:16:15.62Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/9f/02/c6780803056c3d39a2c8f70964b214d4b93997e7160186ddfb2f58c80892/naas_abi_core-1.1.0-py3-none-any.whl", hash = "sha256:21a76458ee8181b4eae23a4293872341c9824201602a203ce8be09c517996ab5", size = 203939, upload-time = "2025-12-05T17:02:51.959Z" },
+    { url = "https://files.pythonhosted.org/packages/b4/3c/e5d787839959d463e559da661f45706ba563c978c36c022cdd2b5a0774f3/naas_abi_core-1.1.1-py3-none-any.whl", hash = "sha256:d12f7b3087a63d8a2850f683458530898840f10b628aa0f925be94f4e09b0846", size = 203917, upload-time = "2025-12-05T17:16:14.348Z" },
 ]
 
 [package.optional-dependencies]
