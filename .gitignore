@@ -11,3 +11,7 @@ build
 .vscode
 .yarn
 .yarnrc
+.mypy_cache
+*.pyc
+__pycache__
+abi/storage
