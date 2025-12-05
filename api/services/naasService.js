@@ -16,7 +16,8 @@ export async function generateResponse(message, onChunk = null, threadId = 123) 
   };
 
   try {
-    const response = await fetch("https://abi-healthyphases-api.default.space.naas.ai/agents/elo/completion", requestOptions);
+    // const response = await fetch("https://abi-healthyphases-api.default.space.naas.ai/agents/elo/completion", requestOptions);
+    const response = await fetch("https://healthy-phases.default.space.naas.ai/agents/elo/completion", requestOptions);
     
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
