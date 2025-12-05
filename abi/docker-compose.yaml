@@ -1,0 +1,9 @@
+services:
+  abi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 9879:9879
+    env_file:
+      - .env

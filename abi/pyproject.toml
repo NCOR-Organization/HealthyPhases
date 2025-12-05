@@ -1,0 +1,22 @@
+[project]
+name = "abi-phases"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "langchain-google-genai>=3.2.0",
+    "naas-abi>=1.0.5",
+    "naas-abi-core[qdrant]>=1.0.6",
+    "naas-abi-marketplace[applications-pubmed,ai-chatgpt]>=1.0.6",
+]
+
+# The [script] section is not valid for pyproject.toml and should be removed.
+[project.scripts]
+cli = "naas_abi_core.cli:main"
+
+[tool.uv.sources]
+# naas-abi = { path = "libs/naas-abi" , editable = true }
+# naas-abi-core = { path = "abi/libs/naas-abi-core" , editable = true }
+# naas-abi-marketplace = { path = "abi/libs/naas-abi-marketplace" , editable = true }
+
