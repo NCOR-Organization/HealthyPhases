@@ -15,3 +15,4 @@ build
 *.pyc
 __pycache__
 abi/storage
+.venv
