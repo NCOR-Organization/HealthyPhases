@@ -25,6 +25,8 @@ jobs:
       - name: Deploy
         env:
           NAAS_API_KEY: ${{ secrets.NAAS_API_KEY }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
             cd abi
             uv sync --no-dev
