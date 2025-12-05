@@ -30,5 +30,5 @@ jobs:
         run: |
             cd abi
             uv sync --no-dev
-            uv run python -m naas_abi_core.cli deploy naas -e GOOGLE_API_KEY=$GOOGLE_API_KEY -e OPENAI_API_KEY=$OPENAI_API_KEY -e NAAS_API_KEY=$NAAS_API_KEY
+            uv run python -m naas_abi_core.cli deploy naas
 
