@@ -1,6 +1,6 @@
 deploy:
   workspace_id: "1234567890"
-  space_name: "abi-phases"
+  space_name: "healthy-phases"
   naas_api_key: "{{ secret.NAAS_API_KEY }}"
 
 auto_publish:
