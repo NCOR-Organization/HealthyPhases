@@ -29,13 +29,11 @@ global_config:
 modules:
   - module: naas_abi
     enabled: true
-    config:
-      openai_api_key: "{{ secret.OPENAI_API_KEY }}"
   - module: naas_abi_marketplace.ai.chatgpt
     enabled: true
     config:
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
-  - module: naas_abi_core.modules.templatablesparqlquery
+  - module: naas_abi_marketplace.domains.inbox
     enabled: true
   - module: abi_phases.phases
     enabled: true

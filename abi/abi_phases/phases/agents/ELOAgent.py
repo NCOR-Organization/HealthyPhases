@@ -3,8 +3,10 @@ from naas_abi_core.services.agent.IntentAgent import IntentAgent, Intent, Intent
 from fastapi import APIRouter
 
 from abi_phases.phases import ABIModule
-from abi_phases.phases.models.google_gemini_2_0_flash import model as gemini_model
+# from abi_phases.phases.models.google_gemini_2_0_flash import model as gemini_model
+from langchain_openai import ChatOpenAI
 from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import PubMedAgent
+from naas_abi_marketplace.domains.inbox.agents.InboxAgent import InboxAgent
 #from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import create_agent as pubmed_create_agent
 
 with open("abi_phases/phases/ontologies/phases.ttl", "r") as f:
@@ -70,16 +72,19 @@ paper and research:
         pubmed_agent = [agent for agent in pubmed_agents if agent is PubMedAgent]
         assert len(pubmed_agent) == 1, "Only one PubMed agent is allowed {} found".format(len(pubmed_agent))
         pubmed_agent = pubmed_agent[0]
+        inbox_agent = next(agent for agent in module.engine.modules["naas_abi_marketplace.domains.inbox"].agents if agent is InboxAgent)
 
         return ELOAgent(
             name=NAME,
             description="ELO is a agent that can help you with your research on healthy aging and gerotranscendence",
-            chat_model=gemini_model(),
-            agents=[pubmed_agent.New()],
+            # chat_model=gemini_model(),
+            chat_model=ChatOpenAI(model="gpt-4.1"),
+            agents=[pubmed_agent.New(), inbox_agent.New()],
             intents=[
-                Intent(intent_type=IntentType.AGENT, intent_value="get a paper", intent_target="pubmed"),
-                Intent(intent_type=IntentType.AGENT, intent_value="paper about", intent_target="pubmed"),
-                Intent(intent_type=IntentType.AGENT, intent_value="last research", intent_target="pubmed"),
+                Intent(intent_type=IntentType.AGENT, intent_value="get a paper", intent_target="PubMedAgent"),
+                Intent(intent_type=IntentType.AGENT, intent_value="paper about", intent_target="PubMedAgent"),
+                Intent(intent_type=IntentType.AGENT, intent_value="last research", intent_target="PubMedAgent"),
+                Intent(intent_type=IntentType.AGENT, intent_value="download", intent_target="PubMedAgent"),
                 
             ],
             state=AgentSharedState(thread_id="0", supervisor_agent=NAME),

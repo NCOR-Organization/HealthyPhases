@@ -7,6 +7,6 @@ class PhasesConfiguration(ModuleConfiguration):
 class ABIModule(BaseModule[PhasesConfiguration]):
     Configuration = PhasesConfiguration
     dependencies: ModuleDependencies = ModuleDependencies(
-        modules=["naas_abi_marketplace.applications.pubmed"],
+        modules=["naas_abi_marketplace.applications.pubmed", "naas_abi_marketplace.ai.chatgpt", "naas_abi_marketplace.domains.inbox"],
         services=[],
     )
