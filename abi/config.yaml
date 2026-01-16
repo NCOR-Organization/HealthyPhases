@@ -33,8 +33,8 @@ modules:
     enabled: true
     config:
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
-  - module: naas_abi_marketplace.domains.inbox
-    enabled: true
+  # - module: naas_abi_marketplace.domains.inbox
+  #   enabled: true
   - module: abi_phases.phases
     enabled: true
     config:
@@ -54,9 +54,9 @@ services:
         base_path: "storage/object_store"
   triple_store:
     triple_store_adapter:
-      adapter: "fs"
+      adapter: "oxigraph"
       config:
-        store_path: "storage/triplestore"
+        oxigraph_url: "http://localhost:7878"
   vector_store:
     vector_store_adapter:
       adapter: "qdrant"
