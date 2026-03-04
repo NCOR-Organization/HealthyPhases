@@ -16,3 +16,7 @@ build
 __pycache__
 abi/storage
 .venv
+*.pdf
+*.csv
+oa_*.txt
+abi/abi

@@ -31,6 +31,11 @@ phases-doc:LexicalOccurrence rdf:type owl:Class ;
   rdfs:label "lexical occurrence"@en ;
   rdfs:comment "An observation that a lexical form (e.g., rdfs:label / skos:prefLabel) of an ontology entity appears in a Chunk text."@en .
 
+phases-doc:EmbeddingOccurrence rdf:type owl:Class ;
+  rdfs:subClassOf obo:BFO_0000031 ;
+  rdfs:label "embedding occurrence"@en ;
+  rdfs:comment "An observation that a vector embedding of an ontology entity appears in a Chunk text."@en .
+
 #################################################################
 #    Object Properties
 #################################################################
@@ -48,25 +53,53 @@ phases-doc:chunk_of rdf:type owl:ObjectProperty ;
   rdfs:label "chunk of"@en ;
   rdfs:comment "Relates a chunk to the PDF paper file it is a chunk of."@en .
 
+# Lexical occurrences
+
 phases-doc:has_lexical_occurrence rdf:type owl:ObjectProperty ;
   rdfs:domain phases-doc:Chunk ;
   rdfs:range phases-doc:LexicalOccurrence ;
-  owl:inverseOf phases-doc:occurs_in_chunk ;
+  owl:inverseOf phases-doc:lexical_occurrence_in_chunk ;
   rdfs:label "has lexical occurrence"@en ;
   rdfs:comment "Relates a Chunk to a lexical occurrence (mention) detected within its text."@en .
 
-phases-doc:occurs_in_chunk rdf:type owl:ObjectProperty ;
+phases-doc:lexical_occurrence_in_chunk rdf:type owl:ObjectProperty ;
   rdfs:domain phases-doc:LexicalOccurrence ;
   rdfs:range phases-doc:Chunk ;
-  rdfs:label "occurs in chunk"@en ;
-  skos:prefLabel "occurs_in"@en ;
+  owl:inverseOf phases-doc:has_lexical_occurrence ;
+  rdfs:label "lexical occurrence in chunk"@en ;
+  skos:prefLabel "lexical_occurrence_in_chunk"@en ;
   rdfs:comment "Relates a lexical occurrence (mention) to the Chunk it was detected in."@en .
 
-phases-doc:occurrence_of rdf:type owl:ObjectProperty ;
+phases-doc:lexical_occurrence_of rdf:type owl:ObjectProperty ;
   rdfs:domain phases-doc:LexicalOccurrence ;
   rdfs:range owl:Class ;
-  rdfs:label "occurrence of"@en ;
+  rdfs:label "lexical occurrence of"@en ;
   rdfs:comment "The ontology class whose label/prefLabel was matched in the chunk."@en .
+
+# Embedding occurrences
+
+phases-doc:has_embedding_occurrence rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:Chunk ;
+  rdfs:range phases-doc:EmbeddingOccurrence ;
+  owl:inverseOf phases-doc:embedding_occurrence_in_chunk ;
+  rdfs:label "has embedding occurrence"@en ;
+  rdfs:comment "Relates a Chunk to an embedding occurrence (mention) detected within its text."@en .
+
+phases-doc:embedding_occurrence_in_chunk rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:EmbeddingOccurrence ;
+  rdfs:range phases-doc:Chunk ;
+  owl:inverseOf phases-doc:has_embedding_occurrence ;
+  rdfs:label "embedding occurrence in chunk"@en ;
+  skos:prefLabel "embedding_occurrence_in_chunk"@en ;
+  rdfs:comment "Relates an embedding occurrence (mention) to the Chunk it was detected in."@en .
+
+phases-doc:embedding_occurrence_of rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:EmbeddingOccurrence ;
+  rdfs:range owl:Class ;
+  rdfs:label "embedding occurrence of"@en ;
+  skos:prefLabel "embedding_occurrence_of"@en ;
+  rdfs:comment "The ontology class whose embedding was matched in the chunk."@en .
+
 
 #################################################################
 #    Datatype Properties
@@ -121,13 +154,13 @@ phases-doc:text rdf:type owl:DatatypeProperty ;
   rdfs:comment "Text content for the chunk (the source text used to produce the vector embedding)."@en .
 
 phases-doc:matched_text rdf:type owl:DatatypeProperty ;
-  rdfs:domain phases-doc:LexicalOccurrence ;
+  rdfs:domain phases-doc:LexicalOccurrence,phases-doc:EmbeddingOccurrence ;
   rdfs:range xsd:string ;
   rdfs:label "matched text"@en ;
   rdfs:comment "The surface form (string) that was matched in the chunk text."@en .
 
 phases-doc:matched_predicate rdf:type owl:DatatypeProperty ;
-  rdfs:domain phases-doc:LexicalOccurrence ;
+  rdfs:domain phases-doc:LexicalOccurrence,phases-doc:EmbeddingOccurrence ;
   rdfs:range xsd:anyURI ;
   rdfs:label "matched predicate"@en ;
   rdfs:comment "The annotation predicate that provided the matched string (e.g., skos:prefLabel or rdfs:label)."@en .
@@ -200,13 +233,13 @@ phases-doc:ChunkShape rdf:type sh:NodeShape ;
 phases-doc:LexicalOccurrenceShape rdf:type sh:NodeShape ;
   sh:targetClass phases-doc:LexicalOccurrence ;
   sh:property [
-    sh:path phases-doc:occurs_in_chunk ;
+    sh:path phases-doc:lexical_occurrence_in_chunk ;
     sh:class phases-doc:Chunk ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
   ] ;
   sh:property [
-    sh:path phases-doc:occurrence_of ;
+    sh:path phases-doc:lexical_occurrence_of ;
     sh:nodeKind sh:IRI ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
@@ -219,6 +252,34 @@ phases-doc:LexicalOccurrenceShape rdf:type sh:NodeShape ;
   sh:property [
     sh:path phases-doc:matched_predicate ;
     sh:datatype xsd:anyURI ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
   ] ;
   rdfs:label "Lexical occurrence shape"@en .
 
+phases-doc:EmbeddingOccurrenceShape rdf:type sh:NodeShape ;
+  sh:targetClass phases-doc:EmbeddingOccurrence ;
+  sh:property [
+    sh:path phases-doc:embedding_occurrence_in_chunk ;
+    sh:class phases-doc:Chunk ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:embedding_occurrence_of ;
+    sh:nodeKind sh:IRI ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:matched_text ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:matched_predicate ;
+    sh:datatype xsd:anyURI ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  rdfs:label "Embedding occurrence shape"@en .

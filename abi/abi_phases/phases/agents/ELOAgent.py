@@ -1,14 +1,18 @@
 from naas_abi_core.services.agent.Agent import AgentConfiguration, AgentSharedState
 from naas_abi_core.services.agent.IntentAgent import IntentAgent, Intent, IntentType
 from fastapi import APIRouter
-
+from langchain_core.tools import tool
 from abi_phases.phases import ABIModule
+
 # from abi_phases.phases.models.google_gemini_2_0_flash import model as gemini_model
 from langchain_openai import ChatOpenAI
 from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import PubMedAgent
+
 # from naas_abi_marketplace.domains.inbox.agents.InboxAgent import InboxAgent
-#from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import create_agent as pubmed_create_agent
+# from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import create_agent as pubmed_create_agent
 import rdflib
+
+from abi_phases.phases.utils import embed_text
 
 with open("abi_phases/phases/ontologies/phases.owl", "r") as f:
     ontology = f.read()
@@ -16,11 +20,55 @@ with open("abi_phases/phases/ontologies/phases.owl", "r") as f:
 ontology = rdflib.Graph().parse(data=ontology, format="xml").serialize(format="turtle")
 
 NAME = "ELO"
+
+
+@tool(description="Search docbase using a prompt", return_direct=False)
+def search_docbase_by_prompt(prompt: str) -> list:
+    if not prompt or not prompt.strip():
+        return []
+
+    module: ABIModule = ABIModule.get_instance()
+    vector_store = module.engine.services.vector_store
+
+    chunks, embeddings = embed_text(prompt)
+
+    if not chunks or not embeddings:
+        return []
+
+    embedding = embeddings[0]
+
+    results = vector_store.search_similar("papers", embedding, k=10)
+
+    ids = [result.id for result in results]
+
+    if not ids:
+        return []
+
+    id_filters = " || ".join(
+        [f"CONTAINS(?chunk_id, {rdflib.Literal(id_).n3()})" for id_ in ids]
+    )
+
+    rows = module.engine.services.triple_store.query(f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
+SELECT ?chunk ?chunk_id ?pdf_paper_file ?path ?text WHERE {{
+?chunk a phases-doc:Chunk ;
+phases-doc:text ?text ;
+phases-doc:chunk_of ?pdf_paper_file ;
+phases-doc:chunk_id ?chunk_id .
+?pdf_paper_file phases-doc:path ?path .
+FILTER({id_filters})
+}}""")
+
+    return list(rows)
+
+
+# @tool(description="Get pdf_paper_file content", return_direct=False)
+# def get_pdf_paper_file_content(pdf_paper_file: str) -> str:
+#     module : ABIModule = ABIModule.get_instance()
+#     object_storage = module.engine.services.object_storage
+#     return object_storage.get_object(pdf_paper_file)
+
+
 class ELOAgent(IntentAgent):
-    
-    
-    
-    
     DEFAULT_SYSTEM_PROMPT = """
 name: ELO role: Ontology-Aware AI Assistant for Healthy Aging Research purpose: To assist researchers, developers, and stakeholders in exploring, analyzing, and enriching data on solitude and gerotranscendence using formal ontologies and semantic technologies. personality: Thoughtful, insightful, grounded in science, collaborative, and precise.
 
@@ -62,18 +110,18 @@ memory:
     Maintain awareness of prior concepts introduced during the conversation
     Track user preferences for output formats (e.g., YAML, Turtle, Markdown)
 
-
-paper and research:
-    If user asks about getting a paper or research information, you must call the pubmed agent.
-
     """
-    
+
     @staticmethod
     def new():
-        module : ABIModule = ABIModule.get_instance()
-        pubmed_agents = module.engine.modules["naas_abi_marketplace.applications.pubmed"].agents
+        module: ABIModule = ABIModule.get_instance()
+        pubmed_agents = module.engine.modules[
+            "naas_abi_marketplace.applications.pubmed"
+        ].agents
         pubmed_agent = [agent for agent in pubmed_agents if agent is PubMedAgent]
-        assert len(pubmed_agent) == 1, "Only one PubMed agent is allowed {} found".format(len(pubmed_agent))
+        assert len(pubmed_agent) == 1, (
+            "Only one PubMed agent is allowed {} found".format(len(pubmed_agent))
+        )
         pubmed_agent = pubmed_agent[0]
         # inbox_agent = next(agent for agent in module.engine.modules["naas_abi_marketplace.domains.inbox"].agents if agent is InboxAgent)
 
@@ -81,23 +129,25 @@ paper and research:
             name=NAME,
             description="ELO is a agent that can help you with your research on healthy aging and gerotranscendence",
             # chat_model=gemini_model(),
-            chat_model=ChatOpenAI(model="gpt-4.1"),
+            chat_model=ChatOpenAI(model="gpt-5"),
             agents=[pubmed_agent.New()],
+            tools=[search_docbase_by_prompt],
             intents=[
-                Intent(intent_type=IntentType.AGENT, intent_value="get a paper", intent_target="PubMedAgent"),
-                Intent(intent_type=IntentType.AGENT, intent_value="paper about", intent_target="PubMedAgent"),
-                Intent(intent_type=IntentType.AGENT, intent_value="last research", intent_target="PubMedAgent"),
-                Intent(intent_type=IntentType.AGENT, intent_value="download", intent_target="PubMedAgent"),
-                
+                # Intent(intent_type=IntentType.AGENT, intent_value="get a paper", intent_target="PubMedAgent"),
+                # Intent(intent_type=IntentType.AGENT, intent_value="paper about", intent_target="PubMedAgent"),
+                # Intent(intent_type=IntentType.AGENT, intent_value="last research", intent_target="PubMedAgent"),
+                # Intent(intent_type=IntentType.AGENT, intent_value="download", intent_target="PubMedAgent"),
             ],
             state=AgentSharedState(thread_id="0", supervisor_agent=NAME),
             configuration=AgentConfiguration(
                 system_prompt=ELOAgent.DEFAULT_SYSTEM_PROMPT.format(ontology=ontology),
             ),
         )
-    
+
     def as_api(self, router: APIRouter):
-        super().as_api(router, route_name="elo", name="ELOAgent", description=self._description)
-        
-        
+        super().as_api(
+            router, route_name="elo", name="ELOAgent", description=self._description
+        )
+
+
 create_agent = ELOAgent.new

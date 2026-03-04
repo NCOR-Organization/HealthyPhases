@@ -5,9 +5,15 @@ from glob import glob
 from naas_abi_core import logger
 
 from abi_phases.phases import ABIModule
-from naas_abi_core.workflow.workflow import Workflow, WorkflowConfiguration, WorkflowParameters
-from naas_abi_core.services.object_storage.ObjectStoragePort import Exceptions as ObjectStorageExceptions
-
+from naas_abi_core.workflow.workflow import (
+    Workflow,
+    WorkflowConfiguration,
+    WorkflowParameters,
+)
+from naas_abi_core.services.object_storage.ObjectStoragePort import (
+    Exceptions as ObjectStorageExceptions,
+)
+from naas_abi_core.services.vector_store.IVectorStorePort import SearchResult
 import pymupdf.layout
 import pymupdf4llm
 import pathlib
@@ -18,48 +24,62 @@ import hashlib
 import datetime
 import rdflib
 
+from abi_phases.phases.utils import embed_text
 
-from abi_phases.phases.ontologies.documents import PDFPaperFile, Chunk, LexicalOccurrence, RDFEntity
+
+from abi_phases.phases.ontologies.documents import (
+    PDFPaperFile,
+    Chunk,
+    LexicalOccurrence,
+    EmbeddingOccurrence,
+    RDFEntity,
+)
+
 
 class PapersIngestionWorkflowConfiguration(WorkflowConfiguration):
     storage_path: str = "papers"
+
 
 class PapersIngestionWorkflowParameters(WorkflowParameters):
     paths: list[str]
     ontology_path: str
 
+
 class PapersIngestionWorkflow(Workflow[PapersIngestionWorkflowParameters]):
-    
     module: ABIModule
-    
+
     def __init__(self, configuration: PapersIngestionWorkflowConfiguration):
         super().__init__(configuration)
         self.__configuration = configuration
-        
+
         self.module = ABIModule.get_instance()
 
     def _pdf_path_to_key(self, path: str) -> str:
-        return f'{path.split("/")[-1]}.md'
+        return f"{path.split('/')[-1]}.md"
 
     def pdfs_to_markdown(self, parameters: PapersIngestionWorkflowParameters):
         try:
-            existing_papers = self.module.engine.services.object_storage.list_objects(self.__configuration.storage_path)
+            existing_papers = self.module.engine.services.object_storage.list_objects(
+                self.__configuration.storage_path
+            )
             logger.debug(f"Existing papers: {existing_papers}")
         except ObjectStorageExceptions.ObjectNotFound:
             logger.debug("No existing papers found")
             existing_papers = []
-        
+
         for path in parameters.paths:
             key = self._pdf_path_to_key(path)
-            
+
             if any(key in paper for paper in existing_papers):
                 logger.debug(f"Paper {key} already exists")
                 continue
-            
+
             doc = pymupdf.open(path)
             md = pymupdf4llm.to_markdown(doc)
-            pathlib.Path(f'{path}.md').write_bytes(md.encode())
-            self.module.engine.services.object_storage.put_object(self.__configuration.storage_path, key, md.encode())
+            pathlib.Path(f"{path}.md").write_bytes(md.encode())
+            self.module.engine.services.object_storage.put_object(
+                self.__configuration.storage_path, key, md.encode()
+            )
 
     def markdowns_to_vectors(self, parameters: PapersIngestionWorkflowParameters):
         print(f"Markdowns to vectors: {parameters}")
@@ -69,66 +89,37 @@ class PapersIngestionWorkflow(Workflow[PapersIngestionWorkflowParameters]):
             query = f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
 SELECT ?pdf_paper_file ?id WHERE {{ ?pdf_paper_file a phases-doc:PDFPaperFile ; phases-doc:path {rdflib.Literal(path).n3()}  . }}"""
 
-
-
-
             pdf_paper_file = self.module.engine.services.triple_store.query(query)
-            
+
             if len(list(pdf_paper_file)) > 0:
                 logger.debug(f"PDFPaperFile for {path} already exists")
                 continue
             else:
                 logger.debug(f"PDFPaperFile {path} not found")
-            
+
             key = self._pdf_path_to_key(path)
-            md = self.module.engine.services.object_storage.get_object(self.__configuration.storage_path, key).decode("utf-8")
-            
-            CHUNK_SIZE = 512
-            OVERLAP = 128
-            
-            # We need to compute embeddings for the markdown chunks.
-            # Split the markdown into overlapping chunks
-            def split_to_overlapping_chunks(text: str, chunk_size: int = 512, overlap: int = 128) -> list[str]:
-                tokens = text.split()
-                chunks = []
-                start = 0
-                while start < len(tokens):
-                    end = start + chunk_size
-                    chunk = " ".join(tokens[start:end])
-                    chunks.append(chunk)
-                    if end >= len(tokens):
-                        break
-                    start += chunk_size - overlap
-                return chunks
+            md = self.module.engine.services.object_storage.get_object(
+                self.__configuration.storage_path, key
+            ).decode("utf-8")
 
+            chunks, embeddings = embed_text(md)
 
-
-            chunks: list[str] = split_to_overlapping_chunks(md, chunk_size=CHUNK_SIZE, overlap=OVERLAP)
-            
-            
-            # We need to compute the embeddings for the chunks.
-            def compute_embeddings(chunks: list[str], chunk_size: int = 512, overlap: int = 128) -> list[np.ndarray]:
-                from langchain_openai import OpenAIEmbeddings
-                embeddings = OpenAIEmbeddings(model="text-embedding-3-large", dimensions=3072)
-                return [np.array(embedding) for embedding in embeddings.embed_documents(chunks)]
-            
-            embeddings: list[np.ndarray] = compute_embeddings(chunks, chunk_size=CHUNK_SIZE, overlap=OVERLAP)
-            
             # We need to make sure the vector store has a collection.
-            self.module.engine.services.vector_store.ensure_collection(collection_name="papers", dimension=3072)
-            
-        
-            graph : rdflib.Graph = rdflib.Graph()
-            
+            self.module.engine.services.vector_store.ensure_collection(
+                collection_name="papers", dimension=3072
+            )
+
+            graph: rdflib.Graph = rdflib.Graph()
+
             pdf_paper_file = PDFPaperFile(
                 pdfpaperfile_id=str(uuid.uuid4()),
                 path=path,
                 pdf_hash=hashlib.sha256(md.encode()).hexdigest(),
-                creation_time=datetime.datetime.now()
+                creation_time=datetime.datetime.now(),
             )
-            
+
             graph += pdf_paper_file.rdf()
-            
+
             chunk_entities: list[Chunk] = []
             for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
                 chunk_entity = Chunk(
@@ -136,26 +127,32 @@ SELECT ?pdf_paper_file ?id WHERE {{ ?pdf_paper_file a phases-doc:PDFPaperFile ; 
                     chunk_number=i,
                     chunk_hash=hashlib.sha256(chunk.encode()).hexdigest(),
                     text=chunk,
-                    chunk_of=pdf_paper_file
+                    chunk_of=pdf_paper_file,
                 )
                 chunk_entities.append(chunk_entity)
-                
+
                 graph += chunk_entity.rdf()
-            
+
             logger.debug("Inserting graph")
             self.module.engine.services.triple_store.insert(graph)
             logger.debug("Graph inserted")
-            
-            # We need to store the embeddings in the vector store.
-            self.module.engine.services.vector_store.add_documents("papers", [chunk_entity.chunk_id for chunk_entity in chunk_entities], embeddings)
 
-    def ontology_label(self, parameters: PapersIngestionWorkflowParameters):
+            # We need to store the embeddings in the vector store.
+            self.module.engine.services.vector_store.add_documents(
+                "papers",
+                [chunk_entity.chunk_id for chunk_entity in chunk_entities],
+                embeddings,
+            )
+
+    def find_lexical_occurrences(self, parameters: PapersIngestionWorkflowParameters):
         ontology = rdflib.Graph()
         ontology.parse(parameters.ontology_path, format="xml")
-        
+
+        # We query all subject, label and prefLabel of all classes in the ontology.
         rows = ontology.query("""PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
 PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
 PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
 
 SELECT ?s ?label ?prefLabel WHERE {
@@ -164,13 +161,13 @@ SELECT ?s ?label ?prefLabel WHERE {
     OPTIONAL { ?s skos:prefLabel ?prefLabel }
     
     # ?s starts with http://purl.obolibrary.org/obo/PHASES_
-    # FILTER(STRSTARTS(STR(?s), "http://purl.obolibrary.org/obo/PHASES_"))
+    FILTER(STRSTARTS(STR(?s), "http://purl.obolibrary.org/obo/PHASES_"))
 }
 
 """)
-        
+
         findings = rdflib.Graph()
-        
+
         for row in rows:
             subject, label, prefLabel = row
             if prefLabel:
@@ -186,8 +183,8 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path WHERE {{
     # Only keep chunks where this ontology term isn't already linked via an existing LexicalOccurrence
     FILTER NOT EXISTS {{
         ?lex_occ a phases-doc:LexicalOccurrence ;
-            phases-doc:occurs_in_chunk ?chunk ;
-            phases-doc:occurrence_of <{subject}> .
+            phases-doc:lexical_occurrence_in_chunk ?chunk ;
+            phases-doc:lexical_occurrence_of <{subject}> .
     }}
 }}"""
                 chunks = self.module.engine.services.triple_store.query(query)
@@ -198,36 +195,131 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path WHERE {{
                         matched_predicate=rdflib.SKOS.prefLabel,
                         # occurs_in_chunk expects a Chunk instance, but we lack full chunk data.
                         # We'll supply a 'stub' Chunk with only the URI set, and other fields as None or defaults.
-                        occurs_in_chunk=chunk,
-                        occurrence_of=subject
+                        lexical_occurrence_in_chunk=chunk,
+                        lexical_occurrence_of=subject,
                     )
                     findings += lexical_occurrence.rdf()
-        
+
         print(findings.serialize(format="turtle"))
-        
+
+        self.module.engine.services.triple_store.insert(findings)
+
+    def find_definition_occurrences(
+        self, parameters: PapersIngestionWorkflowParameters
+    ):
+        ontology = rdflib.Graph()
+        ontology.parse(parameters.ontology_path, format="xml")
+
+        rows: rdflib.query.Result = ontology.query("""PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX owl: <http://www.w3.org/2002/07/owl#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+
+
+SELECT ?s ?label ?definition WHERE {
+    ?s a owl:Class .
+    OPTIONAL { ?s rdfs:label ?label }
+    ?s skos:definition ?definition .
+    
+    # ?s starts with http://purl.obolibrary.org/obo/PHASES_
+    FILTER(STRSTARTS(STR(?s), "http://purl.obolibrary.org/obo/PHASES_"))
+}
+
+""")
+
+        findings = rdflib.Graph()
+
+        for row in rows:
+            subject, label, definition = row
+            assert definition is not None
+            print(f"{subject} | {label} |\t\t{definition}")
+
+            definition_text = str(definition)
+            chunks, embeddings = embed_text(definition_text)
+            for _, embedding in zip(chunks, embeddings):
+                # Find closest matches.
+
+                matches: list[SearchResult] = (
+                    self.module.engine.services.vector_store.search_similar(
+                        "papers", embedding, k=10
+                    )
+                )
+                for match in matches:
+                    print(f"{match.id} | {match.score} | {match.metadata}")
+
+                    chunk_rows = self.module.engine.services.triple_store.query(f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
+SELECT ?chunk ?chunk_id ?pdf_paper_file ?path ?text WHERE {{
+    ?chunk a phases-doc:Chunk ;
+    phases-doc:text ?text ;
+    phases-doc:chunk_of ?pdf_paper_file ;
+    phases-doc:chunk_id ?chunk_id .
+    ?chunk phases-doc:text ?text .
+    ?pdf_paper_file phases-doc:path ?path .
+    FILTER(CONTAINS(?chunk_id, "{match.id}"))
+    FILTER NOT EXISTS {{
+        ?embedding_occ a phases-doc:EmbeddingOccurrence ;
+            phases-doc:embedding_occurrence_in_chunk ?chunk ;
+            phases-doc:embedding_occurrence_of <{subject}> .
+    }}
+}}""")
+                    chunk_rows_list = list(chunk_rows)
+                    if not chunk_rows_list:
+                        logger.debug(f"No chunk row found for match id: {match.id}")
+                        continue
+
+                    for (
+                        chunk_uri,
+                        chunk_id,
+                        pdf_paper_file,
+                        path,
+                        text,
+                    ) in chunk_rows_list:
+                        print(
+                            f"{text} | {path} | {chunk_id} | {pdf_paper_file} | {match.id}"
+                        )
+                        embedding_occurrence = EmbeddingOccurrence(
+                            matched_text=definition_text,
+                            matched_predicate=rdflib.SKOS.definition,
+                            embedding_occurrence_in_chunk=chunk_uri,
+                            embedding_occurrence_of=subject,
+                        )
+                        findings += embedding_occurrence.rdf()
+
+        print(findings.serialize(format="turtle"))
+
         self.module.engine.services.triple_store.insert(findings)
 
     def run(self, parameters: PapersIngestionWorkflowParameters):
         logger.debug("Running pipeline")
-        
+
         # We convert pdfs to markdown and store them in the object storage
         self.pdfs_to_markdown(parameters)
-        
+
         # We vectorize the markdown and store them in the vector store.
         self.markdowns_to_vectors(parameters)
-        
-        self.ontology_label(parameters)
-            
+
+        self.find_lexical_occurrences(parameters)
+
+        self.find_definition_occurrences(parameters)
+
     def as_tools(self) -> list[StructuredTool]:
         return []
-    
+
     def as_api(self, router: APIRouter):
         return []
-    
+
+
 if __name__ == "__main__":
     workflow = PapersIngestionWorkflow(PapersIngestionWorkflowConfiguration())
-    
+
     papers_path = os.path.join(os.path.dirname(__file__), "..", "..", "papers")
-    ontology_path = os.path.join(os.path.dirname(__file__), "..", "..", "ontologies", "phases.owl")
-    
-    workflow.run(PapersIngestionWorkflowParameters(paths=glob(os.path.join(papers_path, "*/*.pdf"), recursive=True), ontology_path=ontology_path))
+    ontology_path = os.path.join(
+        os.path.dirname(__file__), "..", "..", "ontologies", "phases.owl"
+    )
+
+    workflow.run(
+        PapersIngestionWorkflowParameters(
+            paths=glob(os.path.join(papers_path, "*/*.pdf"), recursive=True),
+            ontology_path=ontology_path,
+        )
+    )

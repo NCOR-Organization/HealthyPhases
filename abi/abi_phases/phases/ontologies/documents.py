@@ -101,8 +101,8 @@ class Chunk(RDFEntity):
     """
 
     _class_uri: ClassVar[str] = 'http://purl.obolibrary.org/obo/phases/documents.owl#Chunk'
-    _property_uris: ClassVar[dict] = {'chunk_hash': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_hash', 'chunk_id': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_id', 'chunk_number': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_number', 'chunk_of': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_of', 'has_lexical_occurrence': 'http://purl.obolibrary.org/obo/phases/documents.owl#has_lexical_occurrence', 'text': 'http://purl.obolibrary.org/obo/phases/documents.owl#text'}
-    _object_properties: ClassVar[set[str]] = {'chunk_of', 'has_lexical_occurrence'}
+    _property_uris: ClassVar[dict] = {'chunk_hash': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_hash', 'chunk_id': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_id', 'chunk_number': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_number', 'chunk_of': 'http://purl.obolibrary.org/obo/phases/documents.owl#chunk_of', 'has_embedding_occurrence': 'http://purl.obolibrary.org/obo/phases/documents.owl#has_embedding_occurrence', 'has_lexical_occurrence': 'http://purl.obolibrary.org/obo/phases/documents.owl#has_lexical_occurrence', 'text': 'http://purl.obolibrary.org/obo/phases/documents.owl#text'}
+    _object_properties: ClassVar[set[str]] = {'chunk_of', 'has_embedding_occurrence', 'has_lexical_occurrence'}
 
     # Data properties
     chunk_hash: str = Field(...)
@@ -112,6 +112,7 @@ class Chunk(RDFEntity):
 
     # Object properties
     chunk_of: Union[str, PDFPaperFile] = Field(...)
+    has_embedding_occurrence: Optional[Union[str, EmbeddingOccurrence]] = Field(default=None)
     has_lexical_occurrence: Optional[Union[str, LexicalOccurrence]] = Field(default=None)
 
 class LexicalOccurrence(RDFEntity):
@@ -120,18 +121,36 @@ class LexicalOccurrence(RDFEntity):
     """
 
     _class_uri: ClassVar[str] = 'http://purl.obolibrary.org/obo/phases/documents.owl#LexicalOccurrence'
-    _property_uris: ClassVar[dict] = {'matched_predicate': 'http://purl.obolibrary.org/obo/phases/documents.owl#matched_predicate', 'matched_text': 'http://purl.obolibrary.org/obo/phases/documents.owl#matched_text', 'occurrence_of': 'http://purl.obolibrary.org/obo/phases/documents.owl#occurrence_of', 'occurs_in_chunk': 'http://purl.obolibrary.org/obo/phases/documents.owl#occurs_in_chunk'}
-    _object_properties: ClassVar[set[str]] = {'occurrence_of', 'occurs_in_chunk'}
+    _property_uris: ClassVar[dict] = {'lexical_occurrence_in_chunk': 'http://purl.obolibrary.org/obo/phases/documents.owl#lexical_occurrence_in_chunk', 'lexical_occurrence_of': 'http://purl.obolibrary.org/obo/phases/documents.owl#lexical_occurrence_of', 'matched_predicate': 'http://purl.obolibrary.org/obo/phases/documents.owl#matched_predicate', 'matched_text': 'http://purl.obolibrary.org/obo/phases/documents.owl#matched_text'}
+    _object_properties: ClassVar[set[str]] = {'lexical_occurrence_in_chunk', 'lexical_occurrence_of'}
 
     # Data properties
-    matched_predicate: Optional[Any] = Field(default=None)
+    matched_predicate: Any = Field(...)
     matched_text: str = Field(...)
 
     # Object properties
-    occurrence_of: Optional[Any] = Field(default=None)
-    occurs_in_chunk: Union[str, Chunk] = Field(...)
+    lexical_occurrence_in_chunk: Union[str, Chunk] = Field(...)
+    lexical_occurrence_of: Optional[Any] = Field(default=None)
+
+class EmbeddingOccurrence(RDFEntity):
+    """
+    An observation that a vector embedding of an ontology entity appears in a Chunk text.
+    """
+
+    _class_uri: ClassVar[str] = 'http://purl.obolibrary.org/obo/phases/documents.owl#EmbeddingOccurrence'
+    _property_uris: ClassVar[dict] = {'embedding_occurrence_in_chunk': 'http://purl.obolibrary.org/obo/phases/documents.owl#embedding_occurrence_in_chunk', 'embedding_occurrence_of': 'http://purl.obolibrary.org/obo/phases/documents.owl#embedding_occurrence_of', 'matched_predicate': 'http://purl.obolibrary.org/obo/phases/documents.owl#matched_predicate', 'matched_text': 'http://purl.obolibrary.org/obo/phases/documents.owl#matched_text'}
+    _object_properties: ClassVar[set[str]] = {'embedding_occurrence_in_chunk', 'embedding_occurrence_of'}
+
+    # Data properties
+    matched_predicate: Any = Field(...)
+    matched_text: str = Field(...)
+
+    # Object properties
+    embedding_occurrence_in_chunk: Union[str, Chunk] = Field(...)
+    embedding_occurrence_of: Optional[Any] = Field(default=None)
 
 # Rebuild models to resolve forward references
 PDFPaperFile.model_rebuild()
 Chunk.model_rebuild()
 LexicalOccurrence.model_rebuild()
+EmbeddingOccurrence.model_rebuild()

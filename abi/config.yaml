@@ -28,7 +28,7 @@ global_config:
 
 modules:
   - module: naas_abi
-    enabled: true
+    enabled: false
   - module: naas_abi_marketplace.ai.chatgpt
     enabled: true
     config:
@@ -41,6 +41,8 @@ modules:
       google_api_key: "{{ secret.GOOGLE_API_KEY }}"
   - module: naas_abi_marketplace.applications.pubmed
     enabled: true
+
+default_agent: 'abi_phases.phases ELOAgent'
 
 services:
   secret:
