@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: phases
+Version: 0.1.0
+Summary: Add your description here
+Requires-Python: >=3.12
+Description-Content-Type: text/markdown
+Requires-Dist: langchain-google-genai>=2.1.12
+Requires-Dist: naas-abi>=1.11.0
+Requires-Dist: naas-abi-cli>=1.23.0
+Requires-Dist: naas-abi-core[all]>=1.20.1
+Requires-Dist: naas-abi-marketplace[ai-chatgpt,applications-pubmed]>=1.8.0
+Requires-Dist: pymupdf-layout>=1.26.6
+Requires-Dist: pymupdf4llm>=0.2.9

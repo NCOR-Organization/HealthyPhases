@@ -1,0 +1,198 @@
+@prefix phases-rel: <http://purl.obolibrary.org/obo/phases/relations.owl#> .
+@prefix phases-label: <http://purl.obolibrary.org/obo/phases/labels.owl#> .
+@prefix phases-ax: <http://purl.obolibrary.org/obo/phases/axioms.owl#> .
+@prefix phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#> .
+@prefix obo: <http://purl.obolibrary.org/obo/> .
+@prefix owl: <http://www.w3.org/2002/07/owl#> .
+@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sh: <http://www.w3.org/ns/shacl#> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+@base <http://purl.obolibrary.org/obo/phases/relations.owl> .
+
+<http://purl.obolibrary.org/obo/phases/relations.owl> rdf:type owl:Ontology ;
+  owl:imports <http://purl.obolibrary.org/obo/bfo/2020/bfo-core.ttl> ;
+  owl:imports <http://purl.obolibrary.org/obo/phases/documents.owl> ;
+  owl:imports <http://purl.obolibrary.org/obo/phases/labels.owl> ;
+  owl:imports <http://purl.obolibrary.org/obo/phases/axioms.owl> ;
+  rdfs:label "PHASES Relations Ontology"@en .
+
+#################################################################
+#    Classes
+#################################################################
+
+phases-rel:InferredLabelRelation rdf:type owl:Class ;
+  rdfs:subClassOf obo:BFO_0000031 ;
+  rdfs:label "inferred label relation"@en ;
+  rdfs:comment "A probabilistic relation inferred between two canonical label texts from chunk-level co-occurrence and axiom directional evidence."@en .
+
+#################################################################
+#    Object Properties
+#################################################################
+
+phases-rel:relation_from_label rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range phases-label:ExtractedLabel ;
+  rdfs:label "relation from label"@en ;
+  rdfs:comment "Relates an inferred relation to a source extracted label observation."@en .
+
+phases-rel:relation_to_label rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range phases-label:ExtractedLabel ;
+  rdfs:label "relation to label"@en ;
+  rdfs:comment "Relates an inferred relation to a target extracted label observation."@en .
+
+phases-rel:supported_by_axiom rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range phases-ax:ExtractedAxiom ;
+  rdfs:label "supported by axiom"@en ;
+  rdfs:comment "Links an inferred relation to axioms used as directional evidence."@en .
+
+phases-rel:supported_by_chunk rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range phases-doc:Chunk ;
+  rdfs:label "supported by chunk"@en ;
+  rdfs:comment "Links an inferred relation to chunks used as co-occurrence evidence."@en .
+
+#################################################################
+#    Datatype Properties
+#################################################################
+
+phases-rel:relation_id rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:string ;
+  rdfs:label "relation id"@en ;
+  rdfs:comment "Identifier for an inferred label relation."@en .
+
+phases-rel:source_label_text rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:string ;
+  rdfs:label "source label text"@en ;
+  rdfs:comment "Canonical source label text for the inferred relation."@en .
+
+phases-rel:target_label_text rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:string ;
+  rdfs:label "target label text"@en ;
+  rdfs:comment "Canonical target label text for the inferred relation."@en .
+
+phases-rel:relation_type rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:string ;
+  rdfs:label "relation type"@en ;
+  rdfs:comment "Categorical relation type such as emerges_to or associated_with."@en .
+
+phases-rel:belongs_confidence rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:float ;
+  rdfs:label "belongs confidence"@en ;
+  rdfs:comment "Confidence score in [0,1] that the source label belongs to or emerges toward the target label."@en .
+
+phases-rel:exclusive_to_target_confidence rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:float ;
+  rdfs:label "exclusive to target confidence"@en ;
+  rdfs:comment "Confidence score in [0,1] that the source label is selective to this target versus alternatives."@en .
+
+phases-rel:co_occurrence_score rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:float ;
+  rdfs:label "co-occurrence score"@en ;
+  rdfs:comment "Association score based on label co-occurrence in chunks and papers."@en .
+
+phases-rel:directional_score rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:float ;
+  rdfs:label "directional score"@en ;
+  rdfs:comment "Directionality score based on axiom evidence supporting source-to-target direction."@en .
+
+phases-rel:stability_score rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:float ;
+  rdfs:label "stability score"@en ;
+  rdfs:comment "Cross-paper stability score for the inferred relation."@en .
+
+phases-rel:co_occurrence_count rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:integer ;
+  rdfs:label "co-occurrence count"@en ;
+  rdfs:comment "Number of chunks where source and target labels co-occur."@en .
+
+phases-rel:forward_axiom_votes rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:integer ;
+  rdfs:label "forward axiom votes"@en ;
+  rdfs:comment "Number of axioms supporting source-to-target direction."@en .
+
+phases-rel:reverse_axiom_votes rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:integer ;
+  rdfs:label "reverse axiom votes"@en ;
+  rdfs:comment "Number of axioms supporting target-to-source direction."@en .
+
+phases-rel:evidence_paths_count rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:integer ;
+  rdfs:label "evidence paths count"@en ;
+  rdfs:comment "Number of distinct paper paths contributing evidence for the relation."@en .
+
+phases-rel:best_alternative_target rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:string ;
+  rdfs:label "best alternative target"@en ;
+  rdfs:comment "Alternative target with highest support for the same source label."@en .
+
+phases-rel:best_alternative_support rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:float ;
+  rdfs:label "best alternative support"@en ;
+  rdfs:comment "Support score of the best competing target for exclusivity calculation."@en .
+
+phases-rel:creation_time rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-rel:InferredLabelRelation ;
+  rdfs:range xsd:dateTime ;
+  rdfs:label "creation time"@en ;
+  rdfs:comment "Timestamp when inferred relation was persisted."@en .
+
+#################################################################
+#    SHACL Shapes
+#################################################################
+
+phases-rel:InferredLabelRelationShape rdf:type sh:NodeShape ;
+  sh:targetClass phases-rel:InferredLabelRelation ;
+  sh:property [
+    sh:path phases-rel:relation_id ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-rel:source_label_text ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-rel:target_label_text ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-rel:relation_type ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-rel:belongs_confidence ;
+    sh:datatype xsd:float ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-rel:exclusive_to_target_confidence ;
+    sh:datatype xsd:float ;
+    sh:minCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-rel:creation_time ;
+    sh:datatype xsd:dateTime ;
+    sh:minCount 1 ;
+  ] ;
+  rdfs:label "Inferred label relation shape"@en .
