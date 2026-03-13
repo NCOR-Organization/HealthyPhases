@@ -15,7 +15,7 @@ global_config:
 
 modules:
   - module: naas_abi
-    enabled: false
+    enabled: true
     config:
       nexus_config:
         database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@postgres:5432/nexus"
