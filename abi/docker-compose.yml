@@ -111,6 +111,8 @@ services:
       - PUBLIC_WEB_HOST=${PUBLIC_WEB_HOST:-localhost}
       - PUBLIC_API_HOST=${PUBLIC_API_HOST:-api.localhost}
 
+      - HEADSCALE_SERVER_URL=${HEADSCALE_SERVER_URL:-headscale.localhost}
+
     volumes:
       - ./.deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -118,6 +120,8 @@ services:
     depends_on:
       - nexus-web
       - abi
+
+      - headscale
 
     networks:
       - abi-network
@@ -425,6 +429,32 @@ services:
       - abi-network
 
 
+  # -----------------------------------------------------------------------------
+  # Headscale - Self-hosted Tailscale control server
+  # -----------------------------------------------------------------------------
+  headscale:
+    image: docker.io/headscale/headscale:stable
+    pull_policy: always
+    restart: unless-stopped
+    command: ["serve"]
+    ports:
+      - ${HEADSCALE_SERVER_PORT}:8080
+      - ${HEADSCALE_METRICS_PORT}:9090
+      - ${HEADSCALE_GRPC_PORT}:50443
+    volumes:
+      - ./.deploy/docker/headscale/config.yaml:/etc/headscale/config.yaml:ro
+      - ./.deploy/docker/headscale/extra-records.json:/var/lib/headscale/extra-records.json:ro
+      - headscale_data:/var/lib/headscale
+      - headscale_run:/var/run/headscale
+    healthcheck:
+      test: ["CMD", "headscale", "health"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - abi-network
+
 
 # =============================================================================
 # PERSISTENT VOLUMES
@@ -457,6 +487,9 @@ volumes:
   postgres_data:  # PostgreSQL database files (agent memory persistence)
   dagster_home:   # Dagster metadata, run history, and configuration
   qdrant_storage: # Qdrant vector store data
+
+  headscale_data: # Headscale state and sqlite database
+  headscale_run:  # Headscale unix socket runtime data
 
   minio_data:     # MinIO object storage data
   rabbitmq_data:  # RabbitMQ message bus data
