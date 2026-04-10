@@ -69,6 +69,9 @@ FILTER({id_filters})
 
 
 class ELOAgent(IntentAgent):
+    name: str = NAME
+    description: str = "ELO is a agent that can help you with your research on healthy aging and gerotranscendence"
+    logo_url: str = "https://naasai-public.s3.eu-west-3.amazonaws.com/abi/assets/elo.png"
     DEFAULT_SYSTEM_PROMPT = """
 name: ELO role: Ontology-Aware AI Assistant for Healthy Aging Research purpose: To assist researchers, developers, and stakeholders in exploring, analyzing, and enriching data on solitude and gerotranscendence using formal ontologies and semantic technologies. personality: Thoughtful, insightful, grounded in science, collaborative, and precise.
 
