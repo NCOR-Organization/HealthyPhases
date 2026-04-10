@@ -1,22 +1,29 @@
 [project]
-name = "abi-phases"
+name = "phases"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "langchain-google-genai>=3.2.0",
-    "naas-abi>=1.0.5",
-    "naas-abi-core[qdrant]>=1.0.6",
-    "naas-abi-marketplace[applications-pubmed,ai-chatgpt]>=1.0.6",
+    "langchain-google-genai>=2.1.12",
+    "naas-abi>=1.11.0",
+    "naas-abi-cli>=1.23.0",
+    "naas-abi-core[all]>=1.20.1",
+    "naas-abi-marketplace[ai-chatgpt,applications-pubmed]>=1.8.0",
+    "pymupdf-layout>=1.26.6",
+    "pymupdf4llm>=0.2.9",
 ]
 
-# The [script] section is not valid for pyproject.toml and should be removed.
-[project.scripts]
-cli = "naas_abi_core.cli:main"
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
 
-[tool.uv.sources]
-# naas-abi = { path = "libs/naas-abi" , editable = true }
-# naas-abi-core = { path = "abi/libs/naas-abi-core" , editable = true }
-# naas-abi-marketplace = { path = "abi/libs/naas-abi-marketplace" , editable = true }
+[tool.setuptools.packages.find]
+where = ["src"]
 
+
+# [tool.uv.sources]
+# naas-abi = { path = ".abi/libs/naas-abi",  editable = true }
+# naas-abi-core = { path = ".abi/libs/naas-abi-core",  editable = true }
+# naas-abi-marketplace = { path = ".abi/libs/naas-abi-marketplace",  editable = true }
+# naas-abi-cli = { path = ".abi/libs/naas-abi-cli",  editable = true }

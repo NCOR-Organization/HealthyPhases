@@ -1,27 +1,14 @@
-deploy:
-  workspace_id: "1234567890"
-  space_name: "healthy-phases"
-  naas_api_key: "{{ secret.NAAS_API_KEY }}"
-  env:
-    NAAS_API_KEY: "{{ secret.NAAS_API_KEY }}"
-    GOOGLE_API_KEY: "{{ secret.GOOGLE_API_KEY }}"
-    OPENAI_API_KEY: "{{ secret.OPENAI_API_KEY }}"
-    ABI_API_KEY: "{{ secret.ABI_API_KEY }}"
-
-auto_publish:
-  enabled: true # Enable automatic publishing of agents to workspace
-  exclude_agents: [] # Agents to exclude from auto-publishing (empty list means publish all enabled agents)
-  default_agent: "Abi" # Which agent to set as default in workspace
 
 api:
-  title: "ABI - HealthyPhases API"
-  description: "API for ABI - HealthyPhases, your Artifical Business Intelligence"
+  title: "ABI API"
+  description: "API for ABI"
   logo_path: "assets/logo.png"
   favicon_path: "assets/favicon.ico"
   cors_origins:
-    - "http://localhost:9879"
-    - "https://healthyphases.org"
-
+    - "http://{{ secret.PUBLIC_WEB_HOST }}"
+    - "https://{{ secret.PUBLIC_WEB_HOST }}"
+    - "http://{{ secret.PUBLIC_API_HOST }}"
+    - "https://{{ secret.PUBLIC_API_HOST }}"
 
 global_config:
   ai_mode: "cloud"
@@ -30,19 +17,20 @@ modules:
   - module: naas_abi
     enabled: true
     config:
-      openai_api_key: "{{ secret.OPENAI_API_KEY }}"
+      nexus_config:
+        database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@localhost:5432/nexus"
+        redis_url: "redis://localhost:6379/0"
+
   - module: naas_abi_marketplace.ai.chatgpt
     enabled: true
     config:
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
-  - module: naas_abi_core.modules.templatablesparqlquery
+
+  - module: phases
     enabled: true
-  - module: abi_phases.phases
-    enabled: true
-    config:
-      google_api_key: "{{ secret.GOOGLE_API_KEY }}"
-  - module: naas_abi_marketplace.applications.pubmed
-    enabled: true
+
+default_agent: "phases PhasesAgent"
+
 
 services:
   secret:
@@ -53,13 +41,32 @@ services:
     object_storage_adapter:
       adapter: "fs"
       config:
-        base_path: "storage/object_store"
+        base_path: "storage/datastore"
   triple_store:
     triple_store_adapter:
-      adapter: "fs"
+      adapter: "oxigraph_embedded"
       config:
-        store_path: "storage/triplestore"
+        store_path: "storage/triplestore/oxigraph"
+        graph_base_iri: "http://ontology.naas.ai/graph/default"
   vector_store:
     vector_store_adapter:
-      adapter: "qdrant"
-      config: {}
+      adapter: "qdrant_in_memory"
+      config:
+        storage_path: "storage/vectorstore/qdrant"
+        timeout: 300
+  bus:
+    bus_adapter:
+      adapter: "python_queue"
+      config:
+        persistence_path: "storage/bus/python_queue.sqlite3"
+        journal_mode: "WAL"
+        busy_timeout_ms: 5000
+        poll_interval_seconds: 0.05
+        lock_timeout_seconds: 1.0
+  kv:
+    kv_adapter:
+      adapter: "python"
+      config:
+        persistence_path: "storage/kv/python.sqlite3"
+        journal_mode: "WAL"
+        busy_timeout_ms: 5000

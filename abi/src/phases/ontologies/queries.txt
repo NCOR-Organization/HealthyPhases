@@ -1,0 +1,32 @@
+# Sparql query to find all papers containing the (LexicalOccurrence) prefLabels 'solitude'
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
+
+SELECT DISTINCT ?path WHERE {
+  ?s ?p phases-doc:LexicalOccurrence .
+  ?s phases-doc:matched_text 'solitude' .
+  ?s phases-doc:matched_predicate ?matched_predicate .
+  ?s phases-doc:occurs_in_chunk ?chunk .
+  ?chunk phases-doc:chunk_of ?file .
+  ?file phases-doc:path ?path
+  
+} 
+LIMIT 10000
+
+---
+
+# Sparql query to find all "prefLabels" found in documents.
+
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
+SELECT DISTINCT ?text WHERE {
+	?s ?p phases-doc:PDFPaperFile .
+	?s phases-doc:path 'abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/solitude/BJOP-113-987.pdf' .
+	?chunk phases-doc:chunk_of ?s .
+  	?l phases-doc:occurs_in_chunk ?chunk .
+  	?l phases-doc:matched_text ?text .
+} 
+LIMIT 10

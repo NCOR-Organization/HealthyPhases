@@ -1,0 +1,7 @@
+langchain-google-genai>=2.1.12
+naas-abi>=1.11.0
+naas-abi-cli>=1.23.0
+naas-abi-core[all]>=1.20.1
+naas-abi-marketplace[ai-chatgpt,applications-pubmed]>=1.8.0
+pymupdf-layout>=1.26.6
+pymupdf4llm>=0.2.9
