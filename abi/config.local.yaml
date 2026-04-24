@@ -24,6 +24,24 @@ modules:
         api_url: "http://{{ secret.PUBLIC_API_HOST }}"
         frontend_url: "http://{{ secret.PUBLIC_WEB_HOST }}"
         auto_seed_demo_data: true
+        feature_flags:
+          enabled_features:
+            - chat
+            - files
+            - agents
+            - knowledge
+            - settings
+          role_baseline:
+            owner: [chat, files, agents, knowledge, settings]
+            admin: [chat, files, agents, knowledge, settings]
+            member: [chat, files]
+            viewer: [chat, files]
+          workspace_overrides: {}
+        magic_link_allow_signup: false
+        magic_link_email_app_name: "HealthyPhases Platform"
+        magic_link_email_subject_template: "Your {app_name} sign-in link"
+        magic_link_email_text_template: "Use this link to sign in to {app_name}:\n\n{magic_link_url}\n\nThis link expires in {expire_minutes} minutes."
+        magic_link_email_html_template: "<p>Use this link to sign in to {app_name}:</p><p><a href=\"{magic_link_url}\">Sign in</a></p><p>This link expires in {expire_minutes} minutes.</p>"
         tenant:
           tab_title: "HealthyPhases | ABI Nexus"
           primary_color: "#22c55e"
