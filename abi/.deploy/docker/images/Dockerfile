@@ -17,3 +17,6 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
     fi \
     && unzip awscliv2.zip \
     && ./aws/install
+
+# Install OpenCode CLI (required by OpencodeAgent)
+RUN curl -fsSL https://opencode.ai/install | bash
