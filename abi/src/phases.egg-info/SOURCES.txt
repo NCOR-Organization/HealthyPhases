@@ -18,6 +18,7 @@ src/phases/models/google_gemini_2_0_flash.py
 src/phases/ontologies/axioms.py
 src/phases/ontologies/documents.py
 src/phases/ontologies/labels.py
+src/phases/ontologies/relations.py
 src/phases/orchestrations/PhasesOrchestration.py
 src/phases/pipelines/PhasesPipeline.py
 src/phases/workflows/AxiomsCrossPaperSimilarityWorkflow/AxiomsCrossPaperSimilarityWorkflow.py
@@ -32,5 +33,6 @@ src/phases/workflows/LabelsWorkflow/ExportLabelCountsByPaperCSV.py
 src/phases/workflows/LabelsWorkflow/ExportLabelCountsCSV.py
 src/phases/workflows/LabelsWorkflow/ExportRepresentativeLabelChunksCSV.py
 src/phases/workflows/LabelsWorkflow/LabelsWorkflow.py
+src/phases/workflows/MainIngestionOrchestration/MainIngestionOrchestration.py
 src/phases/workflows/PapersIngestionWorkflow/PapersIngestionWorkflow.py
 src/phases/workflows/SolitudeassessmentinstrumentsandtermsWorkflow/SolitudeassessmentinstrumentsandtermsWorkflow.py

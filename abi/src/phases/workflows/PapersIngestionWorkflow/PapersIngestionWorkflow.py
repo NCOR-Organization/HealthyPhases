@@ -45,6 +45,9 @@ class PapersIngestionWorkflowParameters(WorkflowParameters):
     ontology_path: str
 
 
+PAPERS_GRAPH = rdflib.URIRef("http://ontology.naas.ai/graph/phases/papers")
+
+
 class PapersIngestionWorkflow(Workflow[PapersIngestionWorkflowParameters]):
     module: ABIModule
 
@@ -87,7 +90,11 @@ class PapersIngestionWorkflow(Workflow[PapersIngestionWorkflowParameters]):
             print(f"Processing {path}")
             # Check if we already have a PDFPaperFile for this path.
             query = f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
-SELECT ?pdf_paper_file ?id WHERE {{ ?pdf_paper_file a phases-doc:PDFPaperFile ; phases-doc:path {rdflib.Literal(path).n3()}  . }}"""
+SELECT ?pdf_paper_file ?id WHERE {{
+    GRAPH <{PAPERS_GRAPH}> {{
+        ?pdf_paper_file a phases-doc:PDFPaperFile ; phases-doc:path {rdflib.Literal(path).n3()} .
+    }}
+}}"""
 
             pdf_paper_file = self.module.engine.services.triple_store.query(query)
 
@@ -134,7 +141,9 @@ SELECT ?pdf_paper_file ?id WHERE {{ ?pdf_paper_file a phases-doc:PDFPaperFile ; 
                 graph += chunk_entity.rdf()
 
             logger.debug("Inserting graph")
-            self.module.engine.services.triple_store.insert(graph)
+            self.module.engine.services.triple_store.insert(
+                graph, graph_name=PAPERS_GRAPH
+            )
             logger.debug("Graph inserted")
 
             # We need to store the embeddings in the vector store.
@@ -174,17 +183,19 @@ SELECT ?s ?label ?prefLabel WHERE {
                 # For each prefLabel we want to find occurence in chunks.
                 query = f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
 SELECT ?chunk ?chunk_id ?pdf_paper_file ?path WHERE {{
-    ?chunk a phases-doc:Chunk ;
-    phases-doc:text ?text ;
-    phases-doc:chunk_of ?pdf_paper_file ;
-    phases-doc:chunk_id ?chunk_id .
-    ?pdf_paper_file phases-doc:path ?path .
-    FILTER(CONTAINS(?text, "{prefLabel}"))
-    # Only keep chunks where this ontology term isn't already linked via an existing LexicalOccurrence
-    FILTER NOT EXISTS {{
-        ?lex_occ a phases-doc:LexicalOccurrence ;
-            phases-doc:lexical_occurrence_in_chunk ?chunk ;
-            phases-doc:lexical_occurrence_of <{subject}> .
+    GRAPH <{PAPERS_GRAPH}> {{
+        ?chunk a phases-doc:Chunk ;
+        phases-doc:text ?text ;
+        phases-doc:chunk_of ?pdf_paper_file ;
+        phases-doc:chunk_id ?chunk_id .
+        ?pdf_paper_file phases-doc:path ?path .
+        FILTER(CONTAINS(?text, "{prefLabel}"))
+        # Only keep chunks where this ontology term isn't already linked via an existing LexicalOccurrence
+        FILTER NOT EXISTS {{
+            ?lex_occ a phases-doc:LexicalOccurrence ;
+                phases-doc:lexical_occurrence_in_chunk ?chunk ;
+                phases-doc:lexical_occurrence_of <{subject}> .
+        }}
     }}
 }}"""
                 chunks = self.module.engine.services.triple_store.query(query)
@@ -202,7 +213,9 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path WHERE {{
 
         print(findings.serialize(format="turtle"))
 
-        self.module.engine.services.triple_store.insert(findings)
+        self.module.engine.services.triple_store.insert(
+            findings, graph_name=PAPERS_GRAPH
+        )
 
     def find_definition_occurrences(
         self, parameters: PapersIngestionWorkflowParameters
@@ -249,17 +262,19 @@ SELECT ?s ?label ?definition WHERE {
 
                     chunk_rows = self.module.engine.services.triple_store.query(f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
 SELECT ?chunk ?chunk_id ?pdf_paper_file ?path ?text WHERE {{
-    ?chunk a phases-doc:Chunk ;
-    phases-doc:text ?text ;
-    phases-doc:chunk_of ?pdf_paper_file ;
-    phases-doc:chunk_id ?chunk_id .
-    ?chunk phases-doc:text ?text .
-    ?pdf_paper_file phases-doc:path ?path .
-    FILTER(CONTAINS(?chunk_id, "{match.id}"))
-    FILTER NOT EXISTS {{
-        ?embedding_occ a phases-doc:EmbeddingOccurrence ;
-            phases-doc:embedding_occurrence_in_chunk ?chunk ;
-            phases-doc:embedding_occurrence_of <{subject}> .
+    GRAPH <{PAPERS_GRAPH}> {{
+        ?chunk a phases-doc:Chunk ;
+        phases-doc:text ?text ;
+        phases-doc:chunk_of ?pdf_paper_file ;
+        phases-doc:chunk_id ?chunk_id .
+        ?chunk phases-doc:text ?text .
+        ?pdf_paper_file phases-doc:path ?path .
+        FILTER(CONTAINS(?chunk_id, "{match.id}"))
+        FILTER NOT EXISTS {{
+            ?embedding_occ a phases-doc:EmbeddingOccurrence ;
+                phases-doc:embedding_occurrence_in_chunk ?chunk ;
+                phases-doc:embedding_occurrence_of <{subject}> .
+        }}
     }}
 }}""")
                     chunk_rows_list = list(chunk_rows)
@@ -287,7 +302,9 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path ?text WHERE {{
 
         print(findings.serialize(format="turtle"))
 
-        self.module.engine.services.triple_store.insert(findings)
+        self.module.engine.services.triple_store.insert(
+            findings, graph_name=PAPERS_GRAPH
+        )
 
     def run(self, parameters: PapersIngestionWorkflowParameters):
         logger.debug("Running pipeline")
