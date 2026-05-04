@@ -36,27 +36,27 @@ class ABIModule(BaseModule[PhasesConfiguration]):
             "relations.ttl": "relations.py",
         }
 
-        # for ttl_name, py_name in ttl_to_py.items():
-        #     ttl_path = os.path.join(ontologies_dir, ttl_name)
-        #     if not os.path.exists(ttl_path):
-        #         continue
+        for ttl_name, py_name in ttl_to_py.items():
+            ttl_path = os.path.join(ontologies_dir, ttl_name)
+            if not os.path.exists(ttl_path):
+                continue
 
-        #     python_code = onto2py(ttl_path)
-        #     py_file_path = os.path.join(ontologies_dir, py_name)
-        #     existing_code = None
-        #     if os.path.exists(py_file_path):
-        #         with open(py_file_path, "r") as f:
-        #             existing_code = f.read()
+            python_code = onto2py(ttl_path)
+            py_file_path = os.path.join(ontologies_dir, py_name)
+            existing_code = None
+            if os.path.exists(py_file_path):
+                with open(py_file_path, "r") as f:
+                    existing_code = f.read()
             
-        #     import hashlib
+            import hashlib
 
-        #     def compute_hash(s: str) -> str:
-        #         return hashlib.sha256(s.encode("utf-8")).hexdigest()
+            def compute_hash(s: str) -> str:
+                return hashlib.sha256(s.encode("utf-8")).hexdigest()
 
-        #     code_hash = compute_hash(python_code)
-        #     existing_hash = compute_hash(existing_code) if existing_code is not None else None
+            code_hash = compute_hash(python_code)
+            existing_hash = compute_hash(existing_code) if existing_code is not None else None
             
-        #     if code_hash != existing_hash:
-        #         print(f"Writing {py_file_path} as we have newer code")
-        #         with open(py_file_path, "w") as f:
-        #             f.write(python_code)
+            if code_hash != existing_hash:
+                print(f"Writing {py_file_path} as we have newer code")
+                with open(py_file_path, "w") as f:
+                    f.write(python_code)

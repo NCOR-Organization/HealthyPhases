@@ -10,17 +10,17 @@ Dev Psychol. 2014 March ; 50(3): 728–740. doi:10.1037/a0033896.
 
 **Helena Chui**[1] , **Christiane A. Hoppmann**[2] , **Denis Gerstorf**[3] , **Ruth Walker**[1] , and **Mary A. Luszcz**[1] 
 
-- 1Flinders University 
+1Flinders University 
 
 - 2University of British Columbia 
 
-3Humboldt University 
+- 3Humboldt University 
 
 ## **Abstract** 
 
 There are well-documented links between social relationships and emotional well-being in old age, but little is known about daily life fluctuations in momentary affective experiences of the oldest-old while interacting with specific social partners. We examined associations between the presence of different types of social partners and moment-to-moment fluctuations in affect in the oldest-old, taking into account individual differences in gender, neuroticism, depressive symptoms, chronic health conditions, and loneliness. Participants (N = 74, M age = 88.7 years, range = 84 – 102 years, 68% women) provided self-reports concurrently on the presence of social partners and subjective affective states six times a day for each of seven consecutive days (3,071 occasions, in total). Relative to being with other people, time spent alone was associated with lower positive affect in the oldest-old. Being with other family members and friends was associated with more positive affective experiences. Compared to men, women reported more negative affective experiences when they were with their spouses than when their spouses were not present. Individuals with more chronic health problems reported more negative affective experiences when they were with their spouses than not. Participants higher in neuroticism reported more positive affective experiences when they were with their friends, compared to times when their friends were not present. Finally, lonelier individuals reported more positive affective experiences when they were with their spouses than not. These findings suggest that affective experience is a function of individual differences and the type of social partners oldest-old adults interact with in everyday life. We discuss how our findings can be generalized to oldest-olds of different marital statuses taking into account the proportion of widows in our sample as well as measurement specifics. 
 
-> Correspondence concerning this article should be addressed to Helena Chui, School of Psychology, Flinders University, GPO Box 2100, Adelaide, SA 5001, Australia, helena.chui@flinders.edu.au, Phone: +61 8 8201 5563, Fax: +61 8 8201 3877. Helena Chui, School of Psychology, Flinders University; Christiane A. Hoppmann, Department of Psychology, University of British Columbia; Denis Gerstorf, Institute of Psychology, Humboldt University; Ruth Walker, Faculty of Health Sciences, Flinders University; Mary A. Luszcz, School of Psychology & Centre for Ageing Studies, Flinders University. 
+Correspondence concerning this article should be addressed to Helena Chui, School of Psychology, Flinders University, GPO Box 2100, Adelaide, SA 5001, Australia, helena.chui@flinders.edu.au, Phone: +61 8 8201 5563, Fax: +61 8 8201 3877. Helena Chui, School of Psychology, Flinders University; Christiane A. Hoppmann, Department of Psychology, University of British Columbia; Denis Gerstorf, Institute of Psychology, Humboldt University; Ruth Walker, Faculty of Health Sciences, Flinders University; Mary A. Luszcz, School of Psychology & Centre for Ageing Studies, Flinders University. 
 
 Chui et al. 
 
@@ -68,9 +68,9 @@ In general, social networks shrink with age (Lang & Carstensen, 1994) and indivi
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
-Chui et al. 
-
 Page 5 
+
+Chui et al. 
 
 ## **Individual Characteristics and Social Relationships in Old Age** 
 
@@ -88,9 +88,9 @@ The ALSA Daily-Life Time-Sampling (ADuLTS) Study (Luszcz et al., 2011, November)
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
-Chui et al. 
-
 Page 6 
+
+Chui et al. 
 
 of the 95 ALSA participants, 51 were successfully recruited. Attrition analyses showed that ADuLTS participants were positively selected, compared to the whole ALSA sample and the eligible participants who refused to participate (n = 44)[2] . To increase the sample size, an additional group of community-dwelling adults (N = 24) was recruited from multiple sources including the school of psychology older participant pool, retirement villages, and through “snowballing.”[3] A total sample of 50 women and 25 men were recruited (M age = 88.65 years, SD = 3.04, range = 83.55 – 102.40). The participants were mostly communitydwelling (98.7%). Most participants were widowed (68%), followed by married (25%), de facto (3%), never married (3%), and divorced (1%). Men (44% married) and women (16% married) differed significantly in marital status, χ[2] (1) = 5.51, p < .05. Most participants (77%) were born in Australia or the United Kingdom (17%), with the remainder from other European countries. Participants received an AUD$30 gift card as compensation. Analyses were based on 74 individuals’ data because one participant did not complete any within-day assessments after the baseline. 
 
@@ -112,9 +112,9 @@ Chui et al.
 
 Page 7 
 
-## **Measures** 
-
 daily routines. Participants were instructed to respond to the beep as soon as possible and within two hours. Analyses were based on the baseline data and six within-day self-reports for the seven-day assessment period. The sample provided a total of 3,071 self-reports of the presence of social partners and affective experiences. Overall compliance was 96%. Participants provided an average of 40.38 (SD = 4.69) self-reports out of 42 assessment occasions (6 within-day × 7 days). To ensure compliance with the protocol, i.e. no backfilling, participants used an electronic time stamp to record the time that they began and finished each self-report. Participants put each self-report into an envelope and stamped the time again across the seal. 
+
+## **Measures** 
 
 **Positive and negative affect—** In each within-day assessment (not baseline), affect was measured using nine items: happy, sad, calm, sleepy, anxious, alert, quiet, irritated, and excited (1 = not at all; 5 = very much). These items were selected based on two criteria: (a) each displayed considerable within-person variability in past research, and (b) together the items covered each octant of the affective circumplex (Tsai, Knutson, & Fung, 2006). Drawing from the Circumplex Model of Emotion (Larsen & Diener, 1992), items were selected to represent positive (happy, excited, and calm) and negative affect (sad, anxious, and irritated) based on face validity. Instead of a homogeneous set of items (e.g. high-arousal positive: enthusiastic, excited, strong), the items were selected to capture the wide range of valence and activation. Similar items are commonly used in time-sampling affect research (e.g., Hoppmann & Klumb, 2006). The heterogeneous set of items is expected to have low internal consistency but adequate longitudinal reliability (Shrout & Lane, 2012). For internal consistency, mean Cronbach’s α across the 42 within-day assessments was .41 (SD = .10; range = .17–.60) for PA and .67 (SD = .12; range = .30–.82) for NA. Longitudinal reliability of PA and NA were evaluated using four indices based on the Generalizability Theory (Cranford et al., 2006; Shrout & Lane, 2011). RKF = .99 for PA and .99 for NA. R1R = .75 for PA and .78 for NA. RKR = .98 for PA and .98 for NA. RC = .37 for PA and .36 for NA. The indices show moderate to excellent longitudinal reliability for PA and NA. The moderate RC suggests that the selected items were sensitive to detecting moment-to-moment changes in affect. Given the small sample size and limited number of items used to reduce participant burden, the internal consistency of the 3-item PA and NA scales were less than optimal. However, the PA and NA scales show reasonable psychometric properties in the context of a time-sampling design (Shrout & Lane, 2012). Mean scores of PA and NA for each assessment were calculated and used for further analyses. 
 
@@ -266,13 +266,13 @@ Second, brief versions of PA, NA, and depressive symptoms were used to reduce pa
 
 Third, the present study focused on the structure of social relationships and did not examine other aspects, such as relationship quality (Antonucci et al., 2010). The emotional benefits from the presence of social partners may be dependent on relationship quality, which is in part determined by whether individuals are the support provider or recipient in a social relationship (Ingersoll-Dayton, Morgan, & Antonucci, 1997). Future research should examine relationship quality and effects of support provider vs. recipient roles on emotional experiences in the oldest-old. In addition, drawing from Fingerman and Lang’s (2004) cube model of social relationships, future research may include process variables to further illuminate the underlying emotional, motivational, and cognitive processes that link social relationship structures and psychological outcomes. For instance, coping strategies involved 
 
-> 5Major findings from additional analyses using individual items (‘happy’ and ‘sad’ for high face validity) were substantively identical to those reported in the main text. 
+5Major findings from additional analyses using individual items (‘happy’ and ‘sad’ for high face validity) were substantively identical to those reported in the main text. 
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
-Chui et al. 
-
 Page 15 
+
+Chui et al. 
 
 in the daily interactions with various social partners may explain why lonelier individuals have more positive affective experiences with their spouses, whereas women and individuals with more chronic health conditions experience more negative affective experiences with their spouses. It is possible that lonelier individuals tend to use emotion-focused coping strategies (Lazarus, 1996) and view their spouses as a source of companionship (Rook, 1990). In contrast, women and individuals with more chronic health conditions may tend to use problem-focused coping strategies (Lazarus, 1996) in their interactions with their spouses, engaging in instrumental activities centered around care-giving. 
 
@@ -284,9 +284,9 @@ The last limitation affects all time-sampling designs, i.e., effects of instrume
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
-Chui et al. 
-
 Page 16 
+
+Chui et al. 
 
 random intervals (Klumb, 2004), our sample of oldest-olds reported spending more time alone (71%) than did the sample of older adults (M age = 80.6 years; 62% of the time alone). Our participants might have picked beep schedules that sampled times when they were likely to be alone. Future studies using random time-sampling intervals will be needed to ascertain whether the age difference in time spent alone is due to differences in the fixed vs. random time-sampling schedule. 
 
@@ -302,11 +302,11 @@ This research was supported by grants from the Australian Research Council (LP10
 
 ## **References** 
 
-- Alexopoulos GS. Depression in the elderly. The Lancet. 2005; 365(9475):1961–1970. DOI: 10.1016/ s0140-6736(05)66665-2 
+Alexopoulos GS. Depression in the elderly. The Lancet. 2005; 365(9475):1961–1970. DOI: 10.1016/ s0140-6736(05)66665-2 
 
-- Andresen EM, Malmgren JA, Carter WB, Patrick DL. Screening for depression in well older adults - Evaluation of a short-form of the CES-D. American Journal of Preventive Medicine. 1994; 10:77– 84. [PubMed: 8037935] 
+Andresen EM, Malmgren JA, Carter WB, Patrick DL. Screening for depression in well older adults - Evaluation of a short-form of the CES-D. American Journal of Preventive Medicine. 1994; 10:77– 84. [PubMed: 8037935] 
 
-- Anstey KJ, Luszcz MA. Selective non-response to clinical assessment in the longitudinal study of aging: Implications for estimating population levels of cognitive function and dementia. International Journal of Geriatric Psychiatry. 2002; 17:704–709. DOI: 10.1002/gps.651 [PubMed: 12211118] 
+Anstey KJ, Luszcz MA. Selective non-response to clinical assessment in the longitudinal study of aging: Implications for estimating population levels of cognitive function and dementia. International Journal of Geriatric Psychiatry. 2002; 17:704–709. DOI: 10.1002/gps.651 [PubMed: 12211118] 
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
@@ -356,43 +356,45 @@ Chui et al.
 
 Page 18 
 
-- Giles LC, Glonek GFV, Luszcz MA, Andrews GR. Effect of social networks on 10 year survival in very old Australians: the Australian longitudinal study of aging. Journal of Epidemiology and Community Health. 2005; 59:574–579. DOI: 10.1136/jech.2004.025429 [PubMed: 15965141] 
+Giles LC, Glonek GFV, Luszcz MA, Andrews GR. Effect of social networks on 10 year survival in very old Australians: the Australian longitudinal study of aging. Journal of Epidemiology and Community Health. 2005; 59:574–579. DOI: 10.1136/jech.2004.025429 [PubMed: 15965141] 
 
-- Hawkley LC, Cacioppo JT. Loneliness matters: A theoretical and empirical review of consequences and mechanisms. Annals of Behavioral Medicine. 2010; 40(2):218–227. DOI: 10.1007/ s12160-010-9210-8 [PubMed: 20652462] 
+Hawkley LC, Cacioppo JT. Loneliness matters: A theoretical and empirical review of consequences and mechanisms. Annals of Behavioral Medicine. 2010; 40(2):218–227. DOI: 10.1007/ s12160-010-9210-8 [PubMed: 20652462] 
 
-- Hoppmann CA, Gerstorf D, Hibbert A. Spousal associations between functional limitation and depressive symptom trajectories: Longitudinal findings from the Study of Asset and Health Dynamics Among the Oldest Old (AHEAD). Health Psychology. 2011; 30:153–162. DOI: 10.1037/a0022094 [PubMed: 21401249] 
+Hoppmann CA, Gerstorf D, Hibbert A. Spousal associations between functional limitation and depressive symptom trajectories: Longitudinal findings from the Study of Asset and Health Dynamics Among the Oldest Old (AHEAD). Health Psychology. 2011; 30:153–162. DOI: 10.1037/a0022094 [PubMed: 21401249] 
 
-- Hoppmann CA, Klumb PL. Daily goal pursuits predict cortisol secretion and mood states in employed parents with preschool children. Psychosomatic Medicine. 2006; 68(6):887–894. DOI: 10.1097/01.psy.0000238232.46870.f1 [PubMed: 17132838] 
+Hoppmann CA, Klumb PL. Daily goal pursuits predict cortisol secretion and mood states in employed parents with preschool children. Psychosomatic Medicine. 2006; 68(6):887–894. DOI: 10.1097/01.psy.0000238232.46870.f1 [PubMed: 17132838] 
 
-- Iida, M., Shrout, PE., Laurenceau, J-P., Bolger, N. Using diary methods in psychological research. In: Cooper, H.Camic, PM.Long, DL.Panter, AT.Rindskopf, D., Sher, KJ., editors. APA handbook of research methods in psychology, Vol 1: Foundations, planning, measures, and psychometrics. Washington, DC, US: American Psychological Association; 2012. p. 277-305. 
+Iida, M., Shrout, PE., Laurenceau, J-P., Bolger, N. Using diary methods in psychological research. In: Cooper, H.Camic, PM.Long, DL.Panter, AT.Rindskopf, D., Sher, KJ., editors. APA handbook of research methods in psychology, Vol 1: Foundations, planning, measures, and psychometrics. Washington, DC, US: American Psychological Association; 2012. p. 277-305. 
 
-- Ingersoll-Dayton B, Morgan D, Antonucci T. The effects of positive and negative social exchanges on aging adults. Journal of Gerontology: Social Sciences. 1997; 52:S190–S199. 
+Ingersoll-Dayton B, Morgan D, Antonucci T. The effects of positive and negative social exchanges on aging adults. Journal of Gerontology: Social Sciences. 1997; 52:S190–S199. 
 
-- John, OP., Srivastava, S. The Big Five trait taxonomy: History, measurement, and theoretical perspectives. In: Pervin, LA., John, OP., editors. Handbook of personality: Theory and research. 2. New York: Guilford Press; 1999. p. 102-138. 
+John, OP., Srivastava, S. The Big Five trait taxonomy: History, measurement, and theoretical 
 
-- Jylhä, M., Saarenheimo, M. Loneliness and ageing: Comparative perspectives. In: Dannefer, D., Phillipson, C., editors. The SAGE handbook of social gerontology. London, UK: SAGE; 2010. p. 317-328. 
+perspectives. In: Pervin, LA., John, OP., editors. Handbook of personality: Theory and research. 2. New York: Guilford Press; 1999. p. 102-138. 
 
-- Klumb PL. Benefits from productive and consumptive activities: Results from the Berlin Aging Study. Social Indicators Research. 2004; 67:107–127. 
+Jylhä, M., Saarenheimo, M. Loneliness and ageing: Comparative perspectives. In: Dannefer, D., Phillipson, C., editors. The SAGE handbook of social gerontology. London, UK: SAGE; 2010. p. 317-328. 
 
-- Lang FR, Carstensen LL. Close emotional relationships in late life: Further support for proactive aging in the social domain. Psychology and Aging. 1994; 9:315–324. [PubMed: 8054179] 
+Klumb PL. Benefits from productive and consumptive activities: Results from the Berlin Aging Study. Social Indicators Research. 2004; 67:107–127. 
 
-- Larsen, RJ., Diener, EF. Promises and problems with the circumplex model of emotion. In: Clark, MS., editor. Emotion: Review of personality and social psychology. Newbury Park, CA: Sage; 1992. p. 25-59. 
+Lang FR, Carstensen LL. Close emotional relationships in late life: Further support for proactive aging in the social domain. Psychology and Aging. 1994; 9:315–324. [PubMed: 8054179] 
 
-- Larson RW. The solitary side of life: An examination of the time people spend alone from childhood to old age. Developmental Review. 1990; 10:155–183. DOI: 10.1016/0273-2297(90)90008-r 
+Larsen, RJ., Diener, EF. Promises and problems with the circumplex model of emotion. In: Clark, MS., editor. Emotion: Review of personality and social psychology. Newbury Park, CA: Sage; 1992. p. 25-59. 
 
-- Larson RW, Mannell R, Zuzanek J. Daily well-being of older adults with friends and family. Psychology and Aging. 1986; 1:117–126. [PubMed: 3267387] 
+Larson RW. The solitary side of life: An examination of the time people spend alone from childhood to old age. Developmental Review. 1990; 10:155–183. DOI: 10.1016/0273-2297(90)90008-r 
 
-- Larson RW, Zuzanek J, Mannell R. Being alone versus being with people: Disengagement in the daily experience of older adults. Journal of Gerontology. 1985; 40:375–381. DOI: 10.1093/geronj/ 40.3.375 [PubMed: 3989252] 
+Larson RW, Mannell R, Zuzanek J. Daily well-being of older adults with friends and family. Psychology and Aging. 1986; 1:117–126. [PubMed: 3267387] 
 
-- Lawton MP. The Philadelphia Geriatric Center Morale Scale: A revision. Journal of Gerontology. 1975; 30:85–89. DOI: 10.1093/geronj/30.1.85 [PubMed: 1109399] 
+Larson RW, Zuzanek J, Mannell R. Being alone versus being with people: Disengagement in the daily experience of older adults. Journal of Gerontology. 1985; 40:375–381. DOI: 10.1093/geronj/ 40.3.375 [PubMed: 3989252] 
 
-- Lazarus, RS. The role of coping in the emotions and how coping changes over the life course. In: Magai, C., McFadden, SH., editors. Handbook of emotion, adult development, and aging. San Diego, CA: Academic Press; 1996. p. 289-306. 
+Lawton MP. The Philadelphia Geriatric Center Morale Scale: A revision. Journal of Gerontology. 1975; 30:85–89. DOI: 10.1093/geronj/30.1.85 [PubMed: 1109399] 
 
-- Luszcz, MA., Giles, L., Eckermann, S., Edwards, PA., Browne-Yung, K., Hayles, C. The Australian Longitudinal Study of Ageing: 15 years of ageing in South Australia. 2007. p. 130Retrieved from http://www.flinders.edu.au/sabs/fcas-files/Documents/StudyOfAgeing.pdf 
+Lazarus, RS. The role of coping in the emotions and how coping changes over the life course. In: Magai, C., McFadden, SH., editors. Handbook of emotion, adult development, and aging. San Diego, CA: Academic Press; 1996. p. 289-306. 
 
-- Luszcz, MA., Hoppmann, C., Gerstorf, D., Walker, R., Edwards, P., Hunter, M. A week in the lives of oldest-old Australians: Initial findings from ADuLTS measurement burst study. Poster session presented at The Gerontological Society of America’s 64th Annual Scientific Meeting; Boston, US. 2011 Nov. 
+Luszcz, MA., Giles, L., Eckermann, S., Edwards, PA., Browne-Yung, K., Hayles, C. The Australian Longitudinal Study of Ageing: 15 years of ageing in South Australia. 2007. p. 130Retrieved from http://www.flinders.edu.au/sabs/fcas-files/Documents/StudyOfAgeing.pdf 
 
-- McCrae, RR., Costa, PTJ. Personality in adulthood: A Five-Factor Theory perspective. 2. New York: Guilford; 2003. 
+Luszcz, MA., Hoppmann, C., Gerstorf, D., Walker, R., Edwards, P., Hunter, M. A week in the lives of oldest-old Australians: Initial findings from ADuLTS measurement burst study. Poster session presented at The Gerontological Society of America’s 64th Annual Scientific Meeting; Boston, US. 2011 Nov. 
+
+McCrae, RR., Costa, PTJ. Personality in adulthood: A Five-Factor Theory perspective. 2. New York: Guilford; 2003. 
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
@@ -400,7 +402,7 @@ Chui et al.
 
 Page 19 
 
-- Nesselroade, JR., Molenaar, PCM. Emphasizing intraindividual variability in the study of development over the life span: Concepts and issues. In: Overton, WF., editor. Handbook of life-Span development: Cognition, biology, and methods. Vol. 1. Hoboken, NJ: Wiley; 2010. p. 30-54. 
+Nesselroade, JR., Molenaar, PCM. Emphasizing intraindividual variability in the study of development over the life span: Concepts and issues. In: Overton, WF., editor. Handbook of life-Span development: Cognition, biology, and methods. Vol. 1. Hoboken, NJ: Wiley; 2010. p. 30-54. 
 
 Nezlek JB, Imbrie M, Shean GD. Depression and everyday social interaction. Journal of Personality and Social Psychology. 1994; 67:1101–1111. [PubMed: 7815303] 
 
@@ -414,7 +416,9 @@ Rook KS. Reciprocity of social exchange and social satisfaction among older wome
 
 Rook, KS. Social relationships as a source of companionship: Implications for older adults’ psychological well-being. In: Sarason, BR.Sarason, IG., Pierce, GR., editors. Social support: An interactional view. Oxford, England: Wiley; 1990. p. 219-250. 
 
-Rook, KS., Mavandadi, S., Sorkin, DH., Zettel, LA. Optimizing social relationships as a resource for health and well-being in later life. In: Aldwin, CM.Park, CL., Spiro, A., editors. Psychology of health psychology and aging. New York: Guilford; 2007. p. 267-285. SAS Institute. SAS 9.2. Cary, NC: 2008. 
+Rook, KS., Mavandadi, S., Sorkin, DH., Zettel, LA. Optimizing social relationships as a resource for health and well-being in later life. In: Aldwin, CM.Park, CL., Spiro, A., editors. Psychology of health psychology and aging. New York: Guilford; 2007. p. 267-285. 
+
+SAS Institute. SAS 9.2. Cary, NC: 2008. 
 
 Savikko N, Routasalo P, Tilvis RS, Strandberg TE, Pitkälä KH. Predictors and subjective causes of loneliness in an aged population. Archives of Gerontology and Geriatrics. 2005; 41:223–233. DOI: 10.1016/j.archger.2005.03.002 [PubMed: 15908025] 
 
@@ -422,9 +426,7 @@ Schwarzer R, Leppin A. Social support and health: A theoretical and empirical ov
 
 Shrout, PE., Lane, SP. Psychometrics. In: Mehl, MR., Conner, TS., editors. Handbook of research methods for studying daily life. New York: Guilford; 2011. p. 302-320. 
 
-Shrout, PE., Lane, SP. Reliability. In: Copper, H.Camic, PM.Long, DL.Panter, AT.Rindskopf, D., Sher, 
-
-KJ., editors. APA handbook of research methods in psychology. Vol. 1: Foundations, planning, measures, and psychometrics. Washington, DC, US: American Psychological Association; 2012. p. 643-660. 
+Shrout, PE., Lane, SP. Reliability. In: Copper, H.Camic, PM.Long, DL.Panter, AT.Rindskopf, D., Sher, KJ., editors. APA handbook of research methods in psychology. Vol. 1: Foundations, planning, measures, and psychometrics. Washington, DC, US: American Psychological Association; 2012. p. 643-660. 
 
 Shumaker SA, Hill DR. Gender differences in social support and physical health. Health Psychology. 1991; 10:102–111. [PubMed: 2055208] 
 
@@ -450,8 +452,6 @@ Chui et al.
 
 Page 20 
 
-## 
-
 |**Fixed effects**<br>**Model 3**<br>**Model 4**<br>γ**(****_SE_)**<br>**95%****_CI_**<br>γ**(****_SE_)**<br>**95%****_CI_**<br>**Lower**<br>**Upper**<br>**Lower**<br>**Upper**|PA,γ10<br>3.22(.07)***<br>3.09<br>3.35<br>3.24(.06)***<br>3.12<br>3.36<br>NA,γ20<br>1.44(.06)***<br>1.33<br>1.55<br>1.44(.05)***<br>1.33<br>1.55<br>PA × Time,γ30<br>−.02(.01)**<br>−.03<br>−.01<br>−.02(.01)**<br>−03<br>−.01<br>NA × Time,γ40<br>−.01(.01)<br>−.02<br>.003<br>−.01(.01)<br>−.02<br>.003<br>PA × Alone,γ50<br>−.10(.03)**<br>−.17<br>−.03<br>−.09(.04)*<br>−.16<br>−.01<br>NA × Alone,γ60<br>.02(.03)<br>−.04<br>.09<br>.002(.03)<br>−.06<br>.06<br>PA × Gender,γ70<br>--<br>--<br>--<br>−.08(.12)<br>−.31<br>.16<br>NA × Gender,γ80<br>--<br>--<br>--<br>−.05(.10)<br>−.25<br>.16<br>PA × Neuro,γ90<br>--<br>--<br>--<br>−.04(.01)**<br>−.06<br>−.01<br>NA × Neuro,γ100<br>--<br>--<br>--<br>.02(.01)<br>−.004<br>.04<br>PA × CES-D,γ110<br>--<br>--<br>--<br>−.04(.02)*<br>−.08<br>−.003<br>NA × CES-D,γ120<br>--<br>--<br>--<br>.01(.02)<br>−.02<br>.04<br>PA × Chronic,γ130<br>--<br>--<br>--<br>−.03(.04)<br>−.11<br>.05<br>NA × Chronic,γ140<br>--<br>--<br>--<br>−.02(.04)<br>−.09<br>.05<br>PA × Loneliness,γ150<br>--<br>--<br>--<br>.05(.09)<br>−.12<br>.22<br>NA × Loneliness,γ160<br>--<br>--<br>--<br>.17(.08)*<br>.02<br>.32<br>PA × Alone × Gender,γ170<br>--<br>--<br>--<br>−.04(.07)<br>−.19<br>.10<br>NA × Alone × Gender,γ180<br>--<br>--<br>--<br>.10(.06)<br>−.02<br>.23<br>PA × Alone × Neuro,γ190<br>--<br>--<br>--<br>−.004(.01)<br>−.02<br>.01<br>NA × Alone × Neuro,γ200<br>--<br>--<br>--<br>.01(.01)*<br>.001<br>.03<br>PA × Alone × CES-D,γ210<br>--<br>--<br>--<br>−.01(.01)<br>−.03<br>.01<br>NA × Alone × CES-D,γ220<br>--<br>--<br>--<br>.01(.01)<br>−.01<br>.03<br>PA × Alone × Chronic,γ230<br>--<br>--<br>--<br>.01(.03)<br>−.04<br>.06<br>NA × Alone × Chronic,γ240<br>--<br>--<br>--<br>−.01(.02)<br>−.05<br>.03|
 |---|---|
 
@@ -463,11 +463,7 @@ Chui et al.
 
 Page 21 
 
-|**Model 3**<br>**Model 4**|**95%****_CI_**<br>**95%****_CI_**|**Fixed effects**<br>γ**(****_SE_)**<br>γ**(****_SE_)**<br>**Lower**<br>**Upper**<br>**Lower**<br>**Upper**|PA × Alone × Lonely,γ250<br>--<br>--<br>--<br>−.05(.05)<br>−.15<br>.05|NA × Alone × Lonely,γ260<br>--<br>--<br>--<br>.03(.04)<br>−.06<br>.12|Goodness-of-fit|Deviance<br>7095.2<br>7039.4|AIC<br>7135.2<br>7119.4<br>BIC<br>7181.3<br>7211.5<br>Note.|*p < .05.<br>**p < .01<br>***p < .001.<br>SE = standard error; Neuro = Neuroticism; Chronic = Chronic health conditions; AR(1) = First-order auto-r<br>coded −.5 = men and .5 = women. CES-D, neuroticism, chronic health conditions, and loneliness were gran<br>Results of random effects were not shown for simplicity. Results of random effects can be provided upon re|
-|---|---|---|---|---|---|---|---|---|
-||||||||Dev Psychol.|Author manuscript; available in PMC 2016 May 03.|
-
-
+Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
 Chui et al. 
 
@@ -480,16 +476,16 @@ Page 22
 
 Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
-||Chui et|Chui et|Chui et|al.||||||||||||||||||||||||||Page 23|
-|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
-|**Model 6**|**95%****_CI_**|**Lower**<br>**Upper**||−.26<br>.25|−.10<br>.28|−.18<br>.18|−.20<br>.28|−.36<br>.11|−.46<br>.08|−.27<br>.25|−3.00E-05<br>.05|−.04<br>.01|−.02<br>.01|−.02<br>.02|−.01<br>.05|−.06<br>−.003|−.01<br>.04|−.02<br>.04|−.03<br>.03|−.02<br>.05|−.0005<br>.05|−.05<br>.002|−.04<br>.03|−.06<br>.002|−.04<br>.06|−.05<br>.05|−.20<br>−.02|−.02<br>.15|−.01<br>.13|−12<br>.01|
-|||γ**(****_SE_)**||−.01(.13)|.09(.10)|.0004(.09)|.04(.12)|−.12(.12)|−.19(.14)|−.01(.13)|.02(.01)|−.01(.01)|−.004(.01)|.001(.01)|.02(.01)|−.03(.01)*|.02(.01)|.01(.01)|−.001(.02)|.02(.02)|.03(.01)|−.02(.01)|−.01(.02)|−.03(.02)|.01(.03)|−.001(.03)|−.11(.05)*|.06(.04)|.06(.03)|−.05(.03)|
-|**Model 5**|**95%****_CI_**|**Lower**<br>**Upper**||--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|--<br>--|
-|||γ**(****_SE_)**||--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|
-|||**Fixed effects**||NA × Spouse × Gender,γ240|PA × Other family × Gender,γ250|NA × Other family × Gender,γ260|PA × Friend × Gender,γ270|NA × Friend × Gender,γ280|PA × Peripheral ties × Gender,γ290|NA × Peripheral ties × Gender,γ300|PA × Spouse × Neuro,γ310|NA × Spouse × Neuro,γ320|PA × Other family × Neuro,γ330|NA × Other family × Neuro,γ340|PA × Friend × Neuro,γ350|NA × Friend × Neuro,γ360|PA × Peripheral ties × Neuro,γ370|NA × Peripheral ties × Neuro,γ380|PA × Spouse × CES-D,γ390|NA × Spouse × CES-D,γ400|PA × Other family × CES-D,γ410|NA × Other family × CES-D,γ420|PA × Friend × CES-D,γ430|NA × Friend × CES-D,γ440|PA × Peripheral ties × CES-D,γ450|NA × Peripheral ties × CES-D,γ460|PA × Spouse × Chronic,γ470|NA × Spouse × Chronic,γ480|PA × Other family × Chronic,γ490|NA × Other family × Chronic,γ500|
-||||||||||Dev|Psychol. Author|||manuscript;|||available||in PMC 2016|||May|03.|||||||||
+Chui et al. 
+
+Page 23 
+
+|**Fixed effects**<br>**Model 5**<br>**Model 6**<br>γ**(****_SE_)**<br>**95%****_CI_**<br>γ**(****_SE_)**<br>**95%****_CI_**<br>**Lower**<br>**Upper**<br>**Lower**<br>**Upper**|NA × Spouse × Gender,γ240<br>--<br>--<br>--<br>−.01(.13)<br>−.26<br>.25<br>PA × Other family × Gender,γ250<br>--<br>--<br>--<br>.09(.10)<br>−.10<br>.28<br>NA × Other family × Gender,γ260<br>--<br>--<br>--<br>.0004(.09)<br>−.18<br>.18<br>PA × Friend × Gender,γ270<br>--<br>--<br>--<br>.04(.12)<br>−.20<br>.28<br>NA × Friend × Gender,γ280<br>--<br>--<br>--<br>−.12(.12)<br>−.36<br>.11<br>PA × Peripheral ties × Gender,γ290<br>--<br>--<br>--<br>−.19(.14)<br>−.46<br>.08<br>NA × Peripheral ties × Gender,γ300<br>--<br>--<br>--<br>−.01(.13)<br>−.27<br>.25<br>PA × Spouse × Neuro,γ310<br>--<br>--<br>--<br>.02(.01)<br>−3.00E-05<br>.05<br>NA × Spouse × Neuro,γ320<br>--<br>--<br>--<br>−.01(.01)<br>−.04<br>.01<br>PA × Other family × Neuro,γ330<br>--<br>--<br>--<br>−.004(.01)<br>−.02<br>.01<br>NA × Other family × Neuro,γ340<br>--<br>--<br>--<br>.001(.01)<br>−.02<br>.02<br>PA × Friend × Neuro,γ350<br>--<br>--<br>--<br>.02(.01)<br>−.01<br>.05<br>NA × Friend × Neuro,γ360<br>--<br>--<br>--<br>−.03(.01)*<br>−.06<br>−.003<br>PA × Peripheral ties × Neuro,γ370<br>--<br>--<br>--<br>.02(.01)<br>−.01<br>.04<br>NA × Peripheral ties × Neuro,γ380<br>--<br>--<br>--<br>.01(.01)<br>−.02<br>.04<br>PA × Spouse × CES-D,γ390<br>--<br>--<br>--<br>−.001(.02)<br>−.03<br>.03<br>NA × Spouse × CES-D,γ400<br>--<br>--<br>--<br>.02(.02)<br>−.02<br>.05<br>PA × Other family × CES-D,γ410<br>--<br>--<br>--<br>.03(.01)<br>−.0005<br>.05<br>NA × Other family × CES-D,γ420<br>--<br>--<br>--<br>−.02(.01)<br>−.05<br>.002<br>PA × Friend × CES-D,γ430<br>--<br>--<br>--<br>−.01(.02)<br>−.04<br>.03<br>NA × Friend × CES-D,γ440<br>--<br>--<br>--<br>−.03(.02)<br>−.06<br>.002<br>PA × Peripheral ties × CES-D,γ450<br>--<br>--<br>--<br>.01(.03)<br>−.04<br>.06<br>NA × Peripheral ties × CES-D,γ460<br>--<br>--<br>--<br>−.001(.03)<br>−.05<br>.05<br>PA × Spouse × Chronic,γ470<br>--<br>--<br>--<br>−.11(.05)*<br>−.20<br>−.02<br>NA × Spouse × Chronic,γ480<br>--<br>--<br>--<br>.06(.04)<br>−.02<br>.15<br>PA × Other family × Chronic,γ490<br>--<br>--<br>--<br>.06(.03)<br>−.01<br>.13<br>NA × Other family × Chronic,γ500<br>--<br>--<br>--<br>−.05(.03)<br>−12<br>.01|
+|---|---|
 
 
+
+Dev Psychol. Author manuscript; available in PMC 2016 May 03. 
 
 Chui et al. 
 

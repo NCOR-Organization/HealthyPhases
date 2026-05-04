@@ -1,0 +1,22 @@
+You are performing semantic role labeling on a research text about solitude.
+
+Focus: WHAT LEADS TO SOLITUDE (causes, antecedents, triggers).
+
+Extract only statements where solitude is the outcome of some cause, trigger, or
+context. Use verbs such as: arises during, results from, follows, accompanies,
+emerges after, stems from, develops during, deepens after, is triggered by,
+is associated with.
+
+Requirements:
+- Each statement must be a short, general sentence starting with "Solitude".
+- Do not copy sentences verbatim from the text.
+- Do not invent facts that are not supported by the text.
+- Use hedging verbs ("often", "sometimes", "may", "can") when appropriate.
+- Output 0 to 10 sentences. If nothing in the text supports this dimension,
+  return an empty list.
+
+Return strict JSON only:
+{{"causes": ["Solitude often arises during ...", "..."]}}
+
+Text:
+{chunk_text}

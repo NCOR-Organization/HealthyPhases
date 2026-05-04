@@ -88,9 +88,9 @@ services:
     image: ${NEXUS_WEB_IMAGE}:${NEXUS_WEB_TAG}
     pull_policy: always
     restart: unless-stopped
-    platform: linux/amd64
     ports:
       - ${NEXUS_WEB_PORT}:3000
+    platform: linux/amd64
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -200,7 +200,37 @@ services:
       - fuseki_data:/fuseki
     environment:
       - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD}
-      - FUSEKI_DATASET_1=ds
+    command: >-
+      bash -c '
+      mkdir -p /fuseki/configuration /fuseki/databases/ds &&
+      printf "@prefix :        <#> .
+      @prefix fuseki:  <http://jena.apache.org/fuseki#> .
+      @prefix rdf:     <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+      @prefix ja:      <http://jena.hpl.hp.com/2005/11/Assembler#> .
+      @prefix tdb2:    <http://jena.apache.org/2016/tdb#> .
+
+      :service rdf:type fuseki:Service ;
+          fuseki:name \"ds\" ;
+          fuseki:endpoint [ fuseki:operation fuseki:query ;
+                            fuseki:name \"sparql\" ;
+                            ja:context [ ja:cxtName \"tdb:unionDefaultGraph\" ;
+                                         ja:cxtValue true ] ] ;
+          fuseki:endpoint [ fuseki:operation fuseki:query ;
+                            fuseki:name \"query\" ;
+                            ja:context [ ja:cxtName \"tdb:unionDefaultGraph\" ;
+                                         ja:cxtValue true ] ] ;
+          fuseki:endpoint [ fuseki:operation fuseki:update ;
+                            fuseki:name \"update\" ] ;
+          fuseki:endpoint [ fuseki:operation fuseki:gsp-r ;
+                            fuseki:name \"get\" ] ;
+          fuseki:endpoint [ fuseki:operation fuseki:gsp-rw ;
+                            fuseki:name \"data\" ] ;
+          fuseki:dataset :dataset .
+
+      :dataset rdf:type tdb2:DatasetTDB2 ;
+          tdb2:location \"/fuseki/databases/ds\" .
+      " > /fuseki/configuration/ds.ttl &&
+      /jena-fuseki/fuseki-server'
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:3030/ >/dev/null || exit 1"]
       interval: 10s
@@ -373,41 +403,41 @@ services:
     networks:
       - abi-network
 
-  # -----------------------------------------------------------------------------
-  # Matrix (Synapse) - Federated Messaging Server
-  # -----------------------------------------------------------------------------
-  matrix:
-    image: matrixdotorg/synapse:latest
-    pull_policy: always
-    restart: unless-stopped
-    environment:
-      SYNAPSE_SERVER_NAME: localhost
-      SYNAPSE_REPORT_STATS: "no"
-    ports:
-      - 8008:8008  # Matrix client-server API - http://localhost:8008
-      - 8448:8448  # Matrix federation API
-    volumes:
-      - synapse_data:/data
-      - ./.deploy/docker/synapse/bootstrap.sh:/bootstrap.sh:ro
-    entrypoint: ["/bin/sh", "/bootstrap.sh"]
-    networks:
-      - abi-network
+  # # -----------------------------------------------------------------------------
+  # # Matrix (Synapse) - Federated Messaging Server
+  # # -----------------------------------------------------------------------------
+  # matrix:
+  #   image: matrixdotorg/synapse:latest
+  #   pull_policy: always
+  #   restart: unless-stopped
+  #   environment:
+  #     SYNAPSE_SERVER_NAME: localhost
+  #     SYNAPSE_REPORT_STATS: "no"
+  #   ports:
+  #     - 8008:8008  # Matrix client-server API - http://localhost:8008
+  #     - 8448:8448  # Matrix federation API
+  #   volumes:
+  #     - synapse_data:/data
+  #     - ./.deploy/docker/synapse/bootstrap.sh:/bootstrap.sh:ro
+  #   entrypoint: ["/bin/sh", "/bootstrap.sh"]
+  #   networks:
+  #     - abi-network
 
-  # -----------------------------------------------------------------------------
-  # Element Web - Matrix Client
-  # -----------------------------------------------------------------------------
-  element-web:
-    image: vectorim/element-web:latest
-    pull_policy: always
-    restart: unless-stopped
-    ports:
-      - 8081:80  # Element web client - http://localhost:8081
-    volumes:
-      - ./.deploy/docker/element-config.json:/app/config.json:ro
-    depends_on:
-      - matrix
-    networks:
-      - abi-network
+  # # -----------------------------------------------------------------------------
+  # # Element Web - Matrix Client
+  # # -----------------------------------------------------------------------------
+  # element-web:
+  #   image: vectorim/element-web:latest
+  #   pull_policy: always
+  #   restart: unless-stopped
+  #   ports:
+  #     - 8081:80  # Element web client - http://localhost:8081
+  #   volumes:
+  #     - ./.deploy/docker/element-config.json:/app/config.json:ro
+  #   depends_on:
+  #     - matrix
+  #   networks:
+  #     - abi-network
 
   # -----------------------------------------------------------------------------
   # Service Portal - Single-page navigation for all HTTP UIs
@@ -426,6 +456,17 @@ services:
       - NGINX_ENVSUBST_OUTPUT_DIR=/usr/share/nginx/html
     volumes:
       - ./.deploy/docker/service-portal:/usr/share/nginx/templates:ro
+    networks:
+      - abi-network
+
+  # -----------------------------------------------------------------------------
+  # Neptune Graph Explorer
+  # -----------------------------------------------------------------------------
+  graph-explorer:
+    image: public.ecr.aws/neptune/graph-explorer
+    restart: unless-stopped
+    environment:
+      - HOST=graph-explorer.${PUBLIC_WEB_HOST:-localhost}
     networks:
       - abi-network
 

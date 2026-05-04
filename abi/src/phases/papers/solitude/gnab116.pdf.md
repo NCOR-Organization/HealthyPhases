@@ -1,6 +1,6 @@
 _The Gerontologist_ cite as: _Gerontologist_ , 2021, Vol. 61, No. 8, 1188–1196 https://doi.org/10.1093/geront/gnab116 Advance Access publication October 27, 2021 
 
-**==> picture [240 x 46] intentionally omitted <==**
+**==> picture [195 x 36] intentionally omitted <==**
 
 **==> picture [56 x 56] intentionally omitted <==**
 
@@ -12,7 +12,9 @@ _The Gerontologist_ cite as: _Gerontologist_ , 2021, Vol. 61, No. 8, 1188–1196
 
 1Department of Psychology, Stanford University, Stanford, California, USA. 2Center on Longevity, Stanford University, Stanford, California, USA. 
 
-*Address correspondence to: Laura L. Carstensen, PhD, Department of Psychology, Stanford University, 450 Jane Stanford Way, Bldg. 420, Stanford, CA 94305-2130, USA. E-mail: laura.carstensen@stanford.edu Received: July 1, 2021; Editorial Decision Date: August 3, 2021 
+*Address correspondence to: Laura L. Carstensen, PhD, Department of Psychology, Stanford University, 450 Jane Stanford Way, Bldg. 420, Stanford, CA 94305-2130, USA. E-mail: laura.carstensen@stanford.edu 
+
+Received: July 1, 2021; Editorial Decision Date: August 3, 2021 
 
 **Decision Editor:** Suzanne Meeks, PhD, FGSA 
 
@@ -34,7 +36,7 @@ I developed socioemotional selectivity theory (SST; Carstensen, 1993, 2006; Cars
 
 © The Author(s) 2021. Published by Oxford University Press on behalf of The Gerontological Society of America. All rights reserved. For permissions, please e-mail: journals.permissions@oup.com. 
 
-_The Gerontologist_ , 2021, Vol. 61, No. 8 
+_The Gerontologist_ , 2021, Vol. 61, No. 8 
 
 **1189** 
 
@@ -84,7 +86,7 @@ Below, I overview the research program as it unfolded over decades.
 
 The first empirical challenge we faced was devising a way to assess temporal influences on goals. In the early 1990s, Barbara Fredrickson, then a graduate student at Stanford and currently a professor of psychology at the University of North Carolina, and I developed an experimental approach drawing from behavioral economics, a field in which goals are inferred from expressed preferences. In our version of the task, we asked younger and older participants to imagine that they had 30 min of free time and could spend it with one of the three social partners who represented 
 
-_The Gerontologist_ , 2021, Vol. 61, No. 8 
+_The Gerontologist_ , 2021, Vol. 61, No. 8 
 
 **1191** 
 
@@ -132,7 +134,7 @@ Moreover, emotional experience appeared to grow more complex with age. Furthermo
 
 With these ideas in mind, Hershfield and I set out to capture poignancy experimentally. In one study, we used imagery inductions in which participants vividly imagined being in emotionally meaningful places and reported the emotions they were feeling (Hershfield et al., 2008). Next, we asked them to imagine being in that same place for the last time. Emotions reported during the “last time” were more mixed but, importantly, no less positive than those reported under open-ended conditions. The findings suggest that the approach of endings turns happiness into savoring, with a tinge of sadness that may increase gratitude. In another study of graduating seniors at commencement, students were primed with one of the two messages (that graduations mark endings or that graduations mark new beginnings) and were then asked about their emotions (Hershfield et al., 2008). Students in the condition priming endings reported a mix of emotions similar to those we observed in the imagery induction study. However, for those primed with new beginnings, commencement did not produce mixed emotions. 
 
-_The Gerontologist_ , 2021, Vol. 61, No. 8 
+_The Gerontologist_ , 2021, Vol. 61, No. 8 
 
 **1193** 
 
@@ -162,12 +164,6 @@ Former graduate student Nanna Notthoff, now Assistant Professor for Exercise Psy
 
 The preponderance of the evidence that age is associated with increasing interest in emotionally meaningful activities and social partners led us to hypothesize that prosocial tendencies also increase with age. In one recent study, we gave young, middle-aged, and older participants the opportunity to earn money for themselves, loved ones, or charities by increasing their physical activity (as measured by pedometers using daily step counts). No age differences were observed in the “self” or “loved one” conditions. However, when earning for a charity, older people increased walking significantly while younger people did not (Raposo et al., 2021). Such findings highlight the potential to improve health and well-being in older people through engagement in activities that also benefit societies. 
 
-## **Summary and Future Directions** 
-
-SST is a life-span theory of motivation that accounts for age-related changes in motivation as a function of perceived time horizons. The associated research program generated a profile of findings that has helped to characterize social and emotional development. As time horizons grow more limited—as they typically do with age—goals change in ways that lead to preferences to spend time with close social partners, construct smaller and more meaningful social networks, and the selective deployment of cognitive resources to process positive information. Even as life’s struggles continue with age, people savor time left, experience complex emotions, and appreciate life. 
-
-At this point, my research group actively tries to identify areas where we are wrong. For us, it is exciting to read and discuss well-designed studies that fail to support SST. Understanding which parts of the theory are supported (and which are not) is akin to finding lost puzzle pieces. For example, we suspect that the relatively objective yardstick of perceived time left in life is distinct from the more subjective 
-
 sense of time running out, with the former influencing deliberative choices and the latter influencing the savoring of experience. Additionally, whereas SST maintains that younger people prioritize exploratory goals over emotionally meaningful ones, we suspect that younger people value both exploration and meaningful experience. Indeed, it is possible that placing a high value on incompatible goals may account for some of the mental strife younger people report, as they must regularly choose between valued goals. Older people, on the other hand, may be advantaged by having clearer priorities and values. 
 
 Though the story remains incomplete, testing falsifiable hypotheses and integrating new knowledge will continue to advance the theory in new directions and hopefully provide insights into life-span development. 
@@ -188,6 +184,12 @@ This article is based on the Robert W. Kleemeier Award Lecture given on November
 
 ## **References** 
 
+## **Summary and Future Directions** 
+
+SST is a life-span theory of motivation that accounts for age-related changes in motivation as a function of perceived time horizons. The associated research program generated a profile of findings that has helped to characterize social and emotional development. As time horizons grow more limited—as they typically do with age—goals change in ways that lead to preferences to spend time with close social partners, construct smaller and more meaningful social networks, and the selective deployment of cognitive resources to process positive information. Even as life’s struggles continue with age, people savor time left, experience complex emotions, and appreciate life. 
+
+At this point, my research group actively tries to identify areas where we are wrong. For us, it is exciting to read and discuss well-designed studies that fail to support SST. Understanding which parts of the theory are supported (and which are not) is akin to finding lost puzzle pieces. For example, we suspect that the relatively objective yardstick of perceived time left in life is distinct from the more subjective 
+
 - Baltes, P. B. (1997). On the incomplete architecture of human ontogeny: Selection, optimization, and compensation as foundation of developmental theory. _American Psychologist_ , **52** (4), 366–380. doi:10.1037/0003-066X.52.4.366 
 
 - Baltes, P. B., & Baltes, M. M. (1993). _Successful aging: Perspectives from the behavioral sciences (Vol. 4)_ . Cambridge University Press. 
@@ -200,7 +202,7 @@ This article is based on the Robert W. Kleemeier Award Lecture given on November
 
 - Burr, D. A., Castrellon, J. J., Zald, D. H., & Samanez-Larkin, G. R. (2021). Emotion dynamics across adulthood in everyday life: Older adults are more emotionally stable and better at regulating desires. _Emotion (Washington, D.C.)_ , **21** (3), 453– 464. doi:10.1037/emo0000734 
 
-_The Gerontologist_ , 2021, Vol. 61, No. 8 
+_The Gerontologist_ , 2021, Vol. 61, No. 8 
 
 **1195** 
 
@@ -230,13 +232,13 @@ _The Gerontologist_ , 2021, Vol. 61, No. 8
 
 - Cumming, E., & Henry, W. E. (1961). _Growing old: The process of disengagement_ . Basic Books. 
 
-- English, T., & Carstensen, L. L. (2014). Selective narrowing of social networks across adulthood is associated with improved emotional experience in daily life. _International Journal of Behavioral Development_ , **38** (2), 195–202. doi:10.1177/0165025413515404 
+English, T., & Carstensen, L. L. (2014). Selective narrowing of social networks across adulthood is associated with improved emotional experience in daily life. _International Journal of Behavioral Development_ , **38** (2), 195–202. doi:10.1177/0165025413515404 
 
 - English, T., & Carstensen, L. L. (2015). Does positivity operate when the stakes are high? Health status and decision making among older adults. _Psychology and Aging_ , **30** (2), 348–355. doi:10.1037/a0039121 
 
 - Fredrickson, B. L., & Carstensen, L. L. (1990). Choosing social partners: How old age and anticipated endings make 
 
-people more selective. _Psychology and Aging_ , **5** (3), 335–347. doi:10.1037//0882-7974.5.3.335 
+   - people more selective. _Psychology and Aging_ , **5** (3), 335–347. doi:10.1037//0882-7974.5.3.335 
 
 - Fung, H. H., & Carstensen, L. L. (2004). Motivational changes in response to blocked goals and foreshortened time: Testing alternatives to socioemotional selectivity theory. _Psychology and Aging_ , **19** (1), 68–78. doi:10.1037/0882-7974.19.1.68 
 
@@ -258,7 +260,9 @@ people more selective. _Psychology and Aging_ , **5** (3), 335–347. doi:10.103
 
 - Isaacowitz, D. M., & Blanchard-Fields, F. (2012). Linking process and outcome in the study of emotion and aging. _Perspectives on Psychological Science_ , **7** (1), 3–17. doi:10.1177/1745691611424750 
 
-- Jung, C. G. (1933). _Modern man in search of a soul_ . Harcourt, Brace. Kahn, R. L., & Antonucci, T. C. (1980). Convoys over the life course: Attachment, roles, and social support. In P. B. Baltes & O. Brim (Eds.), _Life-span development and behavior_ (Vol. **3** , pp. 254–283). Academic Press. 
+- Jung, C. G. (1933). _Modern man in search of a soul_ . Harcourt, Brace. 
+
+- Kahn, R. L., & Antonucci, T. C. (1980). Convoys over the life course: Attachment, roles, and social support. In P. B. Baltes & O. Brim (Eds.), _Life-span development and behavior_ (Vol. **3** , pp. 254–283). Academic Press. 
 
 - Kalenzaga, S., Lamidey, V., Ergis, A. M., Clarys, D., & Piolino, P. (2016). The positivity bias in aging: Motivation or degradation? _Emotion (Washington, D.C.)_ , **16** (5), 602–610. doi:10.1037/ emo0000170 
 

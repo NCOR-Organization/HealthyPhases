@@ -14,6 +14,7 @@ from naas_abi_core.services.object_storage.ObjectStoragePort import (
     Exceptions as ObjectStorageExceptions,
 )
 from naas_abi_core.services.vector_store.IVectorStorePort import SearchResult
+from naas_abi_core.services.cache.CacheFactory import CacheFactory
 import pymupdf.layout
 import pymupdf4llm
 import pathlib
@@ -25,6 +26,10 @@ import datetime
 import rdflib
 
 from phases.utils import embed_text
+
+
+def _hash(s: str) -> str:
+    return hashlib.sha256(s.encode()).hexdigest()
 
 
 from phases.ontologies.documents import (
@@ -56,25 +61,40 @@ class PapersIngestionWorkflow(Workflow[PapersIngestionWorkflowParameters]):
         self.__configuration = configuration
 
         self.module = ABIModule.get_instance()
+        self.__cache = CacheFactory.CacheFS_find_storage(subpath="papers_ingestion")
 
     def _pdf_path_to_key(self, path: str) -> str:
         return f"{path.split('/')[-1]}.md"
 
+    def _ontology_fingerprint(self, ontology_path: str) -> str:
+        return _hash(pathlib.Path(ontology_path).read_bytes().decode("utf-8", "ignore"))
+
+    def _paths_fingerprint(self, paths: list[str]) -> str:
+        return _hash("\n".join(sorted(paths)))
+
     def pdfs_to_markdown(self, parameters: PapersIngestionWorkflowParameters):
-        try:
-            existing_papers = self.module.engine.services.object_storage.list_objects(
-                self.__configuration.storage_path
-            )
-            logger.debug(f"Existing papers: {existing_papers}")
-        except ObjectStorageExceptions.ObjectNotFound:
-            logger.debug("No existing papers found")
-            existing_papers = []
+        existing_papers: list[str] | None = None
 
         for path in parameters.paths:
             key = self._pdf_path_to_key(path)
+            cache_key = f"md_done:{key}"
 
-            if any(key in paper for paper in existing_papers):
-                logger.debug(f"Paper {key} already exists")
+            if self.__cache.exists(cache_key):
+                logger.debug(f"[cache] markdown already produced for {key}")
+                continue
+
+            # Fall back to object storage listing only on cache miss.
+            if existing_papers is None:
+                try:
+                    existing_papers = self.module.engine.services.object_storage.list_objects(
+                        self.__configuration.storage_path
+                    )
+                except ObjectStorageExceptions.ObjectNotFound:
+                    existing_papers = []
+
+            if any(key == paper or paper.endswith("/" + key) for paper in existing_papers):
+                logger.debug(f"Paper {key} already exists in object storage")
+                self.__cache.set_json(cache_key, {"path": path})
                 continue
 
             doc = pymupdf.open(path)
@@ -83,12 +103,24 @@ class PapersIngestionWorkflow(Workflow[PapersIngestionWorkflowParameters]):
             self.module.engine.services.object_storage.put_object(
                 self.__configuration.storage_path, key, md.encode()
             )
+            self.__cache.set_json(cache_key, {"path": path})
 
     def markdowns_to_vectors(self, parameters: PapersIngestionWorkflowParameters):
         print(f"Markdowns to vectors: {parameters}")
+
+        # Hoisted out of the per-path loop.
+        self.module.engine.services.vector_store.ensure_collection(
+            collection_name="papers", dimension=3072
+        )
+
         for path in parameters.paths:
             print(f"Processing {path}")
-            # Check if we already have a PDFPaperFile for this path.
+            cache_key = f"vec_done:{path}"
+            if self.__cache.exists(cache_key):
+                logger.debug(f"[cache] vectors already produced for {path}")
+                continue
+
+            # Cache miss — fall back to a SPARQL existence check (covers cache wipe / migrations).
             query = f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
 SELECT ?pdf_paper_file ?id WHERE {{
     GRAPH <{PAPERS_GRAPH}> {{
@@ -100,6 +132,7 @@ SELECT ?pdf_paper_file ?id WHERE {{
 
             if len(list(pdf_paper_file)) > 0:
                 logger.debug(f"PDFPaperFile for {path} already exists")
+                self.__cache.set_json(cache_key, {"path": path})
                 continue
             else:
                 logger.debug(f"PDFPaperFile {path} not found")
@@ -110,11 +143,6 @@ SELECT ?pdf_paper_file ?id WHERE {{
             ).decode("utf-8")
 
             chunks, embeddings = embed_text(md)
-
-            # We need to make sure the vector store has a collection.
-            self.module.engine.services.vector_store.ensure_collection(
-                collection_name="papers", dimension=3072
-            )
 
             graph: rdflib.Graph = rdflib.Graph()
 
@@ -152,8 +180,16 @@ SELECT ?pdf_paper_file ?id WHERE {{
                 [chunk_entity.chunk_id for chunk_entity in chunk_entities],
                 embeddings,
             )
+            self.__cache.set_json(cache_key, {"path": path})
 
     def find_lexical_occurrences(self, parameters: PapersIngestionWorkflowParameters):
+        ontology_fp = self._ontology_fingerprint(parameters.ontology_path)
+        paths_fp = self._paths_fingerprint(parameters.paths)
+        stage_key = f"lex_done:{ontology_fp}:{paths_fp}"
+        if self.__cache.exists(stage_key):
+            logger.debug("[cache] lexical occurrences stage already up-to-date — skipping")
+            return
+
         ontology = rdflib.Graph()
         ontology.parse(parameters.ontology_path, format="xml")
 
@@ -216,10 +252,18 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path WHERE {{
         self.module.engine.services.triple_store.insert(
             findings, graph_name=PAPERS_GRAPH
         )
+        self.__cache.set_json(stage_key, {"ontology": ontology_fp, "paths": paths_fp})
 
     def find_definition_occurrences(
         self, parameters: PapersIngestionWorkflowParameters
     ):
+        ontology_fp = self._ontology_fingerprint(parameters.ontology_path)
+        paths_fp = self._paths_fingerprint(parameters.paths)
+        stage_key = f"def_done:{ontology_fp}:{paths_fp}"
+        if self.__cache.exists(stage_key):
+            logger.debug("[cache] definition occurrences stage already up-to-date — skipping")
+            return
+
         ontology = rdflib.Graph()
         ontology.parse(parameters.ontology_path, format="xml")
 
@@ -248,7 +292,16 @@ SELECT ?s ?label ?definition WHERE {
             print(f"{subject} | {label} |\t\t{definition}")
 
             definition_text = str(definition)
-            chunks, embeddings = embed_text(definition_text)
+            emb_key = f"def_emb:{subject}:{_hash(definition_text)}"
+            try:
+                cached = self.__cache.get(emb_key)
+                chunks, embeddings = cached["chunks"], cached["embeddings"]
+                logger.debug(f"[cache] reusing definition embedding for {subject}")
+            except Exception:
+                chunks, embeddings = embed_text(definition_text)
+                self.__cache.set_pickle(
+                    emb_key, {"chunks": chunks, "embeddings": embeddings}
+                )
             for _, embedding in zip(chunks, embeddings):
                 # Find closest matches.
 
@@ -305,6 +358,7 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path ?text WHERE {{
         self.module.engine.services.triple_store.insert(
             findings, graph_name=PAPERS_GRAPH
         )
+        self.__cache.set_json(stage_key, {"ontology": ontology_fp, "paths": paths_fp})
 
     def run(self, parameters: PapersIngestionWorkflowParameters):
         logger.debug("Running pipeline")

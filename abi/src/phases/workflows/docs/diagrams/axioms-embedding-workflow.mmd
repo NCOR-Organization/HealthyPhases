@@ -1,0 +1,7 @@
+flowchart LR
+    A[ExtractedAxiom records in triple store] --> B[Load candidate axioms]
+    B --> C[Ensure vector collection exists]
+    C --> D[Batch axioms]
+    D --> E[Generate embedding vectors]
+    E --> F[Attach metadata and payload text]
+    F --> G[Upsert into vector store collection]

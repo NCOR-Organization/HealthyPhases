@@ -4,17 +4,17 @@ _**Social and Personality Psychology Compass**_
 
 **==> picture [74 x 17] intentionally omitted <==**
 
-**-** 
-
-**REVIEW ARTICLE OPEN ACCESS** 
+## **REVIEW ARTICLE -** 
 
 ## **Deconstructing Solitude and Its Links to Well‐Being** 
 
 T.‐T. Nguyen[1] | M. Rodriguez[2] 
 
-1Department of Psychology, University of Durham, Durham, UK | 2Department of Psychology, University of Michigan, Ann Arbor, Michigan, USA 
+> 1Department of Psychology, University of Durham, Durham, UK | 2Department of Psychology, University of Michigan, Ann Arbor, Michigan, USA 
 
-**Correspondence:** T.‐T. Nguyen (thuy-vy.nguyen@durham.ac.uk) **Received:** 31 May 2024 | **Revised:** 7 October 2024 | **Accepted:** 16 October 2024 
+**Correspondence:** T.‐T. Nguyen (thuy-vy.nguyen@durham.ac.uk) 
+
+**Received:** 31 May 2024 | **Revised:** 7 October 2024 | **Accepted:** 16 October 2024 
 
 **Funding:** This work was supported by Economic and Social Research Council (ES/W002256/1). 
 
@@ -34,7 +34,9 @@ Winnicott 1958). In our view, framing the issue of solitude as a dichotomous que
 
 The empirical research to date provides a more nuanced perspective of solitude's effects, which heavily depend on (a) how solitude is conceptualized and operationalized, and (b) which dimensions of solitude are studied, including, but not limited to, the amount of time alone (i.e., duration and frequency) and the individual's experiences in solitude (e.g., emotions, cognitions, activities). To bring greater clarity to the field, we provide a methodological framework that guides researchers in systematically studying solitude. To do so, we break down solitude into its various conceptualizations, operationalizations, and dimensions.[1] We argue that this foundational knowledge is critical for researchers to clearly delineate when solitude may be beneficial or detrimental to psychological well‐being. Our intention is not to prescribe a specific method but, rather, to highlight key 
 
-This is an open access article under the terms of the Creative Commons Attribution License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited. © 2024 The Author(s). _Social and Personality Psychology Compass_ published by John Wiley & Sons Ltd. 
+This is an open access article under the terms of the Creative Commons Attribution License, which permits use, distribution and reproduction in any medium, provided the original work is properly cited. 
+
+© 2024 The Author(s). _Social and Personality Psychology Compass_ published by John Wiley & Sons Ltd. 
 
 1 of 11 
 
@@ -140,17 +142,17 @@ While prolonged solitude is often linked with negative consequences, brief perio
 
 If brief periods of solitude are typically benign or beneficial, but extended durations are typically adverse, is there an optimal amount of solitude that promotes well‐being? Recent work suggests there is no ideal “one‐size‐fits‐all” balance between solitude and social interaction; rather, what “too much solitude” means seems to depend on an individual's baseline frequency of solitude and varies substantially from person to person. For example, a person might feel less satisfied and lonelier on days when they spend more time in solitude than their usual, but that does not mean that those who generally spend more time alone are lonelier people (Weinstein et al. 2023). However, there may be a threshold; Danvers et al. (2023) observed a significant increase in loneliness when individuals spent more than 75% of their waking hours alone over the course of a week. Prior to this cut‐off, those who spent between 25% and 75% of their waking hours alone showed no substantial differences in their loneliness levels (Danvers et al. 2023). Together, these findings suggest that, while there is a point in which solitude may be too much for an average person, there is no universal optimal amount of solitude that one can prescribe. 
 
-## **5.2** | **Quality of Solitude** 
-
-The effects of solitude are not solely determined by its quantity (duration and frequency) but also its quality. When it comes to understanding the quality of one's solitude, researchers often focus on motivations for seeking solitude and the activities performed during this time. Across diverse methodologies and samples, studies consistently show that self‐selected or chosen solitude contributes more positively to well‐being (Coplan, Hipson, and Bowker 2021). Adolescents and emerging adults who spend time in solitude for more intrinsically motivated and personally meaningful reasons report lower loneliness, social anxiety, and depressive symptoms, as well as greater overall well‐being (V. Thomas and Azmitia 2019). Further, several studies suggest that people who autonomously decide whether and how to spend their solitary time experience more positive emotions and lower stress when alone (T. T. Nguyen, Ryan, and Deci 2018) and report greater daily life satisfaction and lower daily loneliness (Chua and Koestner 2008; Weinstein et al. 2023). 
-
-Voluntary solitude is widely embraced for various reasons (Coplan, Hipson, and Bowker 2021; T. Nguyen, Weinstein, and Deci 2022; T. T. Nguyen, Weinstein, and Ryan 2022; Weinstein, Nguyen, and Hansen 2021; van Zyl, Dankaert, and Guse 2018). Around the world, spending time alone is considered one of the most restful activities (Hammond 2019). Across the lifespan, people report that solitude fosters reflection, self‐growth, and freedom from social demands, thereby enhancing life 
-
 satisfaction (Weinstein, Nguyen, and Hansen 2021). Solitude offers opportunities for individuals to explore their interests and pursue activities that bring joy and freedom, such as reading, listening to music, or engaging in hobbies (Ost Mor, Palgi, and Segel‐Karpas 2021). In addition, taking a solitary walk in nature offers several cognitive and emotional benefits, including increased mood, lower stress and rumination, and memory improvements (Berman et al. 2012; Bratman et al. 2015). Other activities that are typically done alone—including mindfulness (K. W. Brown and Ryan 2003), self‐reflection and meaning‐ making (Kross, Ong, and Ayduk 2023; Kross and Ayduk 2011), and expressive writing (Pennebaker 1997)—can promote psychological well‐being. Even leisure activities that are typically done with others (e.g., going to the movies) can be enjoyable when done alone, though their value is often underestimated (Ratner and Hamilton 2015). Therefore, the role of solitude in psychological well‐being is shaped by _why_ and _how_ solitude is experienced. 
 
 ## **5.3** | **The Role of Individual Differences** 
 
 Extant research has tested a wide variety of individual differences in relation to subjective experiences of solitude—these include, but are not limited to, demographic (e.g., age; Hoppmann and Pauly 2022), personality (e.g., introversion; Zelenski, Sobocko, and Whelan 2013) and socio‐cultural (e.g., nationality; Lay et al. 2020) factors. For the purpose of this paper, we focus on individual differences in global perceptions around solitude that in turn shape subjective experiences and outcomes of solitude. 
+
+## **5.2** | **Quality of Solitude** 
+
+The effects of solitude are not solely determined by its quantity (duration and frequency) but also its quality. When it comes to understanding the quality of one's solitude, researchers often focus on motivations for seeking solitude and the activities performed during this time. Across diverse methodologies and samples, studies consistently show that self‐selected or chosen solitude contributes more positively to well‐being (Coplan, Hipson, and Bowker 2021). Adolescents and emerging adults who spend time in solitude for more intrinsically motivated and personally meaningful reasons report lower loneliness, social anxiety, and depressive symptoms, as well as greater overall well‐being (V. Thomas and Azmitia 2019). Further, several studies suggest that people who autonomously decide whether and how to spend their solitary time experience more positive emotions and lower stress when alone (T. T. Nguyen, Ryan, and Deci 2018) and report greater daily life satisfaction and lower daily loneliness (Chua and Koestner 2008; Weinstein et al. 2023). 
+
+Voluntary solitude is widely embraced for various reasons (Coplan, Hipson, and Bowker 2021; T. Nguyen, Weinstein, and Deci 2022; T. T. Nguyen, Weinstein, and Ryan 2022; Weinstein, Nguyen, and Hansen 2021; van Zyl, Dankaert, and Guse 2018). Around the world, spending time alone is considered one of the most restful activities (Hammond 2019). Across the lifespan, people report that solitude fosters reflection, self‐growth, and freedom from social demands, thereby enhancing life 
 
 ## **5.3.1** | **Preference for Solitude** 
 
@@ -184,30 +186,6 @@ Critically, we emphasize that understanding the relationship between solitude an
 
 We believe that the study of solitude and its consequences is important for several reasons. First, solitude is a nearly universal experience that occupies a substantial portion of our daily lives, making it crucial to identify for whom, when, and under what conditions solitude is harmful, benign, or beneficial. This knowledge is relevant to a wide range of individuals ranging from parents and teachers who work with youths, to health professionals treating patients with physical or mental health conditions. Second, it highlights the potential for momentary solitude to serve as a tool for emotion regulation, self‐reflection, goal setting, or engaging in creative and intellectual pursuits. Third, a deeper understanding of solitude's effects can inform the creation of public policies and community programs designed to combat social isolation and loneliness without stigmatizing healthy pursuits of solitude. As such, we are delighted by the growing enthusiasm and interest in this evolving area of research, which promises to offer a more comprehensive and nuanced understanding of solitude in daily life. 
 
-## **Acknowledgments** 
-
-We would like to thank Scott W. Campbell for his feedback on a draft of the manuscript. 
-
-## **Conflicts of Interest** 
-
-The authors declare no conflicts of interest. 
-
-## **Data Availability Statement** 
-
-The authors have nothing to report. 
-
-## **Endnotes** 
-
-1 The title of our paper, “Deconstructing Solitude,” refers to the process of breaking down solitude into its various components—that is, different conceptualizations, operationalizations, and dimensions. It is not meant to reference the deconstructionist movement in philosophy or literary criticism. 
-
-## **References** 
-
-Ainsworth, M. D. 1989. “Attachments Beyond Infancy.” _American Psychologist_ 44, no. 4: 709–716. https://doi.org/10.1037//0003‐066x.44.4.709. 
-
-Alahmadi, S., N. R. Buttrick, D. T. Gilbert, A. M. Hardin, E. C. Westgate, and T. D. Wilson. 2017. “You Can Do It If You Really Try: The Effects of Motivation on Thinking for Pleasure.” _Motivation and Emotion_ 41, no. 5: 545–561. https://doi.org/10.1007/s11031‐017‐9625‐7. 
-
-American Psychiatric Association. 2013. _Diagnostic and Statistical Manual of Mental Disorders_ . 5th ed. Washington, DC: American Psychiatric Association. https://doi.org/10.1176/appi.books.9780890425596. 
-
 Anttila, T., K. Selander, and T. Oinas. 2020. “Disconnected Lives: Trends in Time Spent Alone in Finland.” _Social Indicators Research_ 150, no. 2: 711–730. https://doi.org/10.1007/s11205‐020‐02304‐z. 
 
 Averill, J. R., and L. Sundararajan. 2013. “Experiences of Solitude: Issues of Assessment, Theory, and Culture.” In _The Handbook of Solitude: Psychological Perspectives on Social Isolation, Social Withdrawal, and Being Alone_ , 90–108. https://doi.org/10.1002/9781118427378.ch6. 
@@ -225,6 +203,30 @@ Brown, K. W., and R. M. Ryan. 2003. “The Benefits of Being Present: Mindfulnes
 Brown, L. H., P. J. Silvia, I. Myin‐Germeys, and T. R. Kwapil. 2007. “When the Need to Belong Goes Wrong: The Expression of Social Anhedonia and Social Anxiety in Daily Life.” _Psychological Science_ 18, no. 9: 778–782. https://doi.org/10.1111/j.1467‐9280.2007.01978.x. 
 
 Buchholz, E. S. 1997. _The Call for Solitude: Alonetime in a World of Attachment_ . New York, NY: Simon & Schuster. 
+
+## **Acknowledgments** 
+
+We would like to thank Scott W. Campbell for his feedback on a draft of the manuscript. 
+
+## **Conflicts of Interest** 
+
+The authors declare no conflicts of interest. 
+
+## **Data Availability Statement** 
+
+The authors have nothing to report. 
+
+## **Endnotes** 
+
+- 1 The title of our paper, “Deconstructing Solitude,” refers to the process of breaking down solitude into its various components—that is, different conceptualizations, operationalizations, and dimensions. It is not meant to reference the deconstructionist movement in philosophy or literary criticism. 
+
+## **References** 
+
+Ainsworth, M. D. 1989. “Attachments Beyond Infancy.” _American Psychologist_ 44, no. 4: 709–716. https://doi.org/10.1037//0003‐066x.44.4.709. 
+
+Alahmadi, S., N. R. Buttrick, D. T. Gilbert, A. M. Hardin, E. C. Westgate, and T. D. Wilson. 2017. “You Can Do It If You Really Try: The Effects of Motivation on Thinking for Pleasure.” _Motivation and Emotion_ 41, no. 5: 545–561. https://doi.org/10.1007/s11031‐017‐9625‐7. 
+
+American Psychiatric Association. 2013. _Diagnostic and Statistical Manual of Mental Disorders_ . 5th ed. Washington, DC: American Psychiatric Association. https://doi.org/10.1176/appi.books.9780890425596. 
 
 Burger, J. M. 1995. “Individual Differences in Preference for Solitude.” _Journal of Research in Personality_ 29, no. 1: 85–108. https://doi.org/10. 1006/jrpe.1995.1005. 
 
@@ -400,6 +402,22 @@ Thomas, V. 2023. “The Psychological Affordances of Solitude in Emerging Adulth
 
 Thomas, V., and M. Azmitia. 2019. “Motivation Matters: Development and Validation of the Motivation for Solitude Scale – Short Form (MSS‐ SF).” _Journal of Adolescence_ 70, no. 1: 33–42. https://doi.org/10.1016/j. adolescence.2018.11.004. 
 
+Weinstein, N., M. Vuorre, M. Adams, and T. Nguyen. 2023. “Balance Between Solitude and Socializing: Everyday Solitude Time Both Benefits and Harms Well‐Being.” _Scientific Reports_ 13, no. 1: 21160. https://doi. org/10.1038/s41598‐023‐44507‐7. 
+
+Westgate, E. C., and T. D. Wilson. 2018. “Boring Thoughts and Bored Minds: The MAC Model of Boredom and Cognitive Engagement.” _Psychological Review_ 125, no. 5: 689–713. https://doi.org/10.1037/ rev0000097. 
+
+Westgate, E. C., T. D. Wilson, N. R. Buttrick, R. A. Furrer, and D. T. Gilbert. 2021. “What Makes Thinking for Pleasure Pleasurable?” _Emotion_ 21, no. 5: 981–989. https://doi.org/10.1037/emo0000941. 
+
+Westgate, E. C., T. D. Wilson, and D. T. Gilbert. 2017. “With a Little Help for Our Thoughts: Making It Easier to Think for Pleasure.” _Emotion_ 17, no. 5: 828–839. https://doi.org/10.1037/emo0000278. 
+
+Wilson, T. D., D. A. Reinhard, E. C. Westgate, et al. 2014. “Just Think: The Challenges of the Disengaged Mind.” _Science_ 345, no. 6192: 75–77. https://doi.org/10.1126/science.1250830. 
+
+Winnicott, D. W. 1958. “The Capacity to Be Alone.” _International Journal of Psycho‐Analysis_ 39: 416–420. 
+
+Zelenski, J. M., K. Sobocko, and A. D. C. Whelan. 2013. “Introversion, Solitude, and Subjective Well‐Being.” In _The Handbook of Solitude: Psychological Perspectives on Social Isolation, Social Withdrawal, and Being Alone_ , 184–201. Chichester, UK: John Wiley & Sons Ltd. 
+
+Zhou, T., L. Liao, T.‐V. T. Nguyen, D. Li, and J. Liu. 2023. “Solitude Profiles and Psychological Adjustment in Chinese Late Adolescence: A Person‐Centered Research.” _Frontiers in Psychiatry_ 14. https://doi.org/ 10.3389/fpsyt.2023.1173441. 
+
 Thomas, V., B. Balzer Carr, M. Azmitia, and S. Whittaker. 2021. “Alone and Online: Understanding the Relationships Between Social Media, Solitude, and Psychological Adjustment.” _Psychology of Popular Media_ 10, no. 2: 201–211. https://doi.org/10.1037/ppm0000287. 
 
 Thomas, V. D. 2017. _How to Be Alone: An Investigation of Solitude Skills_ . University of California, Santa Cruz. https://www.proquest.com/ docview/1941584283/abstract/2A8552331D854502PQ/1. 
@@ -417,22 +435,6 @@ van Zyl, C. J. J., E. Dankaert, and T. Guse. 2018. “Motivation for Solitude: A
 Wang, J., B. Lloyd‐Evans, D. Giacco, et al. 2017. “Social Isolation in Mental Health: A Conceptual and Methodological Review.” _Social Psychiatry and Psychiatric Epidemiology_ 52, no. 12: 1451–1461. https://doi. org/10.1007/s00127‐017‐1446‐1. 
 
 Weinstein, N., T. Nguyen, and H. Hansen. 2021. “What Time Alone Offers: Narratives of Solitude From Adolescence to Older Adulthood.” _Frontiers in Psychology_ 12: 714518. https://www.frontiersin.org/articles/ 10.3389/fpsyg.2021.714518. 
-
-Weinstein, N., M. Vuorre, M. Adams, and T. Nguyen. 2023. “Balance Between Solitude and Socializing: Everyday Solitude Time Both Benefits and Harms Well‐Being.” _Scientific Reports_ 13, no. 1: 21160. https://doi. org/10.1038/s41598‐023‐44507‐7. 
-
-Westgate, E. C., and T. D. Wilson. 2018. “Boring Thoughts and Bored Minds: The MAC Model of Boredom and Cognitive Engagement.” _Psychological Review_ 125, no. 5: 689–713. https://doi.org/10.1037/ rev0000097. 
-
-Westgate, E. C., T. D. Wilson, N. R. Buttrick, R. A. Furrer, and D. T. Gilbert. 2021. “What Makes Thinking for Pleasure Pleasurable?” _Emotion_ 21, no. 5: 981–989. https://doi.org/10.1037/emo0000941. 
-
-Westgate, E. C., T. D. Wilson, and D. T. Gilbert. 2017. “With a Little Help for Our Thoughts: Making It Easier to Think for Pleasure.” _Emotion_ 17, no. 5: 828–839. https://doi.org/10.1037/emo0000278. 
-
-Wilson, T. D., D. A. Reinhard, E. C. Westgate, et al. 2014. “Just Think: The Challenges of the Disengaged Mind.” _Science_ 345, no. 6192: 75–77. https://doi.org/10.1126/science.1250830. 
-
-Winnicott, D. W. 1958. “The Capacity to Be Alone.” _International Journal of Psycho‐Analysis_ 39: 416–420. 
-
-Zelenski, J. M., K. Sobocko, and A. D. C. Whelan. 2013. “Introversion, Solitude, and Subjective Well‐Being.” In _The Handbook of Solitude: Psychological Perspectives on Social Isolation, Social Withdrawal, and Being Alone_ , 184–201. Chichester, UK: John Wiley & Sons Ltd. 
-
-Zhou, T., L. Liao, T.‐V. T. Nguyen, D. Li, and J. Liu. 2023. “Solitude Profiles and Psychological Adjustment in Chinese Late Adolescence: A Person‐Centered Research.” _Frontiers in Psychiatry_ 14. https://doi.org/ 10.3389/fpsyt.2023.1173441. 
 
 11 of 11 
 
