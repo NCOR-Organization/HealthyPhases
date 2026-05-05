@@ -369,6 +369,7 @@ class Chunk(RDFEntity):
         "created": "http://purl.org/dc/terms/created",
         "creator": "http://purl.org/dc/terms/creator",
         "has_embedding_occurrence": "http://purl.obolibrary.org/obo/phases/documents.owl#has_embedding_occurrence",
+        "has_extracted_item": "http://purl.obolibrary.org/obo/phases/documents.owl#has_extracted_item",
         "has_lexical_occurrence": "http://purl.obolibrary.org/obo/phases/documents.owl#has_lexical_occurrence",
         "label": "http://www.w3.org/2000/01/rdf-schema#label",
         "text": "http://purl.obolibrary.org/obo/phases/documents.owl#text",
@@ -376,6 +377,7 @@ class Chunk(RDFEntity):
     _object_properties: ClassVar[set[str]] = {
         "chunk_of",
         "has_embedding_occurrence",
+        "has_extracted_item",
         "has_lexical_occurrence",
     }
 
@@ -400,6 +402,9 @@ class Chunk(RDFEntity):
     chunk_of: Annotated[Union[PDFPaperFile, URIRef, str], Field()]
     has_embedding_occurrence: Optional[
         Annotated[List[Union[EmbeddingOccurrence, URIRef, str]], Field()]
+    ] = ["http://ontology.naas.ai/abi/unknown"]
+    has_extracted_item: Optional[
+        Annotated[List[Union[ExtractedItem, URIRef, str]], Field()]
     ] = ["http://ontology.naas.ai/abi/unknown"]
     has_lexical_occurrence: Optional[
         Annotated[List[Union[LexicalOccurrence, URIRef, str]], Field()]
@@ -492,8 +497,100 @@ class EmbeddingOccurrence(RDFEntity):
     embedding_occurrence_of: Annotated[Union[URIRef, str], Field()]
 
 
+class Extraction(RDFEntity):
+    """
+    A configured LLM extraction pipeline run, identified by the prompt template and model used to produce a set of ExtractedItem instances from chunks.
+    """
+
+    _class_uri: ClassVar[str] = (
+        "http://purl.obolibrary.org/obo/phases/documents.owl#Extraction"
+    )
+    _name: ClassVar[str] = "extraction"
+    _property_uris: ClassVar[dict] = {
+        "created": "http://purl.org/dc/terms/created",
+        "creator": "http://purl.org/dc/terms/creator",
+        "extraction_id": "http://purl.obolibrary.org/obo/phases/documents.owl#extraction_id",
+        "label": "http://www.w3.org/2000/01/rdf-schema#label",
+        "model_name": "http://purl.obolibrary.org/obo/phases/documents.owl#model_name",
+        "output_key": "http://purl.obolibrary.org/obo/phases/documents.owl#output_key",
+        "pipeline_name": "http://purl.obolibrary.org/obo/phases/documents.owl#pipeline_name",
+        "produced_extracted_item": "http://purl.obolibrary.org/obo/phases/documents.owl#produced_extracted_item",
+        "prompt_hash": "http://purl.obolibrary.org/obo/phases/documents.owl#prompt_hash",
+        "prompt_template": "http://purl.obolibrary.org/obo/phases/documents.owl#prompt_template",
+    }
+    _object_properties: ClassVar[set[str]] = {"produced_extracted_item"}
+
+    # Data properties
+    extraction_id: Annotated[str, Field()]
+    pipeline_name: Annotated[str, Field()]
+    output_key: Annotated[str, Field()]
+    prompt_template: Annotated[str, Field()]
+    prompt_hash: Annotated[str, Field()]
+    model_name: Annotated[str, Field()]
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = (
+        "unknown"
+    )
+    created: Annotated[
+        Optional[datetime.datetime],
+        Field(description="Date of creation of the resource."),
+    ] = datetime.datetime.now()
+    creator: Annotated[
+        Optional[Any],
+        Field(description="An entity responsible for making the resource."),
+    ] = os.environ.get("USER")
+
+    # Object properties
+    produced_extracted_item: Optional[
+        Annotated[List[Union[ExtractedItem, URIRef, str]], Field()]
+    ] = ["http://ontology.naas.ai/abi/unknown"]
+
+
+class ExtractedItem(RDFEntity):
+    """
+    A single string item produced by an Extraction over a specific Chunk (e.g., one entry of the JSON list returned by the LLM).
+    """
+
+    _class_uri: ClassVar[str] = (
+        "http://purl.obolibrary.org/obo/phases/documents.owl#ExtractedItem"
+    )
+    _name: ClassVar[str] = "extracted item"
+    _property_uris: ClassVar[dict] = {
+        "created": "http://purl.org/dc/terms/created",
+        "creator": "http://purl.org/dc/terms/creator",
+        "extracted_by": "http://purl.obolibrary.org/obo/phases/documents.owl#extracted_by",
+        "extracted_from_chunk": "http://purl.obolibrary.org/obo/phases/documents.owl#extracted_from_chunk",
+        "extracted_item_id": "http://purl.obolibrary.org/obo/phases/documents.owl#extracted_item_id",
+        "extracted_text": "http://purl.obolibrary.org/obo/phases/documents.owl#extracted_text",
+        "item_number": "http://purl.obolibrary.org/obo/phases/documents.owl#item_number",
+        "label": "http://www.w3.org/2000/01/rdf-schema#label",
+    }
+    _object_properties: ClassVar[set[str]] = {"extracted_by", "extracted_from_chunk"}
+
+    # Data properties
+    extracted_item_id: Annotated[str, Field()]
+    extracted_text: Annotated[str, Field()]
+    item_number: Optional[Annotated[int, Field()]]
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = (
+        "unknown"
+    )
+    created: Annotated[
+        Optional[datetime.datetime],
+        Field(description="Date of creation of the resource."),
+    ] = datetime.datetime.now()
+    creator: Annotated[
+        Optional[Any],
+        Field(description="An entity responsible for making the resource."),
+    ] = os.environ.get("USER")
+
+    # Object properties
+    extracted_by: Annotated[Union[Extraction, URIRef, str], Field()]
+    extracted_from_chunk: Annotated[Union[Chunk, URIRef, str], Field()]
+
+
 # Rebuild models to resolve forward references
 PDFPaperFile.model_rebuild()
 Chunk.model_rebuild()
 LexicalOccurrence.model_rebuild()
 EmbeddingOccurrence.model_rebuild()
+Extraction.model_rebuild()
+ExtractedItem.model_rebuild()

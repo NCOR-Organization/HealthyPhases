@@ -65,6 +65,7 @@ def _run_one(
             prompt_template=prompt_template,
             output_key=output_key,
             model_name=model,
+            pipeline_name=pipeline,
         )
     )
     return workflow.run(

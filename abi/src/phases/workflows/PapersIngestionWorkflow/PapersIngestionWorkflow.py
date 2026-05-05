@@ -363,6 +363,10 @@ SELECT ?chunk ?chunk_id ?pdf_paper_file ?path ?text WHERE {{
     def run(self, parameters: PapersIngestionWorkflowParameters):
         logger.debug("Running pipeline")
 
+        # Normalize paths once at the entry point so every downstream stage
+        # (cache keys, SPARQL literals, object-storage keys) sees the same form.
+        parameters.paths = [os.path.abspath(p) for p in parameters.paths]
+
         # We convert pdfs to markdown and store them in the object storage
         self.pdfs_to_markdown(parameters)
 

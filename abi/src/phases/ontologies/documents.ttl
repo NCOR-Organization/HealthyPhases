@@ -36,6 +36,16 @@ phases-doc:EmbeddingOccurrence rdf:type owl:Class ;
   rdfs:label "embedding occurrence"@en ;
   rdfs:comment "An observation that a vector embedding of an ontology entity appears in a Chunk text."@en .
 
+phases-doc:Extraction rdf:type owl:Class ;
+  rdfs:subClassOf obo:BFO_0000031 ;
+  rdfs:label "extraction"@en ;
+  rdfs:comment "A configured LLM extraction pipeline run, identified by the prompt template and model used to produce a set of ExtractedItem instances from chunks."@en .
+
+phases-doc:ExtractedItem rdf:type owl:Class ;
+  rdfs:subClassOf obo:BFO_0000031 ;
+  rdfs:label "extracted item"@en ;
+  rdfs:comment "A single string item produced by an Extraction over a specific Chunk (e.g., one entry of the JSON list returned by the LLM)."@en .
+
 #################################################################
 #    Object Properties
 #################################################################
@@ -99,6 +109,38 @@ phases-doc:embedding_occurrence_of rdf:type owl:ObjectProperty ;
   rdfs:label "embedding occurrence of"@en ;
   skos:prefLabel "embedding_occurrence_of"@en ;
   rdfs:comment "The ontology class whose embedding was matched in the chunk."@en .
+
+# Extractions
+
+phases-doc:has_extracted_item rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:Chunk ;
+  rdfs:range phases-doc:ExtractedItem ;
+  owl:inverseOf phases-doc:extracted_from_chunk ;
+  rdfs:label "has extracted item"@en ;
+  rdfs:comment "Relates a Chunk to an ExtractedItem produced from its text."@en .
+
+phases-doc:extracted_from_chunk rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:ExtractedItem ;
+  rdfs:range phases-doc:Chunk ;
+  owl:inverseOf phases-doc:has_extracted_item ;
+  rdfs:label "extracted from chunk"@en ;
+  skos:prefLabel "extracted_from_chunk"@en ;
+  rdfs:comment "Relates an ExtractedItem to the Chunk it was extracted from."@en .
+
+phases-doc:produced_extracted_item rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range phases-doc:ExtractedItem ;
+  owl:inverseOf phases-doc:extracted_by ;
+  rdfs:label "produced extracted item"@en ;
+  rdfs:comment "Relates an Extraction to an ExtractedItem it produced."@en .
+
+phases-doc:extracted_by rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-doc:ExtractedItem ;
+  rdfs:range phases-doc:Extraction ;
+  owl:inverseOf phases-doc:produced_extracted_item ;
+  rdfs:label "extracted by"@en ;
+  skos:prefLabel "extracted_by"@en ;
+  rdfs:comment "Relates an ExtractedItem to the Extraction (prompt + model) that produced it."@en .
 
 
 #################################################################
@@ -164,6 +206,62 @@ phases-doc:matched_predicate rdf:type owl:DatatypeProperty ;
   rdfs:range xsd:anyURI ;
   rdfs:label "matched predicate"@en ;
   rdfs:comment "The annotation predicate that provided the matched string (e.g., skos:prefLabel or rdfs:label)."@en .
+
+# Extraction datatype properties
+
+phases-doc:extraction_id rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range xsd:string ;
+  rdfs:label "extraction id"@en ;
+  rdfs:comment "Identifier for the extraction (prompt + model configuration)."@en .
+
+phases-doc:pipeline_name rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range xsd:string ;
+  rdfs:label "pipeline name"@en ;
+  rdfs:comment "Symbolic name of the extraction pipeline (e.g., causes, how, when, where, effects)."@en .
+
+phases-doc:output_key rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range xsd:string ;
+  rdfs:label "output key"@en ;
+  rdfs:comment "The JSON key under which extracted items are returned by the LLM (e.g., \"causes\")."@en .
+
+phases-doc:prompt_template rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range xsd:string ;
+  rdfs:label "prompt template"@en ;
+  rdfs:comment "The full prompt template used by the extraction (including the {chunk_text} placeholder)."@en .
+
+phases-doc:prompt_hash rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range xsd:string ;
+  rdfs:label "prompt hash"@en ;
+  rdfs:comment "Content hash (e.g., SHA-256 hex) of the prompt template, useful for de-duplicating Extraction instances."@en .
+
+phases-doc:model_name rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:Extraction ;
+  rdfs:range xsd:string ;
+  rdfs:label "model name"@en ;
+  rdfs:comment "Identifier of the LLM used by the extraction (e.g., gpt-5-mini)."@en .
+
+phases-doc:extracted_item_id rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:ExtractedItem ;
+  rdfs:range xsd:string ;
+  rdfs:label "extracted item id"@en ;
+  rdfs:comment "Identifier for the extracted item."@en .
+
+phases-doc:extracted_text rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:ExtractedItem ;
+  rdfs:range xsd:string ;
+  rdfs:label "extracted text"@en ;
+  rdfs:comment "The string content of the extracted item as returned by the LLM (after cleanup)."@en .
+
+phases-doc:item_number rdf:type owl:DatatypeProperty ;
+  rdfs:domain phases-doc:ExtractedItem ;
+  rdfs:range xsd:integer ;
+  rdfs:label "item number"@en ;
+  rdfs:comment "Ordinal position of the item within the list returned for its source chunk (0-based)."@en .
 
 #################################################################
 #    SHACL Shapes
@@ -283,3 +381,75 @@ phases-doc:EmbeddingOccurrenceShape rdf:type sh:NodeShape ;
     sh:maxCount 1 ;
   ] ;
   rdfs:label "Embedding occurrence shape"@en .
+
+phases-doc:ExtractionShape rdf:type sh:NodeShape ;
+  sh:targetClass phases-doc:Extraction ;
+  sh:property [
+    sh:path phases-doc:extraction_id ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:pipeline_name ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:output_key ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:prompt_template ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:prompt_hash ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:model_name ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  rdfs:label "Extraction shape"@en .
+
+phases-doc:ExtractedItemShape rdf:type sh:NodeShape ;
+  sh:targetClass phases-doc:ExtractedItem ;
+  sh:property [
+    sh:path phases-doc:extracted_item_id ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:extracted_text ;
+    sh:datatype xsd:string ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:item_number ;
+    sh:datatype xsd:integer ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:extracted_from_chunk ;
+    sh:class phases-doc:Chunk ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  sh:property [
+    sh:path phases-doc:extracted_by ;
+    sh:class phases-doc:Extraction ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+  ] ;
+  rdfs:label "Extracted item shape"@en .

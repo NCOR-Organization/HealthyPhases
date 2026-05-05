@@ -20,9 +20,11 @@ How to run (ABI CLI)
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import cast
@@ -48,6 +50,7 @@ except Exception:
     tqdm = None
 
 
+@dataclass
 class GenericChunkExtractionWorkflowConfiguration(WorkflowConfiguration):
     prompt_template: str = (
         "Extract key information from this text.\n\n"
@@ -60,6 +63,14 @@ class GenericChunkExtractionWorkflowConfiguration(WorkflowConfiguration):
     model_max_retries: int = 1
     extraction_workers: int = 10
     max_items_per_chunk: int | None = None
+    pipeline_name: str = "default"
+
+
+PHASES_DOC = rdflib.Namespace("http://purl.obolibrary.org/obo/phases/documents.owl#")
+PAPERS_GRAPH = rdflib.URIRef("http://ontology.naas.ai/graph/phases/papers")
+EXTRACTIONS_GRAPH = rdflib.URIRef(
+    "http://ontology.naas.ai/graph/phases/extractions"
+)
 
 
 class GenericChunkExtractionWorkflowParameters(WorkflowParameters):
@@ -91,6 +102,17 @@ class GenericChunkExtractionWorkflow(
             max_retries=configuration.model_max_retries,
         )
 
+    def _extraction_id(self) -> tuple[str, str, rdflib.URIRef]:
+        """Returns (extraction_id, prompt_hash, extraction_uri)."""
+        cfg = self._configuration
+        prompt_hash = hashlib.sha256(cfg.prompt_template.encode()).hexdigest()
+        extraction_id = f"{cfg.model_name}:{cfg.pipeline_name}:{prompt_hash[:16]}"
+        return (
+            extraction_id,
+            prompt_hash,
+            rdflib.URIRef(f"urn:phases:extraction:{extraction_id}"),
+        )
+
     def _build_candidates_query(
         self, parameters: GenericChunkExtractionWorkflowParameters
     ) -> str:
@@ -102,15 +124,27 @@ class GenericChunkExtractionWorkflow(
         limit = parameters.chunk_limit
         limit_clause = f"LIMIT {limit}" if limit is not None else ""
 
+        _, _, extraction_uri = self._extraction_id()
+
         return f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
 
 SELECT ?chunk ?chunk_id ?text ?path WHERE {{
-    ?chunk a phases-doc:Chunk ;
-        phases-doc:chunk_id ?chunk_id ;
-        phases-doc:text ?text ;
-        phases-doc:chunk_of ?pdf_paper_file .
-    ?pdf_paper_file phases-doc:path ?path .
-    {path_clause}
+    GRAPH <{PAPERS_GRAPH}> {{
+        ?chunk a phases-doc:Chunk ;
+            phases-doc:chunk_id ?chunk_id ;
+            phases-doc:text ?text ;
+            phases-doc:chunk_of ?pdf_paper_file .
+        ?pdf_paper_file phases-doc:path ?path .
+        {path_clause}
+    }}
+    # Skip chunks already processed by this Extraction (same prompt + model + pipeline).
+    FILTER NOT EXISTS {{
+        GRAPH <{EXTRACTIONS_GRAPH}> {{
+            ?already_done a phases-doc:ExtractedItem ;
+                phases-doc:extracted_by <{extraction_uri}> ;
+                phases-doc:extracted_from_chunk ?chunk .
+        }}
+    }}
 }}
 ORDER BY ?chunk_id
 {limit_clause}"""
@@ -255,7 +289,91 @@ ORDER BY ?chunk_id
             Path(parameters.output_path).write_text(json.dumps(results, indent=2))
             logger.debug(f"Wrote results to {parameters.output_path}")
 
+        self._persist_to_triple_store(results)
         return results
+
+    def _persist_to_triple_store(self, results: dict[str, list[str]]) -> None:
+        if not results:
+            return
+
+        cfg = self._configuration
+        extraction_id, prompt_hash, extraction_uri = self._extraction_id()
+
+        graph = rdflib.Graph()
+        graph.add((extraction_uri, rdflib.RDF.type, PHASES_DOC.Extraction))
+        graph.add(
+            (extraction_uri, PHASES_DOC.extraction_id, rdflib.Literal(extraction_id))
+        )
+        graph.add(
+            (
+                extraction_uri,
+                PHASES_DOC.pipeline_name,
+                rdflib.Literal(cfg.pipeline_name),
+            )
+        )
+        graph.add(
+            (extraction_uri, PHASES_DOC.output_key, rdflib.Literal(cfg.output_key))
+        )
+        graph.add(
+            (
+                extraction_uri,
+                PHASES_DOC.prompt_template,
+                rdflib.Literal(cfg.prompt_template),
+            )
+        )
+        graph.add(
+            (extraction_uri, PHASES_DOC.prompt_hash, rdflib.Literal(prompt_hash))
+        )
+        graph.add(
+            (extraction_uri, PHASES_DOC.model_name, rdflib.Literal(cfg.model_name))
+        )
+
+        chunk_uri_by_id = self._resolve_chunk_uris(list(results.keys()))
+
+        for chunk_id, items in results.items():
+            chunk_uri = chunk_uri_by_id.get(chunk_id)
+            if chunk_uri is None:
+                logger.warning(
+                    f"No Chunk URI found for chunk_id {chunk_id}; skipping its extracted items."
+                )
+                continue
+            for i, text in enumerate(items):
+                item_id = hashlib.sha256(
+                    f"{extraction_id}:{chunk_id}:{i}:{text}".encode()
+                ).hexdigest()
+                item_uri = rdflib.URIRef(f"urn:phases:extracted_item:{item_id}")
+                graph.add((item_uri, rdflib.RDF.type, PHASES_DOC.ExtractedItem))
+                graph.add(
+                    (item_uri, PHASES_DOC.extracted_item_id, rdflib.Literal(item_id))
+                )
+                graph.add(
+                    (item_uri, PHASES_DOC.extracted_text, rdflib.Literal(text))
+                )
+                graph.add((item_uri, PHASES_DOC.item_number, rdflib.Literal(i)))
+                graph.add((item_uri, PHASES_DOC.extracted_by, extraction_uri))
+                graph.add((item_uri, PHASES_DOC.extracted_from_chunk, chunk_uri))
+
+        logger.debug(
+            f"Inserting extraction graph: 1 Extraction + "
+            f"{sum(len(v) for v in results.values())} ExtractedItem(s)"
+        )
+        self.module.engine.services.triple_store.insert(
+            graph, graph_name=EXTRACTIONS_GRAPH
+        )
+
+    def _resolve_chunk_uris(self, chunk_ids: list[str]) -> dict[str, rdflib.URIRef]:
+        if not chunk_ids:
+            return {}
+        values = " ".join(rdflib.Literal(cid).n3() for cid in chunk_ids)
+        query = f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
+SELECT ?chunk ?chunk_id WHERE {{
+    GRAPH <{PAPERS_GRAPH}> {{
+        ?chunk a phases-doc:Chunk ; phases-doc:chunk_id ?chunk_id .
+        VALUES ?chunk_id {{ {values} }}
+    }}
+}}"""
+        rows = self.module.engine.services.triple_store.query(query)
+        return {str(chunk_id): cast(rdflib.URIRef, chunk) for chunk, chunk_id in rows}
 
     def as_tools(self) -> list[BaseTool]:
         return []
