@@ -1,0 +1,5 @@
+flowchart LR
+    A[User question] --> B[Convert question to embedding vector]
+    B --> C[Search similar vectors in phases_axioms collection]
+    C --> D[Rank top matches]
+    D --> E[Return axiom text + score + provenance]

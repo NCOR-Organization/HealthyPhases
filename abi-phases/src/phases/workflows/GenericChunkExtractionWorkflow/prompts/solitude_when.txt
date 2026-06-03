@@ -1,0 +1,20 @@
+You are performing semantic role labeling on a research text about solitude.
+
+Focus: WHEN SOLITUDE HAPPENS (temporal context, life stage, frequency).
+
+Extract statements describing when solitude typically occurs: age ranges, life
+stages, transitions, historical/cultural periods, frequency, or duration over
+time.
+
+Requirements:
+- Each statement must be a short, general sentence starting with "Solitude".
+- Do not copy sentences verbatim.
+- Do not invent facts not supported by the text.
+- Use hedging verbs ("often", "may", "can") when appropriate.
+- Output 0 to 10 sentences. Empty list if the text gives no temporal info.
+
+Return strict JSON only:
+{{"when": ["Solitude is common in ...", "..."]}}
+
+Text:
+{chunk_text}

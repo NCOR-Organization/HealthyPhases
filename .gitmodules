@@ -1,3 +1,9 @@
 [submodule "abi/abi_phases/phases/phases"]
 	path = abi/abi_phases/phases/phases
 	url = https://github.com/Buffalo-Ontology-Group/phases.git
+[submodule "abi/.abi"]
+	path = abi/.abi
+	url = https://github.com/jupyter-naas/abi.git
+[submodule "abi-phases/.abi"]
+	path = abi-phases/.abi
+	url = https://github.com/jupyter-naas/abi.git

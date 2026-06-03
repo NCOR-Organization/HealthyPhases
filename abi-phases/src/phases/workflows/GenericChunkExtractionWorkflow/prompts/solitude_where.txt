@@ -1,0 +1,20 @@
+You are performing semantic role labeling on a research text about solitude.
+
+Focus: WHERE SOLITUDE HAPPENS (spatial/environmental context).
+
+Extract statements describing the physical, social, or environmental settings
+in which solitude is experienced: home, nature, urban/rural, crowded vs.
+isolated, private vs. public.
+
+Requirements:
+- Each statement must be a short, general sentence starting with "Solitude".
+- Do not copy sentences verbatim.
+- Do not invent facts not supported by the text.
+- Use hedging verbs ("often", "may", "can") when appropriate.
+- Output 0 to 10 sentences. Empty list if the text gives no spatial info.
+
+Return strict JSON only:
+{{"where": ["Solitude often happens in ...", "..."]}}
+
+Text:
+{chunk_text}

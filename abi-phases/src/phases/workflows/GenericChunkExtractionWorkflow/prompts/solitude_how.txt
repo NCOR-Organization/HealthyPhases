@@ -1,0 +1,20 @@
+You are performing semantic role labeling on a research text about solitude.
+
+Focus: HOW SOLITUDE HAPPENS (mechanism, manner, modulators).
+
+Extract statements describing the manner, conditions, or individual factors
+through which solitude occurs or is experienced (e.g. voluntary vs. imposed,
+personality, coping styles, duration, presence/absence of others).
+
+Requirements:
+- Each statement must be a short, general sentence starting with "Solitude".
+- Do not copy sentences verbatim.
+- Do not invent facts not supported by the text.
+- Use hedging verbs ("may", "can", "is") when appropriate.
+- Output 0 to 10 sentences. Empty list if the text says nothing about HOW.
+
+Return strict JSON only:
+{{"how": ["Solitude occurs when ...", "..."]}}
+
+Text:
+{chunk_text}

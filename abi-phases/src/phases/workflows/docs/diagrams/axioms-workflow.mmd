@@ -1,0 +1,9 @@
+flowchart LR
+    A[Paper chunks in triple store] --> B[Select candidate chunks]
+    B --> C{Already processed?}
+    C -- Yes and not force --> D[Skip chunk]
+    C -- No or force --> E[Send chunk text to AI extraction model]
+    E --> F[Return JSON list of axioms]
+    F --> G[Clean and deduplicate axioms]
+    G --> H[Create ExtractedAxiom RDF entities]
+    H --> I[Store axioms in triple store]

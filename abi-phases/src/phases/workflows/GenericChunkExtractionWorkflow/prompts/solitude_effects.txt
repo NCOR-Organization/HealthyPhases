@@ -1,0 +1,21 @@
+You are performing semantic role labeling on a research text about solitude.
+
+Focus: EFFECTS AND PURPOSE OF SOLITUDE (outcomes, functions, consequences).
+
+Extract statements describing what solitude enables, supports, causes, or
+contributes to: self-reflection, emotional regulation, creativity, loneliness,
+problem-solving, spiritual practice, etc.
+
+Requirements:
+- Each statement must be a short, general sentence starting with "Solitude".
+- Do not copy sentences verbatim.
+- Do not invent facts not supported by the text.
+- Use verbs like: allows, supports, increases, provides, helps, is associated
+  with, can become.
+- Output 0 to 10 sentences. Empty list if the text describes no effects.
+
+Return strict JSON only:
+{{"effects": ["Solitude allows ...", "..."]}}
+
+Text:
+{chunk_text}
