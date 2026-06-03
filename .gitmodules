@@ -4,3 +4,6 @@
 [submodule "abi/.abi"]
 	path = abi/.abi
 	url = https://github.com/jupyter-naas/abi.git
+[submodule "abi-phases/.abi"]
+	path = abi-phases/.abi
+	url = https://github.com/jupyter-naas/abi.git

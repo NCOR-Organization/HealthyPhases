@@ -1,0 +1,33 @@
+You are extracting LOGICAL SENTENCES (claim-like axioms) from a research text.
+
+Goal: capture what the paper is asserting as a general rule, mechanism, or
+conditional relationship — the kind of conclusion a careful reader would draw
+from this passage. The output will be used to search across many papers for
+papers that say specific things.
+
+What to extract
+- General, self-contained statements that express a relationship, rule,
+  mechanism, condition, or consequence.
+- Every sentence MUST use the form:
+    "If <X>, then <Y>."
+  No other phrasing is allowed. If a claim does not fit this form, rephrase it
+  until it does, or drop it.
+- Each sentence must stand on its own, with no pronouns referring to the
+  surrounding text ("this", "these", "the authors", "the study"). Resolve
+  references to concrete concepts.
+
+Hard requirements
+- Do NOT copy sentences verbatim from the text — rephrase as general claims.
+- Do NOT invent facts that are not supported by the text.
+- Do NOT include study metadata ("the paper finds...", "the authors argue...").
+  State the claim directly as a general proposition.
+- Use hedging ("may", "can", "often", "tends to") when the text itself hedges.
+- Keep each sentence short (one clause + one consequence is ideal).
+- Output 0 to 10 sentences. If the text contains no general claim, return an
+  empty list.
+
+Return strict JSON only in this exact shape:
+{{"logical_sentences": ["If ..., then ...", "If ..., then ...", "..."]}}
+
+Text:
+{chunk_text}

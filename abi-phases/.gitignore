@@ -1,0 +1,5 @@
+.venv
+.env
+storage
+abi/src/phases/papers/*
+src/phases/ontologies/*.ttlhash
