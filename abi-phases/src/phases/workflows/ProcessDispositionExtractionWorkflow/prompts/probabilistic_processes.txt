@@ -1,0 +1,65 @@
+You are extracting PROBABILITY-MODULATING CLAIMS from a research text and
+rephrasing them in BFO process form.
+
+Goal: capture claims of the form
+
+    "<subject> increases (or decreases, or has no effect on) the probability
+     that <target> happens".
+
+The output is consumed by an ontology where both endpoints must be BFO
+processes (occurrents — things that unfold in time) and the subject process
+must have an explicit independent-continuant participant that bears the
+probability-modulating disposition.
+
+What to extract
+- Only claims where the text asserts (or strongly implies) a directional
+  influence of one thing on the probability of another thing happening.
+- Each claim becomes ONE JSON object with these fields:
+
+    {
+      "subject_process":    "<verb-phrase / -ing nominal>",
+      "subject_participant": "<noun phrase: the bearer of the disposition>",
+      "target_process":     "<verb-phrase / -ing nominal>",
+      "direction":          "increases" | "decreases" | "no-effect",
+      "evidence_text":      "<short verbatim quote from the text>"
+    }
+
+Hard requirements on shape
+- `subject_process` and `target_process` MUST be processes — phrased as a
+  verb phrase or -ing nominal that names something that unfolds in time.
+  Examples (good): "sugar consumption", "social isolation", "regular
+  meditation practice", "occurrence of headache", "onset of depression".
+  Examples (bad — fix them): "sugar"  -> "sugar consumption";
+                              "headache" -> "occurrence of headache";
+                              "loneliness" -> "experiencing loneliness".
+- `subject_participant` MUST be a noun phrase naming the independent
+  continuant that participates in the subject process and bears the
+  disposition. It is what the disposition "lives in".
+  Example: subject_process="sugar consumption" -> subject_participant="sugar".
+           subject_process="regular meditation practice" ->
+                                       subject_participant="meditation practitioner".
+- `direction` MUST be exactly one of: "increases", "decreases", "no-effect".
+  Use "no-effect" ONLY when the text explicitly asserts a null finding
+  (e.g. "X had no significant effect on Y").
+- `evidence_text` MUST be a short verbatim quote (<= 200 characters) from
+  the text supporting the claim. Do not paraphrase here.
+
+Hard requirements on content
+- Do NOT invent claims that are not supported by the text.
+- Do NOT extract claims about the study itself (e.g. "the authors find...").
+  State the claim as a general proposition about the world.
+- If the direction is uncertain or hedged so heavily that you cannot pick
+  one of the three options, DROP the claim entirely.
+- Use the most specific phrasing the text supports.
+- Output 0 to 8 claims. If the text contains no such claim, return an
+  empty list.
+
+Return strict JSON only in this exact shape:
+{{"relations": [
+   {{"subject_process": "...", "subject_participant": "...",
+     "target_process": "...", "direction": "increases",
+     "evidence_text": "..."}}
+]}}
+
+Text:
+{chunk_text}

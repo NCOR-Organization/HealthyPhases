@@ -23,6 +23,22 @@ from phases.workflows.ExtractedItemsEmbeddingWorkflow.ExtractedItemsEmbeddingWor
     ExtractedItemsEmbeddingWorkflowConfiguration,
     ExtractedItemsEmbeddingWorkflowParameters,
 )
+from phases.workflows.ProcessDispositionExtractionWorkflow.ProcessDispositionExtractionWorkflow import (
+    ProcessDispositionExtractionWorkflow,
+    ProcessDispositionExtractionWorkflowConfiguration,
+    ProcessDispositionExtractionWorkflowParameters,
+)
+
+PROCESS_DISPOSITION_PROMPT_PATH = os.path.abspath(
+    os.path.join(
+        os.path.dirname(__file__),
+        "..",
+        "workflows",
+        "ProcessDispositionExtractionWorkflow",
+        "prompts",
+        "probabilistic_processes.txt",
+    )
+)
 
 EXTRACTIONS_OUTPUT_DIR = os.path.abspath(
     os.path.join(os.path.dirname(__file__), "..", "..", "..", "storage", "extractions")
@@ -189,6 +205,92 @@ def run_gero_extractions_op(
         )
 
 
+class ProcessDispositionExtractionConfig(dg.Config):
+    paper_path_glob: str | None = None
+    """Non-recursive glob, relative to abi/src/phases/papers.
+
+    Examples:
+      - "solitude/*.pdf"     -> only papers directly under solitude/
+      - "gero/pmc/*.pdf"     -> only papers under gero/pmc/
+      - None                 -> all chunks in the triple store — DEFAULT
+    """
+    model: str = "gpt-5-mini"
+    chunk_limit: int | None = None
+    workers: int | None = None
+    max_relations_per_chunk: int = 8
+    link_to_labels: bool = True
+
+
+def _run_process_disposition_extraction(
+    context: dg.OpExecutionContext,
+    config: ProcessDispositionExtractionConfig,
+) -> None:
+    """Shared body used by the standalone job and the chained jobs."""
+    paths: list[str] | None = None
+    if config.paper_path_glob:
+        pattern = os.path.join(PAPERS_ROOT, config.paper_path_glob)
+        paths = sorted(glob(pattern))
+        context.log.info(
+            f"Scoping process-disposition extraction to {len(paths)} paper(s) "
+            f"matching {pattern}"
+        )
+        if not paths:
+            context.log.warning(
+                f"paper_path_glob '{config.paper_path_glob}' matched no files — "
+                "process-disposition extraction will be skipped."
+            )
+            return
+    else:
+        context.log.info(
+            "No paper_path_glob set — running over ALL chunks for "
+            "process-disposition extraction."
+        )
+
+    prompt_template = Path(PROCESS_DISPOSITION_PROMPT_PATH).read_text()
+    workflow = ProcessDispositionExtractionWorkflow(
+        ProcessDispositionExtractionWorkflowConfiguration(
+            prompt_template=prompt_template,
+            model_name=config.model,
+            max_relations_per_chunk=config.max_relations_per_chunk,
+            link_to_labels=config.link_to_labels,
+        )
+    )
+    out = Path(EXTRACTIONS_OUTPUT_DIR)
+    out.mkdir(parents=True, exist_ok=True)
+    output_path = str(out / "process_dispositions.json")
+
+    results = workflow.run(
+        ProcessDispositionExtractionWorkflowParameters(
+            paths=paths,
+            chunk_limit=config.chunk_limit,
+            workers=config.workers,
+            output_path=output_path,
+            dry_run=False,
+        )
+    )
+    total_relations = sum(len(v) for v in results.values())
+    context.log.info(
+        f"[process_dispositions] processed {len(results)} chunks, "
+        f"{total_relations} relations -> {output_path}"
+    )
+
+
+@dg.op(ins={"start": dg.In(dg.Nothing)})
+def run_process_disposition_extraction_chained_op(
+    context: dg.OpExecutionContext, config: ProcessDispositionExtractionConfig
+) -> None:
+    """Chained variant: takes a Nothing input so it can be wired after another op."""
+    _run_process_disposition_extraction(context, config)
+
+
+@dg.op
+def run_process_disposition_extraction_op(
+    context: dg.OpExecutionContext, config: ProcessDispositionExtractionConfig
+) -> None:
+    """Standalone variant: runnable on its own from the Dagster UI."""
+    _run_process_disposition_extraction(context, config)
+
+
 @dg.op(ins={"start": dg.In(dg.Nothing)})
 def embed_extracted_items_op(context: dg.OpExecutionContext) -> None:
     """Embed every ExtractedItem.extracted_text into the vector store."""
@@ -221,28 +323,45 @@ def normalize_paper_paths_job() -> None:
     name="ingest_solitude_papers",
     description=(
         "Ingest the solitude papers, run every GenericChunkExtractionWorkflow "
-        "pipeline (causes / how / when / where / effects), and embed the resulting "
-        "ExtractedItem texts so they can be searched."
+        "pipeline (causes / how / when / where / effects), embed the resulting "
+        "ExtractedItem texts, and extract probability-modulating BFO "
+        "process-disposition relations."
     ),
 )
 def ingest_solitude_papers_job() -> None:
-    embed_extracted_items_op(
+    after_embed = embed_extracted_items_op(
         start=run_solitude_extractions_op(start=ingest_solitude_papers_op())
     )
+    run_process_disposition_extraction_chained_op(start=after_embed)
 
 
 @dg.job(
     name="ingest_gero_papers",
     description=(
         "Ingest the gerotranscendence papers, run every GenericChunkExtractionWorkflow "
-        "pipeline (causes / how / when / where / effects), and embed the resulting "
-        "ExtractedItem texts so they can be searched."
+        "pipeline (causes / how / when / where / effects), embed the resulting "
+        "ExtractedItem texts, and extract probability-modulating BFO "
+        "process-disposition relations."
     ),
 )
 def ingest_gero_papers_job() -> None:
-    embed_extracted_items_op(
+    after_embed = embed_extracted_items_op(
         start=run_gero_extractions_op(start=ingest_gero_papers_op())
     )
+    run_process_disposition_extraction_chained_op(start=after_embed)
+
+
+@dg.job(
+    name="run_process_disposition_extraction",
+    description=(
+        "Extract probability-modulating BFO process-disposition relations from "
+        "every candidate chunk (or only those matching paper_path_glob). "
+        "Idempotent on (prompt_hash, model_name); already-processed chunks are "
+        "skipped."
+    ),
+)
+def run_process_disposition_extraction_job() -> None:
+    run_process_disposition_extraction_op()
 
 
 class PhasesOrchestration(DagsterOrchestration):
@@ -256,6 +375,7 @@ class PhasesOrchestration(DagsterOrchestration):
                 jobs=[
                     ingest_solitude_papers_job,
                     ingest_gero_papers_job,
+                    run_process_disposition_extraction_job,
                     normalize_paper_paths_job,
                 ],
                 sensors=[],

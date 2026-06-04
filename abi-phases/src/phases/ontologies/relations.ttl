@@ -196,3 +196,58 @@ phases-rel:InferredLabelRelationShape rdf:type sh:NodeShape ;
     sh:minCount 1 ;
   ] ;
   rdfs:label "Inferred label relation shape"@en .
+
+#################################################################
+#    Probability-modulating dispositions
+#
+# Models claims of the form
+#   "<subject process / participant> increases (or decreases) the
+#    probability of <target process>".
+#
+# A `ProbabilityModulatingDisposition` is a BFO disposition that
+# inheres in the subject participant (an independent continuant)
+# and is realized in the subject process. It points at the target
+# process whose probability it modulates.
+#
+# The direction of modulation is captured by subclass, not by a
+# data property, so OWL reasoners can use it:
+#   - IncreaseProbabilityDisposition
+#   - DecreaseProbabilityDisposition
+#   - NoEffectProbabilityDisposition
+#################################################################
+
+phases-rel:ProbabilityModulatingDisposition rdf:type owl:Class ;
+  rdfs:subClassOf <http://purl.obolibrary.org/obo/BFO_0000016> ;
+  rdfs:label "probability-modulating disposition"@en ;
+  rdfs:comment "A BFO disposition borne by an independent continuant whose realization in a process modulates the probability that some other (target) process occurs."@en .
+
+phases-rel:IncreaseProbabilityDisposition rdf:type owl:Class ;
+  rdfs:subClassOf phases-rel:ProbabilityModulatingDisposition ;
+  rdfs:label "increase-probability disposition"@en ;
+  rdfs:comment "A probability-modulating disposition whose realization increases the probability that the target process occurs."@en .
+
+phases-rel:DecreaseProbabilityDisposition rdf:type owl:Class ;
+  rdfs:subClassOf phases-rel:ProbabilityModulatingDisposition ;
+  rdfs:label "decrease-probability disposition"@en ;
+  rdfs:comment "A probability-modulating disposition whose realization decreases the probability that the target process occurs."@en .
+
+phases-rel:NoEffectProbabilityDisposition rdf:type owl:Class ;
+  rdfs:subClassOf phases-rel:ProbabilityModulatingDisposition ;
+  rdfs:label "no-effect probability disposition"@en ;
+  rdfs:comment "A probability-modulating disposition whose realization has no measurable effect on the probability that the target process occurs (used to capture explicit null findings)."@en .
+
+phases-rel:disposition_target_process rdf:type owl:ObjectProperty ;
+  rdfs:domain phases-rel:ProbabilityModulatingDisposition ;
+  rdfs:range <http://purl.obolibrary.org/obo/BFO_0000015> ;
+  rdfs:label "disposition target process"@en ;
+  rdfs:comment "Relates a probability-modulating disposition to the BFO process whose probability of occurrence it modulates."@en .
+
+phases-rel:linked_to_label rdf:type owl:ObjectProperty ;
+  rdfs:range phases-label:ExtractedLabel ;
+  rdfs:label "linked to label"@en ;
+  rdfs:comment "Links a chunk-level entity (process or participant) to a canonical ExtractedLabel when the extracted text matches an existing label."@en .
+
+phases-rel:evidence_text rdf:type owl:DatatypeProperty ;
+  rdfs:range xsd:string ;
+  rdfs:label "evidence text"@en ;
+  rdfs:comment "Verbatim snippet from the source chunk supporting an extracted probability-modulating disposition."@en .
