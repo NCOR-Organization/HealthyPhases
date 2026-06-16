@@ -1,6 +1,23 @@
 {$PUBLIC_WEB_HOST:localhost} {
-    reverse_proxy nexus-web:3000 {
-        header_up X-Forwarded-Proto {scheme}
+    # Bundled Nexus app HTML (e.g. phases reverse-search) is served by the core
+    # API and proxied here so iframes load same-origin (see naas-abi #1024).
+    handle /app-html/* {
+        reverse_proxy abi:9879 {
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    # The reverse-search app's backend lives on the core API; proxy it on the
+    # web host too so the same-origin bundled page can call /phases/api/* via a
+    # relative URL (no cross-origin / CORS / API-host injection needed).
+    handle /phases/api/* {
+        reverse_proxy abi:9879 {
+            header_up X-Forwarded-Proto {scheme}
+        }
+    }
+    handle {
+        reverse_proxy nexus-web:3000 {
+            header_up X-Forwarded-Proto {scheme}
+        }
     }
 }
 
