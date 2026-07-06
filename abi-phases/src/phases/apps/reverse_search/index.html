@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HealthyPhases · Reverse Search</title>
+  <style>
+    :root {
+      --primary: #22c55e;
+      --accent: #16a34a;
+      --bg: #f6f8f7;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --line: #e2e8f0;
+      --chip: #ecfdf5;
+      --chip-ink: #166534;
+      --shadow: 0 1px 2px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.05);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--ink);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    }
+    header {
+      padding: 28px 24px 20px; background: linear-gradient(135deg, var(--accent), var(--primary));
+      color: #fff;
+    }
+    header h1 { margin: 0; font-size: 22px; letter-spacing: -.01em; }
+    header p { margin: 6px 0 0; opacity: .92; font-size: 14px; }
+    .wrap { max-width: 920px; margin: 0 auto; padding: 0 24px; }
+    main { padding: 22px 0 64px; }
+
+    .panel {
+      background: var(--card); border: 1px solid var(--line); border-radius: 14px;
+      box-shadow: var(--shadow); padding: 18px; margin-top: -22px;
+    }
+    .tabs { display: flex; gap: 8px; margin-bottom: 14px; }
+    .tab {
+      flex: 1; padding: 10px 12px; border: 1px solid var(--line); background: #fff;
+      border-radius: 10px; cursor: pointer; font-weight: 600; color: var(--muted);
+      text-align: center; transition: all .15s;
+    }
+    .tab.active { background: var(--chip); color: var(--chip-ink); border-color: var(--primary); }
+    .tab small { display: block; font-weight: 400; font-size: 12px; opacity: .8; }
+
+    .searchbar { display: flex; gap: 10px; }
+    .searchbar input[type=text] {
+      flex: 1; padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px;
+      font-size: 15px; outline: none;
+    }
+    .searchbar input[type=text]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(34,197,94,.15); }
+    button.go {
+      padding: 0 20px; border: none; border-radius: 10px; background: var(--primary);
+      color: #fff; font-weight: 700; cursor: pointer; font-size: 15px;
+    }
+    button.go:disabled { opacity: .55; cursor: default; }
+
+    .controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; margin-top: 14px; }
+    .controls label { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+    .controls input[type=number] { width: 64px; padding: 6px 8px; border: 1px solid var(--line); border-radius: 8px; }
+    .facets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .facet {
+      padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: #fff;
+      cursor: pointer; font-size: 13px; color: var(--muted); user-select: none;
+    }
+    .facet.on { background: var(--chip); color: var(--chip-ink); border-color: var(--primary); font-weight: 600; }
+
+    .status { color: var(--muted); font-size: 14px; margin: 18px 2px 0; }
+    .results { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+    .hit {
+      background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+      padding: 15px 16px; box-shadow: var(--shadow);
+    }
+    .hit .text { font-size: 15px; font-weight: 600; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+    .badge { padding: 3px 9px; border-radius: 999px; background: var(--chip); color: var(--chip-ink); font-weight: 600; }
+    .paper { font-weight: 600; color: var(--ink); }
+    .score { margin-left: auto; font-variant-numeric: tabular-nums; }
+    details { margin-top: 10px; }
+    details summary { cursor: pointer; color: var(--accent); font-size: 13px; font-weight: 600; }
+    details .context {
+      margin-top: 8px; padding: 10px 12px; background: #f8fafc; border: 1px solid var(--line);
+      border-radius: 8px; font-size: 13px; color: #334155; white-space: pre-wrap; max-height: 260px; overflow: auto;
+    }
+    mark { background: #fde68a; padding: 0 1px; border-radius: 3px; }
+    .empty { text-align: center; color: var(--muted); padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>🏥 HealthyPhases · Reverse Search</h1>
+      <p>Find which papers — and where in them — a claim is asserted. Search semantically or by word presence over extracted items.</p>
+    </div>
+  </header>
+
+  <div class="wrap">
+    <main>
+      <div class="panel">
+        <div class="tabs">
+          <div class="tab active" data-mode="semantic" id="tab-semantic">
+            Semantic<small>meaning / vector search</small>
+          </div>
+          <div class="tab" data-mode="keyword" id="tab-keyword">
+            Keyword<small>exact word presence</small>
+          </div>
+        </div>
+
+        <div class="searchbar">
+          <input type="text" id="q" placeholder="e.g. solitude reduces stress in older adults" autofocus />
+          <button class="go" id="go">Search</button>
+        </div>
+
+        <div class="controls">
+          <label id="kwrap">Results
+            <input type="number" id="k" value="10" min="1" max="100" />
+          </label>
+          <label id="thwrap">Min score
+            <input type="number" id="threshold" step="0.05" min="0" max="1" placeholder="any" style="width:74px" />
+          </label>
+        </div>
+
+        <div class="facets" id="facets"></div>
+      </div>
+
+      <div class="status" id="status"></div>
+      <div class="results" id="results"></div>
+    </main>
+  </div>
+
+  <script>
+    const API = "/phases/api";
+    const state = { mode: "semantic", pipelines: new Set(), selected: new Set() };
+    const $ = (id) => document.getElementById(id);
+
+    function setMode(mode) {
+      state.mode = mode;
+      $("tab-semantic").classList.toggle("active", mode === "semantic");
+      $("tab-keyword").classList.toggle("active", mode === "keyword");
+      $("thwrap").style.display = mode === "semantic" ? "" : "none";
+      $("kwrap").querySelector("input").value = mode === "semantic" ? 10 : 25;
+      $("q").placeholder = mode === "semantic"
+        ? "e.g. solitude reduces stress in older adults"
+        : "e.g. loneliness cortisol";
+    }
+
+    document.querySelectorAll(".tab").forEach((t) =>
+      t.addEventListener("click", () => setMode(t.dataset.mode)));
+
+    async function loadPipelines() {
+      try {
+        const res = await fetch(`${API}/pipelines`);
+        const data = await res.json();
+        state.pipelines = new Set(data.pipelines || []);
+        renderFacets();
+      } catch (e) { /* facets optional */ }
+    }
+
+    function renderFacets() {
+      const box = $("facets");
+      box.innerHTML = "";
+      if (!state.pipelines.size) return;
+      const hint = document.createElement("span");
+      hint.style.cssText = "font-size:13px;color:var(--muted);align-self:center;margin-right:2px";
+      hint.textContent = "Pipelines:";
+      box.appendChild(hint);
+      [...state.pipelines].forEach((p) => {
+        const el = document.createElement("span");
+        el.className = "facet" + (state.selected.has(p) ? " on" : "");
+        el.textContent = p;
+        el.onclick = () => {
+          state.selected.has(p) ? state.selected.delete(p) : state.selected.add(p);
+          renderFacets();
+        };
+        box.appendChild(el);
+      });
+    }
+
+    function highlight(text, q) {
+      if (state.mode !== "keyword" || !text) return escapeHtml(text);
+      const tokens = (q.toLowerCase().match(/\w+/g) || []);
+      let out = escapeHtml(text);
+      [...new Set(tokens)].forEach((tok) => {
+        const re = new RegExp(`(${tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+        out = out.replace(re, "<mark>$1</mark>");
+      });
+      return out;
+    }
+
+    function escapeHtml(s) {
+      return (s || "").replace(/[&<>"']/g, (c) =>
+        ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    }
+
+    function renderHits(data) {
+      const box = $("results");
+      box.innerHTML = "";
+      if (!data.hits.length) {
+        box.innerHTML = `<div class="empty">No matches for “${escapeHtml(data.query)}”.</div>`;
+        return;
+      }
+      data.hits.forEach((h) => {
+        const card = document.createElement("div");
+        card.className = "hit";
+        const score = h.score != null ? `<span class="score">score ${h.score.toFixed(3)}</span>` : "";
+        const where = h.chunk_number != null ? `chunk #${h.chunk_number}` : "";
+        const paper = h.paper_name ? `<span class="paper">${escapeHtml(h.paper_name)}</span>` : "(unknown paper)";
+        const pipeline = h.pipeline ? `<span class="badge">${escapeHtml(h.pipeline)}</span>` : "";
+        const context = h.chunk_text
+          ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query)}</div></details>`
+          : "";
+        card.innerHTML = `
+          <div class="text">${highlight(h.extracted_text, data.query)}</div>
+          <div class="meta">${pipeline}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
+          ${context}`;
+        box.appendChild(card);
+      });
+    }
+
+    async function search() {
+      const q = $("q").value.trim();
+      if (!q) return;
+      $("go").disabled = true;
+      $("status").textContent = "Searching…";
+      $("results").innerHTML = "";
+
+      const params = new URLSearchParams({ q });
+      state.selected.forEach((p) => params.append("pipeline", p));
+
+      let url;
+      if (state.mode === "semantic") {
+        params.set("k", $("k").value || 10);
+        const th = $("threshold").value;
+        if (th) params.set("score_threshold", th);
+        url = `${API}/search/semantic?${params}`;
+      } else {
+        params.set("limit", $("k").value || 25);
+        url = `${API}/search/keyword?${params}`;
+      }
+
+      try {
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+        const data = await res.json();
+        $("status").textContent = `${data.count} result${data.count === 1 ? "" : "s"} · ${data.mode} search`;
+        renderHits(data);
+      } catch (e) {
+        $("status").textContent = `Search failed: ${e.message}`;
+      } finally {
+        $("go").disabled = false;
+      }
+    }
+
+    $("go").addEventListener("click", search);
+    $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+
+    setMode("semantic");
+    loadPipelines();
+  </script>
+</body>
+</html>

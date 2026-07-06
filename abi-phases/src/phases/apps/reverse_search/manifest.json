@@ -1,0 +1,17 @@
+{
+    "name": "Reverse Search",
+    "description": "Locate which papers — and where in them — a claim is asserted. Semantic (vector) and keyword (word-presence) reverse search over extracted items, each resolved back to its source paper and chunk.",
+    "category": "domain",
+    "url": "html:index.html",
+    "icon_emoji": "🔎",
+    "version": "0.1.0",
+    "author": "HealthyPhases",
+    "license": "MIT",
+    "keywords": ["search", "semantic", "vector", "papers", "reverse-search", "phases"],
+    "tier": "community",
+    "maintainer": "HealthyPhases",
+    "pricing": {
+        "type": "free",
+        "price": 0
+    }
+}

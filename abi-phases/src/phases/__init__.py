@@ -1,6 +1,8 @@
 import hashlib
 import os
 
+from fastapi import FastAPI
+from naas_abi_core import logger
 from naas_abi_core.module.Module import (
     BaseModule,
     ModuleConfiguration,
@@ -43,6 +45,24 @@ class ABIModule(BaseModule[PhasesConfiguration]):
         # which imports phases.ontologies.documents whose source is rewritten here.
         self._regenerate_ontologies()
         super().on_load()
+
+    def api(self, app: FastAPI) -> None:
+        """Mount the reverse-search API + static UI onto the ABI FastAPI app.
+
+        Endpoints live under ``/phases/api`` and the single-page UI is served at
+        ``/phases/app``. The search domain is wired from this module's engine
+        services so it resolves against whatever triple/vector store backs the
+        running deployment.
+        """
+        try:
+            from phases.app.adapters.primary.SearchAPI import register
+            from phases.app.factory import SearchServiceFactory
+
+            service = SearchServiceFactory.from_engine(self.engine)
+            register(app, service)
+            logger.debug("Mounted phases reverse-search API at /phases/api")
+        except Exception as exc:  # never let an app wiring error break API boot
+            logger.error(f"Failed to mount phases reverse-search app: {exc}")
 
     def _regenerate_ontologies(self) -> None:
         # Skip the import + onto2py call entirely when nothing changed —

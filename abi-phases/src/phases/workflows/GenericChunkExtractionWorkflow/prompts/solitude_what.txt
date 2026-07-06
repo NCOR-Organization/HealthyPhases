@@ -1,0 +1,20 @@
+You are performing semantic role labeling on a research text about solitude.
+
+Focus: WHAT SOLITUDE IS (definition, nature, characteristics, conceptualization).
+
+Extract statements describing what solitude is or how it is understood: its
+definition, essential features, types or forms, distinctions from related
+concepts (e.g. loneliness, isolation, aloneness), and defining qualities.
+
+Requirements:
+- Each statement must be a short, general sentence starting with "Solitude".
+- Do not copy sentences verbatim.
+- Do not invent facts not supported by the text.
+- Use hedging verbs ("often", "may", "can", "is") when appropriate.
+- Output 0 to 10 sentences. Empty list if the text gives no defining info.
+
+Return strict JSON only:
+{{"what": ["Solitude is ...", "..."]}}
+
+Text:
+{chunk_text}

@@ -35,6 +35,7 @@ PROMPTS_DIR = Path(__file__).parent / "prompts"
 
 # Registry of named pipelines: name -> (prompt filename, JSON output key, description)
 PIPELINES: dict[str, tuple[str, str, str]] = {
+    "what":    ("solitude_what.txt",    "what",    "What solitude is (definition, nature, characteristics)"),
     "causes":  ("solitude_causes.txt",  "causes",  "What leads to solitude (antecedents, triggers)"),
     "how":     ("solitude_how.txt",     "how",     "How solitude happens (mechanism, manner)"),
     "when":    ("solitude_when.txt",    "when",    "When solitude happens (temporal context)"),
