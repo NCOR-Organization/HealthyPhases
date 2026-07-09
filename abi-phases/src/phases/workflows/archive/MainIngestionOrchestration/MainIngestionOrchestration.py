@@ -53,37 +53,37 @@ from phases.workflows.PapersIngestionWorkflow.PapersIngestionWorkflow import (
     PapersIngestionWorkflowConfiguration,
     PapersIngestionWorkflowParameters,
 )
-from phases.workflows.LabelsWorkflow.LabelsWorkflow import (
+from phases.workflows.archive.LabelsWorkflow.LabelsWorkflow import (
     LabelsWorkflow,
     LabelsWorkflowConfiguration,
     LabelsWorkflowParameters,
 )
-from phases.workflows.AxiomsWorkflow.AxiomsWorkflow import (
+from phases.workflows.archive.AxiomsWorkflow.AxiomsWorkflow import (
     AxiomsWorkflow,
     AxiomsWorkflowConfiguration,
     AxiomsWorkflowParameters,
 )
-from phases.workflows.LabelsEmbeddingWorkflow.LabelsEmbeddingWorkflow import (
+from phases.workflows.archive.LabelsEmbeddingWorkflow.LabelsEmbeddingWorkflow import (
     LabelsEmbeddingWorkflow,
     LabelsEmbeddingWorkflowConfiguration,
     LabelsEmbeddingWorkflowParameters,
 )
-from phases.workflows.AxiomsEmbeddingWorkflow.AxiomsEmbeddingWorkflow import (
+from phases.workflows.archive.AxiomsEmbeddingWorkflow.AxiomsEmbeddingWorkflow import (
     AxiomsEmbeddingWorkflow,
     AxiomsEmbeddingWorkflowConfiguration,
     AxiomsEmbeddingWorkflowParameters,
 )
-from phases.workflows.LabelsConsolidationWorkflow.LabelsConsolidationWorkflow import (
+from phases.workflows.archive.LabelsConsolidationWorkflow.LabelsConsolidationWorkflow import (
     LabelsConsolidationWorkflow,
     LabelsConsolidationWorkflowConfiguration,
     LabelsConsolidationWorkflowParameters,
 )
-from phases.workflows.LabelsDefinitionRefinementWorkflow.LabelsDefinitionRefinementWorkflow import (
+from phases.workflows.archive.LabelsDefinitionRefinementWorkflow.LabelsDefinitionRefinementWorkflow import (
     LabelsDefinitionRefinementWorkflow,
     LabelsDefinitionRefinementWorkflowConfiguration,
     LabelsDefinitionRefinementWorkflowParameters,
 )
-from phases.workflows.LabelAxiomEmergenceWorkflow.LabelAxiomEmergenceWorkflow import (
+from phases.workflows.archive.LabelAxiomEmergenceWorkflow.LabelAxiomEmergenceWorkflow import (
     LabelAxiomEmergenceWorkflow,
     LabelAxiomEmergenceWorkflowConfiguration,
     LabelAxiomEmergenceWorkflowParameters,
