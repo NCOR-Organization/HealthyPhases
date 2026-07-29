@@ -16,13 +16,13 @@ What to extract
   influence of one thing on the probability of another thing happening.
 - Each claim becomes ONE JSON object with these fields:
 
-    {
+    {{
       "subject_process":    "<verb-phrase / -ing nominal>",
       "subject_participant": "<noun phrase: the bearer of the disposition>",
       "target_process":     "<verb-phrase / -ing nominal>",
       "direction":          "increases" | "decreases" | "no-effect",
       "evidence_text":      "<short verbatim quote from the text>"
-    }
+    }}
 
 Hard requirements on shape
 - `subject_process` and `target_process` MUST be processes — phrased as a
