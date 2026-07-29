@@ -51,6 +51,7 @@ from langchain_core.messages import AIMessage
 from langchain_core.tools import BaseTool
 from langchain_openai import ChatOpenAI
 from naas_abi_core import logger
+from naas_abi_core.services.cache.CacheFactory import CacheFactory
 from naas_abi_core.workflow.workflow import (
     Workflow,
     WorkflowConfiguration,
@@ -151,6 +152,9 @@ class ProcessDispositionExtractionWorkflow(
             temperature=0,
             timeout=configuration.model_timeout_seconds,
             max_retries=configuration.model_max_retries,
+        )
+        self._cache = CacheFactory.CacheFS_find_storage(
+            subpath="process_disposition_extraction"
         )
 
     # -- identity ------------------------------------------------------------
@@ -324,14 +328,39 @@ ORDER BY ?chunk_id
             response_text = str(content)
         return self._parse_response(response_text)
 
+    def _cache_key(self, chunk_id: str) -> str:
+        _, prompt_hash, _ = self._extraction_id()
+        return (
+            f"extract:{prompt_hash[:16]}:"
+            f"{self._configuration.model_name}:{chunk_id}"
+        )
+
     def _extract_for_chunk(
         self, chunk: tuple[Node, str, str, str]
-    ) -> tuple[str, str, list[dict], str | None]:
-        _, chunk_id, text, path = chunk
+    ) -> tuple[Node, str, str, list[dict], str | None, bool]:
+        chunk_uri, chunk_id, text, path = chunk
+        cache_key = self._cache_key(chunk_id)
+        if self._cache.exists(cache_key):
+            try:
+                cached = self._cache.get(cache_key)
+                if isinstance(cached, list):
+                    return chunk_uri, chunk_id, path, cached, None, True
+            except Exception as exc:
+                logger.warning(
+                    f"Cache hit but unreadable for chunk {chunk_id}: {exc}; "
+                    "re-running extraction"
+                )
         try:
-            return chunk_id, path, self._extract(text), None
+            items = self._extract(text)
+            try:
+                self._cache.set_json(cache_key, items)
+            except Exception as exc:
+                logger.warning(
+                    f"Failed to write extraction cache for chunk {chunk_id}: {exc}"
+                )
+            return chunk_uri, chunk_id, path, items, None, False
         except Exception as exc:
-            return chunk_id, path, [], str(exc)
+            return chunk_uri, chunk_id, path, [], str(exc), False
 
     # -- run -----------------------------------------------------------------
 
@@ -350,9 +379,12 @@ ORDER BY ?chunk_id
                     flush=True,
                 )
                 return {}
-            chunk_id, path, items, error = self._extract_for_chunk(chunks[0])
+            _, chunk_id, path, items, error, cache_hit = self._extract_for_chunk(
+                chunks[0]
+            )
             print(f"[dry-run] Chunk ID: {chunk_id}", flush=True)
             print(f"[dry-run] Source path: {path}", flush=True)
+            print(f"[dry-run] Cache hit: {cache_hit}", flush=True)
             if error:
                 print(f"[dry-run] Error: {error}", flush=True)
             else:
@@ -370,7 +402,44 @@ ORDER BY ?chunk_id
         workers = parameters.workers or self._configuration.extraction_workers
         workers = max(1, workers)
 
+        # Insert the Extraction provenance node ONCE up front so per-chunk
+        # inserts can reference it. Idempotent: rerunning with the same prompt
+        # + model writes the same triples.
+        if chunks:
+            self._persist_extraction_node()
+
         results: dict[str, list[dict]] = {}
+        label_lookup: dict[str, rdflib.URIRef] = {}
+        queried_phrases: set[str] = set()
+        total_relations = 0
+        cache_hits = 0
+
+        def handle_result(
+            chunk_uri: Node,
+            chunk_id: str,
+            path: str,
+            items: list[dict],
+            error: str | None,
+            cache_hit: bool,
+        ) -> None:
+            nonlocal total_relations, cache_hits
+            if error:
+                logger.error(f"Chunk {chunk_id} ({path}) failed: {error}")
+                return
+            if cache_hit:
+                cache_hits += 1
+            results[chunk_id] = items
+            if not items:
+                return
+            self._persist_chunk_relations(
+                chunk_uri=cast(rdflib.URIRef, chunk_uri),
+                chunk_id=chunk_id,
+                items=items,
+                label_lookup=label_lookup,
+                queried_phrases=queried_phrases,
+            )
+            total_relations += len(items)
+
         if workers > 1:
             with ThreadPoolExecutor(max_workers=workers) as executor:
                 futures = [
@@ -385,41 +454,33 @@ ORDER BY ?chunk_id
                         unit="chunk",
                     )
                 for future in completion:
-                    chunk_id, path, items, error = future.result()
-                    if error:
-                        logger.error(f"Chunk {chunk_id} ({path}) failed: {error}")
-                        continue
-                    results[chunk_id] = items
+                    handle_result(*future.result())
         else:
             chunk_iter = chunks
             if tqdm is not None:
                 chunk_iter = tqdm(chunks, desc="Extracting", unit="chunk")
             for chunk in chunk_iter:
-                chunk_id, path, items, error = self._extract_for_chunk(chunk)
-                if error:
-                    logger.error(f"Chunk {chunk_id} ({path}) failed: {error}")
-                    continue
-                results[chunk_id] = items
+                handle_result(*self._extract_for_chunk(chunk))
 
         if parameters.output_path:
             Path(parameters.output_path).write_text(json.dumps(results, indent=2))
             logger.debug(f"Wrote results to {parameters.output_path}")
 
-        self._persist_to_triple_store(results)
+        logger.debug(
+            f"ProcessDispositionExtraction done: "
+            f"{len(results)} chunk(s), {total_relations} relation(s), "
+            f"{cache_hits} cache hit(s)"
+        )
         return results
 
     # -- persistence ---------------------------------------------------------
 
-    def _persist_to_triple_store(self, results: dict[str, list[dict]]) -> None:
-        if not results:
-            return
-
+    def _persist_extraction_node(self) -> None:
+        """Insert (idempotently) the single Extraction provenance node."""
         cfg = self._configuration
         extraction_id, prompt_hash, extraction_uri = self._extraction_id()
 
         graph = rdflib.Graph()
-
-        # Extraction provenance.
         graph.add((extraction_uri, rdflib.RDF.type, PHASES_DOC.Extraction))
         graph.add(
             (extraction_uri, PHASES_DOC.extraction_id, rdflib.Literal(extraction_id))
@@ -445,42 +506,52 @@ ORDER BY ?chunk_id
             (extraction_uri, PHASES_DOC.model_name, rdflib.Literal(cfg.model_name))
         )
 
-        chunk_uri_by_id = self._resolve_chunk_uris(list(results.keys()))
-
-        # Resolve label canonicals only once across all extracted phrases.
-        label_lookup: dict[str, rdflib.URIRef] = {}
-        if cfg.link_to_labels:
-            phrases: set[str] = set()
-            for items in results.values():
-                for it in items:
-                    phrases.add(it["subject_participant"].lower())
-                    phrases.add(it["target_process"].lower())
-            label_lookup = self._resolve_label_uris(phrases)
-
-        for chunk_id, items in results.items():
-            chunk_uri = chunk_uri_by_id.get(chunk_id)
-            if chunk_uri is None:
-                logger.warning(
-                    f"No Chunk URI found for chunk_id {chunk_id}; skipping its relations."
-                )
-                continue
-            for i, item in enumerate(items):
-                self._emit_relation(
-                    graph,
-                    extraction_id=extraction_id,
-                    extraction_uri=extraction_uri,
-                    chunk_id=chunk_id,
-                    chunk_uri=chunk_uri,
-                    index=i,
-                    item=item,
-                    label_lookup=label_lookup,
-                )
-
-        total_relations = sum(len(v) for v in results.values())
-        logger.debug(
-            f"Inserting process-disposition extraction graph: "
-            f"1 Extraction + {total_relations} relation(s)"
+        self.module.engine.services.triple_store.insert(
+            graph, graph_name=EXTRACTIONS_GRAPH
         )
+
+    def _persist_chunk_relations(
+        self,
+        chunk_uri: rdflib.URIRef,
+        chunk_id: str,
+        items: list[dict],
+        label_lookup: dict[str, rdflib.URIRef],
+        queried_phrases: set[str],
+    ) -> None:
+        """Insert the BFO subgraph for one chunk's relations.
+
+        Grows `label_lookup` lazily with new phrases. `queried_phrases` tracks
+        phrases already looked up (hit OR miss) so we don't re-query misses.
+        """
+        if not items:
+            return
+
+        extraction_id, _, extraction_uri = self._extraction_id()
+
+        # Lazily resolve labels for any unseen phrases in this chunk.
+        if self._configuration.link_to_labels:
+            phrases: set[str] = set()
+            for it in items:
+                phrases.add(it["subject_participant"].lower())
+                phrases.add(it["target_process"].lower())
+            missing = phrases - queried_phrases
+            if missing:
+                label_lookup.update(self._resolve_label_uris(missing))
+                queried_phrases.update(missing)
+
+        graph = rdflib.Graph()
+        for i, item in enumerate(items):
+            self._emit_relation(
+                graph,
+                extraction_id=extraction_id,
+                extraction_uri=extraction_uri,
+                chunk_id=chunk_id,
+                chunk_uri=chunk_uri,
+                index=i,
+                item=item,
+                label_lookup=label_lookup,
+            )
+
         self.module.engine.services.triple_store.insert(
             graph, graph_name=EXTRACTIONS_GRAPH
         )
@@ -587,22 +658,6 @@ ORDER BY ?chunk_id
             )
 
     # -- helpers -------------------------------------------------------------
-
-    def _resolve_chunk_uris(self, chunk_ids: list[str]) -> dict[str, rdflib.URIRef]:
-        if not chunk_ids:
-            return {}
-        values = " ".join(rdflib.Literal(cid).n3() for cid in chunk_ids)
-        query = f"""PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
-SELECT ?chunk ?chunk_id WHERE {{
-    GRAPH <{PAPERS_GRAPH}> {{
-        ?chunk a phases-doc:Chunk ; phases-doc:chunk_id ?chunk_id .
-        VALUES ?chunk_id {{ {values} }}
-    }}
-}}"""
-        rows = self.module.engine.services.triple_store.query(query)
-        return {
-            str(chunk_id): cast(rdflib.URIRef, chunk) for chunk, chunk_id in rows
-        }
 
     def _resolve_label_uris(
         self, normalized_phrases: set[str]
