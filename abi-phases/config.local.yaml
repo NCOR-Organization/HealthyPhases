@@ -17,6 +17,8 @@ modules:
   - module: naas_abi
     enabled: true
     config:
+      abi_agent_model: "gpt-4.1-mini"
+      ontology_engineer_model: "gpt-4.1-mini"
       nexus_config:
         database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@postgres:5432/nexus"
         app_name: "HealthyPhases Nexus"
@@ -38,6 +40,8 @@ modules:
             viewer: [chat, files]
           workspace_overrides: {}
         magic_link_allow_signup: false
+        email_from_address: "{{ secret.SMTP_FROM_EMAIL }}"
+        email_from_name: "{{ secret.SMTP_FROM_NAME }}"
         magic_link_email_app_name: "HealthyPhases Platform"
         magic_link_email_subject_template: "Your {app_name} sign-in link"
         magic_link_email_text_template: "Use this link to sign in to {app_name}:\n\n{magic_link_url}\n\nThis link expires in {expire_minutes} minutes."
@@ -133,3 +137,25 @@ services:
       adapter: "redis"
       config:
         redis_url: "redis://redis:6379"
+  cache:
+    # Multi-tier cache: hot (Redis, fast, shared across workers) + cold (FS, durable backstop).
+    # Used by the nexus Composer query/column cache (keys prefixed "naas:cache").
+    adapters:
+      - adapter: "redis"
+        tier: "hot"
+        config:
+          redis_url: "redis://redis:6379"
+          prefix: "naas:cache"
+      - adapter: "fs"
+        tier: "cold"
+        config:
+          base_path: "storage/cache"
+  email:
+    email_adapter:
+      adapter: "smtp"
+      config:
+        host: "{{ secret.SMTP_HOST }}"
+        port: 587
+        username: "{{ secret.SMTP_USERNAME }}"
+        password: "{{ secret.SMTP_PASSWORD }}"
+        use_tls: true
