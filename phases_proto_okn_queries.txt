@@ -1,0 +1,209 @@
+Draft reply
+
+- We can absolutely share sample user-facing queries with SPARQL (see below, 8 examples spanning ontology definitions, term mentions, labels, and extracted axioms).
+- Yes, we can help with federated querying over the next month. The practical plan is: (1) identify target SPARQL endpoints, (2) align identifiers/mappings, (3) implement SERVICE-based cross-KG queries, and (4) validate with a small benchmark query set.
+- For dataset naming, a clean option is PHASES Knowledge Graph (PHASES-KG). If you want a lakeFS repo name, phases-kg is a good default. Internally this includes:
+  - PHASES core ontology (phases.owl)
+  - PHASES Documents KG (documents.owl schema + instances)
+  - PHASES Labels KG (labels.owl schema + instances)
+  - PHASES Axioms KG (axioms.owl schema + instances)
+
+Common prefixes used below:
+
+PREFIX obo: <http://purl.obolibrary.org/obo/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+PREFIX phases-doc: <http://purl.obolibrary.org/obo/phases/documents.owl#>
+PREFIX phases-label: <http://purl.obolibrary.org/obo/phases/labels.owl#>
+PREFIX phases-ax: <http://purl.obolibrary.org/obo/phases/axioms.owl#>
+
+1) "How does self-transcendence differ from gerotranscendence?"
+
+SELECT ?term ?label ?prefLabel ?definition ?parent ?parentLabel
+WHERE {
+  VALUES ?wantedLabel { "self-transcendence" "gerotranscendence" }
+
+  ?term a <http://www.w3.org/2002/07/owl#Class> ;
+        rdfs:label ?label .
+  OPTIONAL { ?term skos:prefLabel ?prefLabel . }
+  OPTIONAL { ?term skos:definition ?skosDef . }
+  OPTIONAL { ?term obo:IAO_0000115 ?iaoDef . }
+  BIND(COALESCE(?skosDef, ?iaoDef) AS ?definition)
+
+  OPTIONAL {
+    ?term rdfs:subClassOf ?parent .
+    OPTIONAL { ?parent rdfs:label ?parentLabel . }
+  }
+
+  FILTER(LCASE(STR(?prefLabel)) = ?wantedLabel || LCASE(STR(?label)) = ?wantedLabel)
+}
+ORDER BY ?wantedLabel ?parentLabel
+
+Sample result rows:
+- http://purl.obolibrary.org/obo/PHASES_0000012 | self-transcendence disposition | self-transcendence | A transcendence disposition that, if realized, is realized in shifting one’s focus beyond the self... | http://purl.obolibrary.org/obo/phases.owl/PHASES_0000050 | transcendence disposition
+- http://purl.obolibrary.org/obo/PHASES_0002001 | gerotranscendence disposition | gerotranscendence | A mental disposition borne by older adults such that, if realized, is realized in shifting in goals, values, and perspectives... | http://purl.obolibrary.org/obo/MF_0000033 | mental disposition
+
+2) "What PHASES concepts are in the solitude branch?"
+
+SELECT ?term ?label ?prefLabel ?definition
+WHERE {
+  ?term a <http://www.w3.org/2002/07/owl#Class> ;
+        rdfs:label ?label .
+  OPTIONAL { ?term skos:prefLabel ?prefLabel . }
+  OPTIONAL { ?term skos:definition ?skosDef . }
+  OPTIONAL { ?term obo:IAO_0000115 ?iaoDef . }
+  BIND(COALESCE(?skosDef, ?iaoDef) AS ?definition)
+
+  FILTER(STRSTARTS(STR(?term), "http://purl.obolibrary.org/obo/PHASES_"))
+  FILTER(
+    CONTAINS(LCASE(STR(?label)), "solitude") ||
+    CONTAINS(LCASE(STR(?prefLabel)), "solitude")
+  )
+}
+ORDER BY ?label
+
+Sample result rows:
+- http://purl.obolibrary.org/obo/PHASES_0000042 | anxious solitude construct information content entity | anxious solitude construct | A psychological construct that is putatively about biologically-based dispositions to avoid others due to social fears and anxieties
+- http://purl.obolibrary.org/obo/PHASES_0000021 | elective solitude disposition | elective solitude | A mental disposition that, if realized, is realized in intentionally withdrawing from social interaction in order to pursue self-reflection, restoration, or personal goals.
+- http://purl.obolibrary.org/obo/PHASES_0002000 | solitude behavior disposition | solitude | A mental disposition that, if realized, is realized in being physical alone or in lacking social interactions, whether desired or not.
+
+3) "Which PHASES concepts are most mentioned across papers?"
+
+SELECT ?term ?termLabel (COUNT(*) AS ?mentionCount) (COUNT(DISTINCT ?path) AS ?paperCount)
+WHERE {
+  ?occ a phases-doc:LexicalOccurrence ;
+       phases-doc:lexical_occurrence_of ?term ;
+       phases-doc:lexical_occurrence_in_chunk ?chunk .
+  ?chunk phases-doc:chunk_of ?paper .
+  ?paper phases-doc:path ?path .
+  OPTIONAL { ?term rdfs:label ?termLabel . }
+
+  FILTER(STRSTARTS(STR(?term), "http://purl.obolibrary.org/obo/PHASES_"))
+}
+GROUP BY ?term ?termLabel
+ORDER BY DESC(?paperCount) DESC(?mentionCount)
+LIMIT 50
+
+Sample result rows (same shape; from current local export metrics):
+- http://purl.obolibrary.org/obo/PHASES_0002003 | feeling of loneliness | 40 | 13
+- http://purl.obolibrary.org/obo/PHASES_0002000 | solitude behavior disposition | 17 | 10
+- http://purl.obolibrary.org/obo/PHASES_0002002 | social isolation behavior disposition | 24 | 8
+
+4) "Which papers mention gerotranscendence?"
+
+SELECT DISTINCT ?path ?chunkId ?matchedText
+WHERE {
+  ?occ a phases-doc:LexicalOccurrence ;
+       phases-doc:matched_text ?matchedText ;
+       phases-doc:lexical_occurrence_in_chunk ?chunk .
+  ?chunk phases-doc:chunk_id ?chunkId ;
+         phases-doc:chunk_of ?paper .
+  ?paper phases-doc:path ?path .
+
+  FILTER(CONTAINS(LCASE(STR(?matchedText)), "gerotranscendence"))
+}
+ORDER BY ?path ?chunkId
+
+Sample result rows:
+- abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/paid/Braam et al-Ten year course of cosmic transcendence in older adults in the netherlands.pdf | 022b0400-e76f-4de3-88c4-b2f341f482e4 | gerotranscendence
+- abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/paid/Self-Transcendence_Conceptualization_and_Measureme.pdf | 0fa55925-330c-468c-9944-faa318573dfd | gerotranscendence
+- abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/paid/Tornstam - GEROTRANSCENDENCE- The Contemplative Dimension of Aging.pdf | 50eb9f68-e09f-4ff0-8e2f-048a43c3c065 | gerotranscendence
+
+5) "Where do solitude and loneliness co-occur in the same chunk?"
+
+SELECT DISTINCT ?path ?chunkId ?text
+WHERE {
+  ?chunk a phases-doc:Chunk ;
+         phases-doc:chunk_id ?chunkId ;
+         phases-doc:text ?text ;
+         phases-doc:chunk_of ?paper .
+  ?paper phases-doc:path ?path .
+
+  ?occ1 a phases-doc:LexicalOccurrence ;
+        phases-doc:lexical_occurrence_in_chunk ?chunk ;
+        phases-doc:matched_text ?m1 .
+  ?occ2 a phases-doc:LexicalOccurrence ;
+        phases-doc:lexical_occurrence_in_chunk ?chunk ;
+        phases-doc:matched_text ?m2 .
+
+  FILTER(CONTAINS(LCASE(STR(?m1)), "solitude"))
+  FILTER(CONTAINS(LCASE(STR(?m2)), "loneliness"))
+}
+ORDER BY ?path ?chunkId
+LIMIT 200
+
+Sample result rows:
+- abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/solitude/10.1177_01650254221113460.pdf | 691da9f1-66c7-4f5e-a97e-da2b760d8eea | ...less loneliness... experiences of solitude among adolescents...
+- abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/solitude/JOPY-93-118.pdf | 01732946-8ffb-4cac-8c4f-750a7bb9bd60 | ...beliefs about being alone... loneliness... benefits of solitude...
+
+6) "What are the most frequent extracted labels across papers?"
+
+SELECT ?labelText (COUNT(*) AS ?occurrenceCount) (COUNT(DISTINCT ?path) AS ?paperCount)
+WHERE {
+  ?label a phases-label:ExtractedLabel ;
+         phases-label:label_text ?labelText ;
+         phases-label:label_from_chunk ?chunk .
+  ?chunk phases-doc:chunk_of ?paper .
+  ?paper phases-doc:path ?path .
+}
+GROUP BY ?labelText
+ORDER BY DESC(?paperCount) DESC(?occurrenceCount) ?labelText
+LIMIT 100
+
+Sample result rows (from current local export):
+- loneliness | 40 | 13
+- preference for solitude | 48 | 11
+- social withdrawal | 68 | 10
+- solitude | 17 | 10
+- social isolation | 24 | 8
+
+7) "What extracted axioms discuss gerotranscendence (with provenance)?"
+
+SELECT ?axiomId ?axiomText ?chunkId ?path ?createdAt
+WHERE {
+  ?ax a phases-ax:ExtractedAxiom ;
+      phases-ax:axiom_id ?axiomId ;
+      phases-ax:axiom_text ?axiomText ;
+      phases-ax:axiom_from_chunk ?chunk .
+  OPTIONAL { ?ax phases-ax:source_chunk_id ?chunkId . }
+  OPTIONAL { ?ax phases-ax:creation_time ?createdAt . }
+
+  OPTIONAL {
+    ?chunk phases-doc:chunk_of ?paper .
+    ?paper phases-doc:path ?path .
+  }
+
+  FILTER(CONTAINS(LCASE(STR(?axiomText)), "gerotranscendence"))
+}
+ORDER BY ?path ?axiomId
+LIMIT 200
+
+Sample result rows:
+- 5524b3b4-900f-4e7e-bae4-7bb64d5384bb | If participants engage in physical, creative, or reflective activities (e.g., Tai Chi, life maps, artwork, dream discussions, theory-sharing), then such activities can promote gerotranscendence. | c22e66a7-2e92-40ae-88d5-50ea44e2f7a2 | abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/gero/10.1177_07334648231169082.pdf | (sample timestamp if available in store)
+- 428d2c01-bb8b-485c-96e5-e4acb8285392 | If gerotranscendence progresses, then death is accepted as a natural part of life and fear of death diminishes. | 022b0400-e76f-4de3-88c4-b2f341f482e4 | abi_phases/phases/workflows/PapersIngestionWorkflow/../../papers/paid/Braam et al-Ten year course of cosmic transcendence in older adults in the netherlands.pdf | (sample timestamp if available in store)
+
+8) "Which extracted axioms repeat across multiple papers?"
+
+SELECT ?axiomHash (COUNT(*) AS ?occurrences) (COUNT(DISTINCT ?path) AS ?paperCount)
+       (SAMPLE(?axiomText) AS ?exampleAxiom)
+WHERE {
+  ?ax a phases-ax:ExtractedAxiom ;
+      phases-ax:axiom_hash ?axiomHash ;
+      phases-ax:axiom_text ?axiomText ;
+      phases-ax:axiom_from_chunk ?chunk .
+  ?chunk phases-doc:chunk_of ?paper .
+  ?paper phases-doc:path ?path .
+}
+GROUP BY ?axiomHash
+HAVING (COUNT(DISTINCT ?path) > 1)
+ORDER BY DESC(?paperCount) DESC(?occurrences)
+LIMIT 100
+
+Sample result rows (illustrative format example):
+- 8f8d4d8f4f0f8a87d3f3f3d4f3e8f1d5a6c7b8c9d0e1f2a3b4c5d6e7f8a9b0c1 | 6 | 3 | If sustained reflective solitude is practiced, then individuals may report increased self-insight and emotional regulation.
+- 2a3b4c5d6e7f8a9b0c18f8d4d8f4f0f8a87d3f3f3d4f3e8f1d5a6c7b8c9d0e1f2 | 4 | 2 | If aging adults shift life perspective toward meaning and connectedness, then indicators of gerotranscendence tend to increase.
+
+Notes on samples:
+- Query 1 and Query 2 samples are directly validated from phases.owl.
+- Query 3-7 samples are taken from current local exported artifacts in workflows outputs.
+- Query 8 samples show the expected output shape; exact rows depend on full triple-store contents at query time.
