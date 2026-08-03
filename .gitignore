@@ -21,4 +21,3 @@ abi/storage
 *.csv
 oa_*.txt
 abi/abi
-.fleet/worktrees/
