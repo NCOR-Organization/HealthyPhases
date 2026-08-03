@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import datetime
-import os
 import uuid
 from typing import (
     Annotated,
@@ -19,6 +18,15 @@ from typing import (
 from pydantic import BaseModel, Field, ValidationError
 from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import OWL, RDF, RDFS, XSD
+
+from phases.ontologies.bfo_core import (
+    Continuant,
+    Disposition,
+    GenericallyDependentContinuant,
+    MaterialEntity,
+    Process,
+    TemporalRegion,
+)
 
 BFO = Namespace("http://purl.obolibrary.org/obo/")
 ABI = Namespace("http://ontology.naas.ai/abi/")
@@ -308,7 +316,7 @@ class RDFEntity(BaseModel):
         return g
 
 
-class InferredLabelRelation(RDFEntity):
+class InferredLabelRelation(GenericallyDependentContinuant, RDFEntity):
     """
     A probabilistic relation inferred between two canonical label texts from chunk-level co-occurrence and axiom directional evidence.
     """
@@ -321,6 +329,7 @@ class InferredLabelRelation(RDFEntity):
         "belongs_confidence": "http://purl.obolibrary.org/obo/phases/relations.owl#belongs_confidence",
         "best_alternative_support": "http://purl.obolibrary.org/obo/phases/relations.owl#best_alternative_support",
         "best_alternative_target": "http://purl.obolibrary.org/obo/phases/relations.owl#best_alternative_target",
+        "continuant_part_of": "http://purl.obolibrary.org/obo/BFO_0000176",
         "cooccurrence_count": "http://purl.obolibrary.org/obo/phases/relations.owl#co_occurrence_count",
         "cooccurrence_score": "http://purl.obolibrary.org/obo/phases/relations.owl#co_occurrence_score",
         "created": "http://purl.org/dc/terms/created",
@@ -329,7 +338,11 @@ class InferredLabelRelation(RDFEntity):
         "directional_score": "http://purl.obolibrary.org/obo/phases/relations.owl#directional_score",
         "evidence_paths_count": "http://purl.obolibrary.org/obo/phases/relations.owl#evidence_paths_count",
         "exclusive_to_target_confidence": "http://purl.obolibrary.org/obo/phases/relations.owl#exclusive_to_target_confidence",
+        "exists_at": "http://purl.obolibrary.org/obo/BFO_0000108",
         "forward_axiom_votes": "http://purl.obolibrary.org/obo/phases/relations.owl#forward_axiom_votes",
+        "generically_depends_on": "http://purl.obolibrary.org/obo/BFO_0000084",
+        "has_continuant_part": "http://purl.obolibrary.org/obo/BFO_0000178",
+        "is_concretized_by": "http://purl.obolibrary.org/obo/BFO_0000058",
         "label": "http://www.w3.org/2000/01/rdf-schema#label",
         "relation_from_label": "http://purl.obolibrary.org/obo/phases/relations.owl#relation_from_label",
         "relation_id": "http://purl.obolibrary.org/obo/phases/relations.owl#relation_id",
@@ -343,6 +356,11 @@ class InferredLabelRelation(RDFEntity):
         "target_label_text": "http://purl.obolibrary.org/obo/phases/relations.owl#target_label_text",
     }
     _object_properties: ClassVar[set[str]] = {
+        "continuant_part_of",
+        "exists_at",
+        "generically_depends_on",
+        "has_continuant_part",
+        "is_concretized_by",
         "relation_from_label",
         "relation_to_label",
         "supported_by_axiom",
@@ -356,42 +374,500 @@ class InferredLabelRelation(RDFEntity):
     relation_type: Annotated[str, Field()]
     belongs_confidence: Annotated[float, Field()]
     exclusive_to_target_confidence: Annotated[float, Field()]
-    cooccurrence_score: Optional[Annotated[float, Field()]]
-    directional_score: Optional[Annotated[float, Field()]]
-    stability_score: Optional[Annotated[float, Field()]]
-    cooccurrence_count: Optional[Annotated[int, Field()]]
-    forward_axiom_votes: Optional[Annotated[int, Field()]]
-    reverse_axiom_votes: Optional[Annotated[int, Field()]]
-    evidence_paths_count: Optional[Annotated[int, Field()]]
-    best_alternative_target: Optional[Annotated[str, Field()]] = "unknown"
-    best_alternative_support: Optional[Annotated[float, Field()]]
+    cooccurrence_score: Optional[Annotated[float, Field()]] = None
+    directional_score: Optional[Annotated[float, Field()]] = None
+    stability_score: Optional[Annotated[float, Field()]] = None
+    cooccurrence_count: Optional[Annotated[int, Field()]] = None
+    forward_axiom_votes: Optional[Annotated[int, Field()]] = None
+    reverse_axiom_votes: Optional[Annotated[int, Field()]] = None
+    evidence_paths_count: Optional[Annotated[int, Field()]] = None
+    best_alternative_target: Optional[Annotated[str, Field()]] = None
+    best_alternative_support: Optional[Annotated[float, Field()]] = None
     creation_time: Annotated[datetime.datetime, Field()]
-    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = (
-        "unknown"
-    )
-    created: Annotated[
-        Optional[datetime.datetime],
-        Field(description="Date of creation of the resource."),
-    ] = datetime.datetime.now()
-    creator: Annotated[
-        Optional[Any],
-        Field(description="An entity responsible for making the resource."),
-    ] = os.environ.get("USER")
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = None
+    created: Optional[
+        Annotated[
+            datetime.datetime,
+            Field(description="Date of creation of the resource."),
+        ]
+    ] = None
+    creator: Optional[
+        Annotated[
+            Any,
+            Field(description="An entity responsible for making the resource."),
+        ]
+    ] = None
 
     # Object properties
-    relation_from_label: Optional[
-        Annotated[List[Union[ExtractedLabel, URIRef, str]], Field()]
-    ] = ["http://ontology.naas.ai/abi/unknown"]
-    relation_to_label: Optional[
-        Annotated[List[Union[ExtractedLabel, URIRef, str]], Field()]
-    ] = ["http://ontology.naas.ai/abi/unknown"]
-    supported_by_axiom: Optional[
-        Annotated[List[Union[ExtractedAxiom, URIRef, str]], Field()]
-    ] = ["http://ontology.naas.ai/abi/unknown"]
-    supported_by_chunk: Optional[
-        Annotated[List[Union[Chunk, URIRef, str]], Field()]
-    ] = ["http://ontology.naas.ai/abi/unknown"]
+    continuant_part_of: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(
+                description="b continuant part of c =Def b and c are continuants & there is some time t such that b and c exist at t & b continuant part of c at t"
+            ),
+        ]
+    ] = None
+    exists_at: Optional[
+        Annotated[
+            List[Union[TemporalRegion, URIRef, str]],
+            Field(
+                description="(Elucidation) exists at is a relation between a particular and some temporal region at which the particular exists"
+            ),
+        ]
+    ] = None
+    generically_depends_on: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="b generically depends on c =Def b is a generically dependent continuant & c is an independent continuant that is not a spatial region & at some time t there inheres in c a specifically dependent continuant which concretizes b at t"
+            ),
+        ]
+    ] = None
+    has_continuant_part: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(description="b has continuant part c =Def c continuant part of b"),
+        ]
+    ] = None
+    is_concretized_by: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(description="c is concretized by b =Def b concretizes c"),
+        ]
+    ] = None
+    relation_from_label: Optional[Annotated[Union[URIRef, str], Field()]] = None
+    relation_to_label: Optional[Annotated[Union[URIRef, str], Field()]] = None
+    supported_by_axiom: Optional[Annotated[Union[URIRef, str], Field()]] = None
+    supported_by_chunk: Optional[Annotated[Union[URIRef, str], Field()]] = None
+
+
+class ProbabilitymodulatingDisposition(Disposition, RDFEntity):
+    """
+    A BFO disposition borne by an independent continuant whose realization in a process modulates the probability that some other (target) process occurs.
+    """
+
+    _class_uri: ClassVar[str] = (
+        "http://purl.obolibrary.org/obo/phases/relations.owl#ProbabilityModulatingDisposition"
+    )
+    _name: ClassVar[str] = "probability-modulating disposition"
+    _property_uris: ClassVar[dict] = {
+        "continuant_part_of": "http://purl.obolibrary.org/obo/BFO_0000176",
+        "created": "http://purl.org/dc/terms/created",
+        "creator": "http://purl.org/dc/terms/creator",
+        "disposition_target_process": "http://purl.obolibrary.org/obo/phases/relations.owl#disposition_target_process",
+        "exists_at": "http://purl.obolibrary.org/obo/BFO_0000108",
+        "has_continuant_part": "http://purl.obolibrary.org/obo/BFO_0000178",
+        "has_material_basis": "http://purl.obolibrary.org/obo/BFO_0000218",
+        "has_realization": "http://purl.obolibrary.org/obo/BFO_0000054",
+        "inheres_in": "http://purl.obolibrary.org/obo/BFO_0000197",
+        "label": "http://www.w3.org/2000/01/rdf-schema#label",
+        "specifically_depends_on": "http://purl.obolibrary.org/obo/BFO_0000195",
+    }
+    _object_properties: ClassVar[set[str]] = {
+        "continuant_part_of",
+        "disposition_target_process",
+        "exists_at",
+        "has_continuant_part",
+        "has_material_basis",
+        "has_realization",
+        "inheres_in",
+        "specifically_depends_on",
+    }
+
+    # Data properties
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = None
+    created: Optional[
+        Annotated[
+            datetime.datetime,
+            Field(description="Date of creation of the resource."),
+        ]
+    ] = None
+    creator: Optional[
+        Annotated[
+            Any,
+            Field(description="An entity responsible for making the resource."),
+        ]
+    ] = None
+
+    # Object properties
+    continuant_part_of: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(
+                description="b continuant part of c =Def b and c are continuants & there is some time t such that b and c exist at t & b continuant part of c at t"
+            ),
+        ]
+    ] = None
+    disposition_target_process: Optional[
+        Annotated[List[Union[Process, URIRef, str]], Field()]
+    ] = None
+    exists_at: Optional[
+        Annotated[
+            List[Union[TemporalRegion, URIRef, str]],
+            Field(
+                description="(Elucidation) exists at is a relation between a particular and some temporal region at which the particular exists"
+            ),
+        ]
+    ] = None
+    has_continuant_part: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(description="b has continuant part c =Def c continuant part of b"),
+        ]
+    ] = None
+    has_material_basis: Optional[
+        Annotated[
+            List[Union[MaterialEntity, URIRef, str]],
+            Field(
+                description="b has material basis c =Def b is a disposition & c is a material entity & there is some d bearer of b & there is some time t such that c is a continuant part of d at t & d has disposition b because c is a continuant part of d at t"
+            ),
+        ]
+    ] = None
+    has_realization: Optional[
+        Annotated[
+            List[Union[Process, URIRef, str]],
+            Field(description="b has realization c =Def c realizes b"),
+        ]
+    ] = None
+    inheres_in: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="b inheres in c =Def b is a specifically dependent continuant & c is an independent continuant that is not a spatial region & b specifically depends on c"
+            ),
+        ]
+    ] = None
+    specifically_depends_on: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="(Elucidation) specifically depends on is a relation between a specifically dependent continuant b and specifically dependent continuant or independent continuant that is not a spatial region c such that b and c share no parts in common & b is of a nature such that at all times t it cannot exist unless c exists & b is not a boundary of c"
+            ),
+        ]
+    ] = None
+
+
+class IncreaseprobabilityDisposition(ProbabilitymodulatingDisposition, RDFEntity):
+    """
+    A probability-modulating disposition whose realization increases the probability that the target process occurs.
+    """
+
+    _class_uri: ClassVar[str] = (
+        "http://purl.obolibrary.org/obo/phases/relations.owl#IncreaseProbabilityDisposition"
+    )
+    _name: ClassVar[str] = "increase-probability disposition"
+    _property_uris: ClassVar[dict] = {
+        "continuant_part_of": "http://purl.obolibrary.org/obo/BFO_0000176",
+        "created": "http://purl.org/dc/terms/created",
+        "creator": "http://purl.org/dc/terms/creator",
+        "disposition_target_process": "http://purl.obolibrary.org/obo/phases/relations.owl#disposition_target_process",
+        "exists_at": "http://purl.obolibrary.org/obo/BFO_0000108",
+        "has_continuant_part": "http://purl.obolibrary.org/obo/BFO_0000178",
+        "has_material_basis": "http://purl.obolibrary.org/obo/BFO_0000218",
+        "has_realization": "http://purl.obolibrary.org/obo/BFO_0000054",
+        "inheres_in": "http://purl.obolibrary.org/obo/BFO_0000197",
+        "label": "http://www.w3.org/2000/01/rdf-schema#label",
+        "specifically_depends_on": "http://purl.obolibrary.org/obo/BFO_0000195",
+    }
+    _object_properties: ClassVar[set[str]] = {
+        "continuant_part_of",
+        "disposition_target_process",
+        "exists_at",
+        "has_continuant_part",
+        "has_material_basis",
+        "has_realization",
+        "inheres_in",
+        "specifically_depends_on",
+    }
+
+    # Data properties
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = None
+    created: Optional[
+        Annotated[
+            datetime.datetime,
+            Field(description="Date of creation of the resource."),
+        ]
+    ] = None
+    creator: Optional[
+        Annotated[
+            Any,
+            Field(description="An entity responsible for making the resource."),
+        ]
+    ] = None
+
+    # Object properties
+    continuant_part_of: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(
+                description="b continuant part of c =Def b and c are continuants & there is some time t such that b and c exist at t & b continuant part of c at t"
+            ),
+        ]
+    ] = None
+    disposition_target_process: Optional[
+        Annotated[List[Union[Process, URIRef, str]], Field()]
+    ] = None
+    exists_at: Optional[
+        Annotated[
+            List[Union[TemporalRegion, URIRef, str]],
+            Field(
+                description="(Elucidation) exists at is a relation between a particular and some temporal region at which the particular exists"
+            ),
+        ]
+    ] = None
+    has_continuant_part: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(description="b has continuant part c =Def c continuant part of b"),
+        ]
+    ] = None
+    has_material_basis: Optional[
+        Annotated[
+            List[Union[MaterialEntity, URIRef, str]],
+            Field(
+                description="b has material basis c =Def b is a disposition & c is a material entity & there is some d bearer of b & there is some time t such that c is a continuant part of d at t & d has disposition b because c is a continuant part of d at t"
+            ),
+        ]
+    ] = None
+    has_realization: Optional[
+        Annotated[
+            List[Union[Process, URIRef, str]],
+            Field(description="b has realization c =Def c realizes b"),
+        ]
+    ] = None
+    inheres_in: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="b inheres in c =Def b is a specifically dependent continuant & c is an independent continuant that is not a spatial region & b specifically depends on c"
+            ),
+        ]
+    ] = None
+    specifically_depends_on: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="(Elucidation) specifically depends on is a relation between a specifically dependent continuant b and specifically dependent continuant or independent continuant that is not a spatial region c such that b and c share no parts in common & b is of a nature such that at all times t it cannot exist unless c exists & b is not a boundary of c"
+            ),
+        ]
+    ] = None
+
+
+class DecreaseprobabilityDisposition(ProbabilitymodulatingDisposition, RDFEntity):
+    """
+    A probability-modulating disposition whose realization decreases the probability that the target process occurs.
+    """
+
+    _class_uri: ClassVar[str] = (
+        "http://purl.obolibrary.org/obo/phases/relations.owl#DecreaseProbabilityDisposition"
+    )
+    _name: ClassVar[str] = "decrease-probability disposition"
+    _property_uris: ClassVar[dict] = {
+        "continuant_part_of": "http://purl.obolibrary.org/obo/BFO_0000176",
+        "created": "http://purl.org/dc/terms/created",
+        "creator": "http://purl.org/dc/terms/creator",
+        "disposition_target_process": "http://purl.obolibrary.org/obo/phases/relations.owl#disposition_target_process",
+        "exists_at": "http://purl.obolibrary.org/obo/BFO_0000108",
+        "has_continuant_part": "http://purl.obolibrary.org/obo/BFO_0000178",
+        "has_material_basis": "http://purl.obolibrary.org/obo/BFO_0000218",
+        "has_realization": "http://purl.obolibrary.org/obo/BFO_0000054",
+        "inheres_in": "http://purl.obolibrary.org/obo/BFO_0000197",
+        "label": "http://www.w3.org/2000/01/rdf-schema#label",
+        "specifically_depends_on": "http://purl.obolibrary.org/obo/BFO_0000195",
+    }
+    _object_properties: ClassVar[set[str]] = {
+        "continuant_part_of",
+        "disposition_target_process",
+        "exists_at",
+        "has_continuant_part",
+        "has_material_basis",
+        "has_realization",
+        "inheres_in",
+        "specifically_depends_on",
+    }
+
+    # Data properties
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = None
+    created: Optional[
+        Annotated[
+            datetime.datetime,
+            Field(description="Date of creation of the resource."),
+        ]
+    ] = None
+    creator: Optional[
+        Annotated[
+            Any,
+            Field(description="An entity responsible for making the resource."),
+        ]
+    ] = None
+
+    # Object properties
+    continuant_part_of: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(
+                description="b continuant part of c =Def b and c are continuants & there is some time t such that b and c exist at t & b continuant part of c at t"
+            ),
+        ]
+    ] = None
+    disposition_target_process: Optional[
+        Annotated[List[Union[Process, URIRef, str]], Field()]
+    ] = None
+    exists_at: Optional[
+        Annotated[
+            List[Union[TemporalRegion, URIRef, str]],
+            Field(
+                description="(Elucidation) exists at is a relation between a particular and some temporal region at which the particular exists"
+            ),
+        ]
+    ] = None
+    has_continuant_part: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(description="b has continuant part c =Def c continuant part of b"),
+        ]
+    ] = None
+    has_material_basis: Optional[
+        Annotated[
+            List[Union[MaterialEntity, URIRef, str]],
+            Field(
+                description="b has material basis c =Def b is a disposition & c is a material entity & there is some d bearer of b & there is some time t such that c is a continuant part of d at t & d has disposition b because c is a continuant part of d at t"
+            ),
+        ]
+    ] = None
+    has_realization: Optional[
+        Annotated[
+            List[Union[Process, URIRef, str]],
+            Field(description="b has realization c =Def c realizes b"),
+        ]
+    ] = None
+    inheres_in: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="b inheres in c =Def b is a specifically dependent continuant & c is an independent continuant that is not a spatial region & b specifically depends on c"
+            ),
+        ]
+    ] = None
+    specifically_depends_on: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="(Elucidation) specifically depends on is a relation between a specifically dependent continuant b and specifically dependent continuant or independent continuant that is not a spatial region c such that b and c share no parts in common & b is of a nature such that at all times t it cannot exist unless c exists & b is not a boundary of c"
+            ),
+        ]
+    ] = None
+
+
+class NoeffectProbabilityDisposition(ProbabilitymodulatingDisposition, RDFEntity):
+    """
+    A probability-modulating disposition whose realization has no measurable effect on the probability that the target process occurs (used to capture explicit null findings).
+    """
+
+    _class_uri: ClassVar[str] = (
+        "http://purl.obolibrary.org/obo/phases/relations.owl#NoEffectProbabilityDisposition"
+    )
+    _name: ClassVar[str] = "no-effect probability disposition"
+    _property_uris: ClassVar[dict] = {
+        "continuant_part_of": "http://purl.obolibrary.org/obo/BFO_0000176",
+        "created": "http://purl.org/dc/terms/created",
+        "creator": "http://purl.org/dc/terms/creator",
+        "disposition_target_process": "http://purl.obolibrary.org/obo/phases/relations.owl#disposition_target_process",
+        "exists_at": "http://purl.obolibrary.org/obo/BFO_0000108",
+        "has_continuant_part": "http://purl.obolibrary.org/obo/BFO_0000178",
+        "has_material_basis": "http://purl.obolibrary.org/obo/BFO_0000218",
+        "has_realization": "http://purl.obolibrary.org/obo/BFO_0000054",
+        "inheres_in": "http://purl.obolibrary.org/obo/BFO_0000197",
+        "label": "http://www.w3.org/2000/01/rdf-schema#label",
+        "specifically_depends_on": "http://purl.obolibrary.org/obo/BFO_0000195",
+    }
+    _object_properties: ClassVar[set[str]] = {
+        "continuant_part_of",
+        "disposition_target_process",
+        "exists_at",
+        "has_continuant_part",
+        "has_material_basis",
+        "has_realization",
+        "inheres_in",
+        "specifically_depends_on",
+    }
+
+    # Data properties
+    label: Optional[Annotated[str, Field(description="Label of the resource.")]] = None
+    created: Optional[
+        Annotated[
+            datetime.datetime,
+            Field(description="Date of creation of the resource."),
+        ]
+    ] = None
+    creator: Optional[
+        Annotated[
+            Any,
+            Field(description="An entity responsible for making the resource."),
+        ]
+    ] = None
+
+    # Object properties
+    continuant_part_of: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(
+                description="b continuant part of c =Def b and c are continuants & there is some time t such that b and c exist at t & b continuant part of c at t"
+            ),
+        ]
+    ] = None
+    disposition_target_process: Optional[
+        Annotated[List[Union[Process, URIRef, str]], Field()]
+    ] = None
+    exists_at: Optional[
+        Annotated[
+            List[Union[TemporalRegion, URIRef, str]],
+            Field(
+                description="(Elucidation) exists at is a relation between a particular and some temporal region at which the particular exists"
+            ),
+        ]
+    ] = None
+    has_continuant_part: Optional[
+        Annotated[
+            List[Union[Continuant, URIRef, str]],
+            Field(description="b has continuant part c =Def c continuant part of b"),
+        ]
+    ] = None
+    has_material_basis: Optional[
+        Annotated[
+            List[Union[MaterialEntity, URIRef, str]],
+            Field(
+                description="b has material basis c =Def b is a disposition & c is a material entity & there is some d bearer of b & there is some time t such that c is a continuant part of d at t & d has disposition b because c is a continuant part of d at t"
+            ),
+        ]
+    ] = None
+    has_realization: Optional[
+        Annotated[
+            List[Union[Process, URIRef, str]],
+            Field(description="b has realization c =Def c realizes b"),
+        ]
+    ] = None
+    inheres_in: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="b inheres in c =Def b is a specifically dependent continuant & c is an independent continuant that is not a spatial region & b specifically depends on c"
+            ),
+        ]
+    ] = None
+    specifically_depends_on: Optional[
+        Annotated[
+            Union[URIRef, str],
+            Field(
+                description="(Elucidation) specifically depends on is a relation between a specifically dependent continuant b and specifically dependent continuant or independent continuant that is not a spatial region c such that b and c share no parts in common & b is of a nature such that at all times t it cannot exist unless c exists & b is not a boundary of c"
+            ),
+        ]
+    ] = None
 
 
 # Rebuild models to resolve forward references
 InferredLabelRelation.model_rebuild()
+ProbabilitymodulatingDisposition.model_rebuild()
+IncreaseprobabilityDisposition.model_rebuild()
+DecreaseprobabilityDisposition.model_rebuild()
+NoeffectProbabilityDisposition.model_rebuild()
