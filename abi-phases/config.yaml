@@ -17,9 +17,71 @@ modules:
   - module: naas_abi
     enabled: true
     config:
+      abi_agent_model: "gpt-4.1-mini"
+      abi_agent_provider: "openai"
+      ontology_engineer_model: "gpt-4.1-mini"
+      ontology_engineer_provider: "openai"
       nexus_config:
-        database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@localhost:5432/nexus"
-        redis_url: "redis://localhost:6379/0"
+        database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@postgres:5432/nexus"
+        app_name: "HealthyPhases Nexus"
+        api_url: "http://{{ secret.PUBLIC_API_HOST }}"
+        frontend_url: "http://{{ secret.PUBLIC_WEB_HOST }}"
+        feature_flags:
+          enabled_features:
+            - chat
+            - files
+            - agents
+            - search
+            - ontology
+            - graph
+            - settings
+          role_baseline:
+            owner: [chat, files, agents, search, ontology, graph, settings]
+            admin: [chat, files, agents, search, ontology, graph, settings]
+            member: [chat, files]
+            viewer: [chat, files]
+          workspace_overrides: {}
+        magic_link_allow_signup: false
+        magic_link_email_app_name: "HealthyPhases Platform"
+        magic_link_email_subject_template: "Your {app_name} sign-in link"
+        magic_link_email_text_template: "Use this link to sign in to {app_name}:\n\n{magic_link_url}\n\nThis link expires in {expire_minutes} minutes."
+        magic_link_email_html_template: "<p>Use this link to sign in to {app_name}:</p><p><a href=\"{magic_link_url}\">Sign in</a></p><p>This link expires in {expire_minutes} minutes.</p>"
+        tenant:
+          tab_title: "HealthyPhases | ABI Nexus"
+          primary_color: "#22c55e"
+          accent_color: "#16a34a"
+          logo_emoji: "🏥"
+          show_powered_by: true
+        users:
+          - email: "maxime@naas.ai"
+            name: "Maxime"
+            store_credentials_in_secrets: true
+          - email: "jeremy@naas.ai"
+            name: "Jeremy"
+            store_credentials_in_secrets: true
+        organizations:
+          - name: "HealthyPhases"
+            slug: "healthyphases"
+            owner_email: "maxime@naas.ai"
+            logo_emoji: "🏥"
+            primary_color: "#22c55e"
+            accent_color: "#16a34a"
+            show_powered_by: true
+            members:
+              - email: "maxime@naas.ai"
+                role: "owner"
+              - email: "jeremy@naas.ai"
+                role: "member"
+            workspaces:
+              - name: "Main Workspace"
+                slug: "main"
+                owner_email: "maxime@naas.ai"
+                primary_color: "#22c55e"
+                members:
+                  - email: "maxime@naas.ai"
+                    role: "owner"
+                  - email: "jeremy@naas.ai"
+                    role: "member"
 
   - module: naas_abi_marketplace.ai.chatgpt
     enabled: true
@@ -28,32 +90,46 @@ modules:
 
   - module: phases
     enabled: true
+    config:
+      google_api_key: "{{ secret.GOOGLE_API_KEY }}"
 
-default_agent: "phases PhasesAgent"
+  - module: naas_abi_marketplace.applications.pubmed
+    enabled: true
+
+default_agent: 'abi_phases.phases ELOAgent'
 
 
 services:
+  model_registry:
+    default_chat_model: "gpt-4.1-mini"
+    default_embedding_model: "text-embedding-3-large"
+
   secret:
     secret_adapters:
       - adapter: "dotenv"
         config: {}
+
   object_storage:
     object_storage_adapter:
       adapter: "fs"
       config:
         base_path: "storage/datastore"
+
   triple_store:
     triple_store_adapter:
-      adapter: "oxigraph_embedded"
+      adapter: "oxigraph"
       config:
-        store_path: "storage/triplestore/oxigraph"
-        graph_base_iri: "http://ontology.naas.ai/graph/default"
+        oxigraph_url: "http://127.0.0.1:7878"
+        timeout: 60
+
   vector_store:
     vector_store_adapter:
-      adapter: "qdrant_in_memory"
+      adapter: "sqlite_vec"
       config:
-        storage_path: "storage/vectorstore/qdrant"
-        timeout: 300
+        persistence_path: "storage/vectorstore/vectors.sqlite3"
+        journal_mode: "WAL"
+        busy_timeout_ms: 5000
+
   bus:
     bus_adapter:
       adapter: "python_queue"
@@ -61,8 +137,7 @@ services:
         persistence_path: "storage/bus/python_queue.sqlite3"
         journal_mode: "WAL"
         busy_timeout_ms: 5000
-        poll_interval_seconds: 0.05
-        lock_timeout_seconds: 1.0
+
   kv:
     kv_adapter:
       adapter: "python"
