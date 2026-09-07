@@ -1,0 +1,327 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Phases Pipeline</title>
+<style>
+  :root {
+    --ground: #f7f8f8; --surface: #fff; --ink: #17201f; --mute: #6a7877;
+    --rule: #dfe5e3; --accent: #0b6b63; --bad: #a33a2a; --warn: #86671a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0e1413; --surface: #151d1c; --ink: #e3eae8; --mute: #859894;
+      --rule: #253431; --accent: #5cc3b4; --bad: #e0806e; --warn: #d8b25e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--ground); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 60rem; margin: 0 auto; display: grid; gap: 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  p.lede { color: var(--mute); margin: .3rem 0 0; max-width: 46rem; }
+  section { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1.1rem 1.25rem; }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin: 0 0 .9rem; }
+  .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  label { display: block; font-size: .8rem; color: var(--mute); margin-bottom: .3rem; }
+  select, input, button { font: inherit; padding: .5rem .6rem; border-radius: 4px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); width: 100%; }
+  select[multiple] { min-height: 6rem; }
+  button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .row { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+  .msg { font-size: .85rem; }
+  .msg.bad { color: var(--bad); }
+  .msg.warn { color: var(--warn); }
+  .msg.ok { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); }
+  .pill { font-size: .72rem; padding: .1rem .45rem; border-radius: 99px; border: 1px solid var(--rule); }
+  .pill.pending { color: var(--mute); }
+  .pill.running { color: var(--warn); border-color: var(--warn); }
+  .pill.succeeded { color: var(--accent); border-color: var(--accent); }
+  .pill.failed { color: var(--bad); border-color: var(--bad); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+  .wrap { overflow-x: auto; max-height: 22rem; overflow-y: auto; }
+  .hint { color: var(--mute); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .muted { color: var(--mute); }
+</style>
+
+<main>
+  <header>
+    <h1>Phases Pipeline</h1>
+    <p class="lede">Pick what a run should cover. The request is recorded and the
+      orchestrator picks it up, so you can submit one even while it is down.</p>
+  </header>
+
+  <section>
+    <h2>New run</h2>
+    <div class="grid">
+      <div>
+        <label for="locations">Storage locations</label>
+        <select id="locations" multiple></select>
+      </div>
+      <div>
+        <label for="chunker">Chunker</label>
+        <select id="chunker"></select>
+      </div>
+      <div>
+        <label for="prompt">Prompts <span class="hint">(all selected)</span></label>
+        <select id="prompt" multiple></select>
+      </div>
+      <div>
+        <label for="model">Model</label>
+        <select id="model"></select>
+      </div>
+    </div>
+    <div class="row">
+      <button id="submit" style="width:auto">Request run</button>
+      <span id="message" class="msg"></span>
+    </div>
+    <p id="chunker-warning" class="msg warn"></p>
+  </section>
+
+  <section>
+    <h2>Documents in the selected locations</h2>
+    <p id="documents-summary" class="msg">Select a location to see what would be ingested.</p>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>Document</th><th>Location</th><th>Path</th><th>State</th></tr></thead>
+        <tbody id="documents"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Requests</h2>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr><th>Request</th><th>Status</th><th>Prompt</th><th>Model</th><th>Result</th></tr>
+        </thead>
+        <tbody id="requests"><tr><td colspan="5">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+
+  // This page is served by the Nexus frontend through /app-html/, so a
+  // relative fetch would hit Next and come back as its 404 page, not the ABI
+  // API. Nexus inlines its runtime config into the document that embeds us;
+  // the iframe is same-origin (sandbox allows it), so we can read it from the
+  // parent. Falling back to a relative base keeps this working when the page
+  // is served directly by ABI instead.
+  function apiBase() {
+    const fromWindow = (w) => {
+      try {
+        return (w && w.__NEXUS_RUNTIME_CONFIG__ && w.__NEXUS_RUNTIME_CONFIG__.apiUrl) || "";
+      } catch (_crossOrigin) {
+        return "";
+      }
+    };
+    const base = fromWindow(window) || fromWindow(window.parent) || fromWindow(window.top) || "";
+    return base.replace(/\/$/, "");
+  }
+
+  const API = () => `${apiBase()}/phases_v2/api`;
+
+  async function readJson(response, url) {
+    const body = await response.text();
+    try {
+      return JSON.parse(body);
+    } catch (_notJson) {
+      // Almost always means the request reached the wrong server.
+      throw new Error(
+        `Expected JSON from ${url} but got ${response.status} ` +
+        `${response.headers.get("content-type") || "an unknown type"}. ` +
+        `The API base resolved to "${apiBase() || "(relative)"}" — if that is ` +
+        `the Nexus frontend rather than the ABI API, the request never ` +
+        `reached the module.`
+      );
+    }
+  }
+
+  async function get(path) {
+    const url = `${API()}${path}`;
+    const response = await fetch(url, { credentials: "include" });
+    const payload = await readJson(response, url);
+    if (!response.ok) throw new Error(payload.detail || `${response.status} from ${url}`);
+    return payload;
+  }
+
+  function fill(select, items, value, label) {
+    select.innerHTML = "";
+    for (const item of items) {
+      const option = document.createElement("option");
+      option.value = item[value];
+      option.textContent = label(item);
+      // A model this deployment's registry cannot build would fail the run.
+      // Show it, so it is clear the catalog has it, but do not let it be
+      // chosen.
+      if (item.available === false) {
+        option.disabled = true;
+        option.textContent += " — unavailable here";
+      }
+      select.append(option);
+    }
+    const firstUsable = [...select.options].find((o) => !o.disabled);
+    if (firstUsable) select.value = firstUsable.value;
+  }
+
+  function selected(select) {
+    return [...select.selectedOptions].map((o) => o.value);
+  }
+
+  async function loadChoices() {
+    const [locations, chunkers, prompts, models] = await Promise.all([
+      get("/locations"), get("/chunkers"), get("/prompts"), get("/models"),
+    ]);
+    fill($("locations"), locations.locations, "prefix", (l) => l.name);
+    fill($("chunker"), chunkers.chunkers, "chunker_id", (c) => `${c.name} v${c.version}`);
+    fill($("prompt"), prompts.prompts, "prompt_id", (p) => p.name);
+    // Every prompt by default: extracting one dimension of a corpus at a time
+    // is the exception, not the norm.
+    for (const option of $("prompt").options) option.selected = true;
+    fill($("model"), models.models, "model_id", (m) => m.display_name);
+    await refreshWarning();
+  }
+
+  async function refreshWarning() {
+    const id = $("chunker").value;
+    if (!id) return;
+    const { warning } = await get(`/chunker-warning?chunker_id=${encodeURIComponent(id)}`);
+    $("chunker-warning").textContent = warning || "";
+  }
+
+  function result(request) {
+    if (!request.counts) return request.error || "—";
+    const c = request.counts;
+    const prompts = c.prompts_run ? ` over ${c.prompts_run} prompt(s)` : "";
+    return `${c.succeeded} succeeded · ${c.failed} failed · ${c.skipped} skipped${prompts}`;
+  }
+
+  async function loadRequests() {
+    const { requests } = await get("/requests");
+    const body = $("requests");
+    if (!requests.length) {
+      body.innerHTML = '<tr><td colspan="5">No runs requested yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = "";
+    for (const request of requests) {
+      const detail = await get(`/requests/${request.request_id}`);
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><code>${detail.request_id.slice(0, 8)}</code></td>
+        <td><span class="pill ${detail.status}">${detail.status}</span></td>
+        <td>${detail.prompt_id}</td>
+        <td>${detail.model_id}</td>
+        <td>${result(detail)}</td>`;
+      body.append(row);
+    }
+  }
+
+  async function refreshDocuments() {
+    const locations = selected($("locations"));
+    const summary = $("documents-summary");
+    const body = $("documents");
+
+    if (!locations.length) {
+      summary.className = "msg";
+      summary.textContent = "Select a location to see what would be ingested.";
+      body.innerHTML = "";
+      return;
+    }
+
+    summary.className = "msg";
+    summary.textContent = "Reading…";
+    const query = locations.map((l) => `location=${encodeURIComponent(l)}`).join("&");
+
+    let preview;
+    try {
+      preview = await get(`/documents?${query}`);
+    } catch (error) {
+      summary.className = "msg bad";
+      summary.textContent = String(error.message || error);
+      return;
+    }
+
+    const fresh = preview.ingestable - preview.already_ingested;
+    summary.className = fresh === 0 ? "msg warn" : "msg";
+    summary.textContent =
+      `${preview.total} object(s) — ${fresh} to ingest, ` +
+      `${preview.already_ingested} already ingested` +
+      (preview.unsupported
+        ? `, ${preview.unsupported} not a document this pipeline reads`
+        : "") +
+      (preview.truncated ? ` (showing the first ${preview.documents.length})` : "");
+    if (preview.failed_locations && preview.failed_locations.length) {
+      summary.className = "msg warn";
+      summary.textContent += ` · could not read: ${preview.failed_locations.join("; ")}`;
+    }
+
+    body.innerHTML = "";
+    for (const doc of preview.documents) {
+      const row = document.createElement("tr");
+      const state = !doc.supported
+        ? '<span class="pill">not a document</span>'
+        : doc.already_ingested
+          ? '<span class="pill succeeded">ingested</span>'
+          : '<span class="pill pending">new</span>';
+      row.innerHTML =
+        `<td>${doc.name}</td><td class="muted">${doc.location}</td>` +
+        `<td class="muted">${doc.key}</td><td>${state}</td>`;
+      body.append(row);
+    }
+  }
+
+  async function submit() {
+    const message = $("message");
+    message.className = "msg";
+    message.textContent = "";
+
+    const body = {
+      locations: selected($("locations")),
+      chunker_id: $("chunker").value,
+      prompt_ids: selected($("prompt")),
+      model_id: $("model").value,
+    };
+
+    const url = `${API()}/requests`;
+    const response = await fetch(url, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let payload;
+    try {
+      payload = await readJson(response, url);
+    } catch (error) {
+      message.className = "msg bad";
+      message.textContent = String(error.message || error);
+      return;
+    }
+
+    if (!response.ok) {
+      message.className = "msg bad";
+      message.textContent = payload.detail || "Could not record the request.";
+      return;
+    }
+    message.className = "msg ok";
+    message.textContent = `Requested. It will start when the orchestrator picks it up.`;
+    await loadRequests();
+  }
+
+  $("submit").addEventListener("click", submit);
+  $("chunker").addEventListener("change", refreshWarning);
+  $("locations").addEventListener("change", refreshDocuments);
+  loadChoices().then(loadRequests).catch((error) => {
+    $("message").className = "msg bad";
+    $("message").textContent = String(error);
+  });
+  setInterval(loadRequests, 10000);
+</script>

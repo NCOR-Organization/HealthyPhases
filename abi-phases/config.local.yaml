@@ -84,10 +84,22 @@ modules:
     config:
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
 
+  - module: naas_abi_marketplace.ai.openrouter
+    enabled: true
+    config:
+      openrouter_api_key: "{{ secret.OPENROUTER_API_KEY }}"
+
   - module: phases
     enabled: true
     config:
       google_api_key: "{{ secret.GOOGLE_API_KEY }}"
+
+  - module: phases_v2
+    enabled: true
+    config:
+      # Papers are read from this prefix only. The object-storage root is
+      # shared with every other module.
+      papers_root: "phases_v2"
 
   - module: naas_abi_marketplace.applications.pubmed
     enabled: true
@@ -103,6 +115,17 @@ services:
     secret_adapters:
       - adapter: "dotenv"
         config: {}
+  # Q: Where does structured pipeline data live?
+  # A: DuckLake. The catalog is PostgreSQL rather than SQLite because api,
+  #    dagster and its workers are separate containers: a per-container SQLite
+  #    catalog over a shared data path lets their metadata diverge silently.
+  dataset:
+    dataset_adapter:
+      adapter: "ducklake"
+      config:
+        catalog: "postgres:postgresql://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@postgres:5432/ducklake"
+        data_path: "storage/datasets/"
+
   object_storage:
     object_storage_adapter:
       adapter: "s3"
