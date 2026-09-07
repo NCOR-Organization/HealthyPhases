@@ -93,6 +93,10 @@ modules:
     config:
       google_api_key: "{{ secret.GOOGLE_API_KEY }}"
 
+  - module: phases_v2
+    enabled: true
+    config: {}
+
   - module: naas_abi_marketplace.applications.pubmed
     enabled: true
 

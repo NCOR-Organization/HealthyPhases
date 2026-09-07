@@ -1,0 +1,200 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Phases Pipeline</title>
+<style>
+  :root {
+    --ground: #f7f8f8; --surface: #fff; --ink: #17201f; --mute: #6a7877;
+    --rule: #dfe5e3; --accent: #0b6b63; --bad: #a33a2a; --warn: #86671a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0e1413; --surface: #151d1c; --ink: #e3eae8; --mute: #859894;
+      --rule: #253431; --accent: #5cc3b4; --bad: #e0806e; --warn: #d8b25e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--ground); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  main { max-width: 60rem; margin: 0 auto; display: grid; gap: 1.5rem; }
+  h1 { font-size: 1.5rem; margin: 0; }
+  p.lede { color: var(--mute); margin: .3rem 0 0; max-width: 46rem; }
+  section { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1.1rem 1.25rem; }
+  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin: 0 0 .9rem; }
+  .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
+  label { display: block; font-size: .8rem; color: var(--mute); margin-bottom: .3rem; }
+  select, input, button { font: inherit; padding: .5rem .6rem; border-radius: 4px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); width: 100%; }
+  select[multiple] { min-height: 6rem; }
+  button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
+  button:disabled { opacity: .55; cursor: not-allowed; }
+  .row { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
+  .msg { font-size: .85rem; }
+  .msg.bad { color: var(--bad); }
+  .msg.warn { color: var(--warn); }
+  .msg.ok { color: var(--accent); }
+  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); }
+  .pill { font-size: .72rem; padding: .1rem .45rem; border-radius: 99px; border: 1px solid var(--rule); }
+  .pill.pending { color: var(--mute); }
+  .pill.running { color: var(--warn); border-color: var(--warn); }
+  .pill.succeeded { color: var(--accent); border-color: var(--accent); }
+  .pill.failed { color: var(--bad); border-color: var(--bad); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
+  .wrap { overflow-x: auto; }
+</style>
+
+<main>
+  <header>
+    <h1>Phases Pipeline</h1>
+    <p class="lede">Pick what a run should cover. The request is recorded and the
+      orchestrator picks it up, so you can submit one even while it is down.</p>
+  </header>
+
+  <section>
+    <h2>New run</h2>
+    <div class="grid">
+      <div>
+        <label for="locations">Storage locations</label>
+        <select id="locations" multiple></select>
+      </div>
+      <div>
+        <label for="chunker">Chunker</label>
+        <select id="chunker"></select>
+      </div>
+      <div>
+        <label for="prompt">Prompt</label>
+        <select id="prompt"></select>
+      </div>
+      <div>
+        <label for="model">Model</label>
+        <select id="model"></select>
+      </div>
+    </div>
+    <div class="row">
+      <button id="submit" style="width:auto">Request run</button>
+      <span id="message" class="msg"></span>
+    </div>
+    <p id="chunker-warning" class="msg warn"></p>
+  </section>
+
+  <section>
+    <h2>Requests</h2>
+    <div class="wrap">
+      <table>
+        <thead>
+          <tr><th>Request</th><th>Status</th><th>Prompt</th><th>Model</th><th>Result</th></tr>
+        </thead>
+        <tbody id="requests"><tr><td colspan="5">Loading…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<script>
+  const API = "/phases_v2/api";
+  const $ = (id) => document.getElementById(id);
+
+  async function get(path) {
+    const response = await fetch(`${API}${path}`);
+    if (!response.ok) throw new Error(await response.text());
+    return response.json();
+  }
+
+  function fill(select, items, value, label) {
+    select.innerHTML = "";
+    for (const item of items) {
+      const option = document.createElement("option");
+      option.value = item[value];
+      option.textContent = label(item);
+      select.append(option);
+    }
+  }
+
+  function selected(select) {
+    return [...select.selectedOptions].map((o) => o.value);
+  }
+
+  async function loadChoices() {
+    const [locations, chunkers, prompts, models] = await Promise.all([
+      get("/locations"), get("/chunkers"), get("/prompts"), get("/models"),
+    ]);
+    fill($("locations"), locations.locations.map((l) => ({ id: l })), "id", (i) => i.id);
+    fill($("chunker"), chunkers.chunkers, "chunker_id", (c) => `${c.name} v${c.version}`);
+    fill($("prompt"), prompts.prompts, "prompt_id", (p) => p.name);
+    fill($("model"), models.models, "model_id", (m) => m.display_name);
+    await refreshWarning();
+  }
+
+  async function refreshWarning() {
+    const id = $("chunker").value;
+    if (!id) return;
+    const { warning } = await get(`/chunker-warning?chunker_id=${encodeURIComponent(id)}`);
+    $("chunker-warning").textContent = warning || "";
+  }
+
+  function result(request) {
+    if (!request.counts) return request.error || "—";
+    const c = request.counts;
+    return `${c.succeeded} succeeded · ${c.failed} failed · ${c.skipped} skipped`;
+  }
+
+  async function loadRequests() {
+    const { requests } = await get("/requests");
+    const body = $("requests");
+    if (!requests.length) {
+      body.innerHTML = '<tr><td colspan="5">No runs requested yet.</td></tr>';
+      return;
+    }
+    body.innerHTML = "";
+    for (const request of requests) {
+      const detail = await get(`/requests/${request.request_id}`);
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td><code>${detail.request_id.slice(0, 8)}</code></td>
+        <td><span class="pill ${detail.status}">${detail.status}</span></td>
+        <td>${detail.prompt_id}</td>
+        <td>${detail.model_id}</td>
+        <td>${result(detail)}</td>`;
+      body.append(row);
+    }
+  }
+
+  async function submit() {
+    const message = $("message");
+    message.className = "msg";
+    message.textContent = "";
+
+    const body = {
+      locations: selected($("locations")),
+      chunker_id: $("chunker").value,
+      prompt_id: $("prompt").value,
+      model_id: $("model").value,
+    };
+
+    const response = await fetch(`${API}/requests`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const payload = await response.json();
+
+    if (!response.ok) {
+      message.className = "msg bad";
+      message.textContent = payload.detail || "Could not record the request.";
+      return;
+    }
+    message.className = "msg ok";
+    message.textContent = `Requested. It will start when the orchestrator picks it up.`;
+    await loadRequests();
+  }
+
+  $("submit").addEventListener("click", submit);
+  $("chunker").addEventListener("change", refreshWarning);
+  loadChoices().then(loadRequests).catch((error) => {
+    $("message").className = "msg bad";
+    $("message").textContent = String(error);
+  });
+  setInterval(loadRequests, 10000);
+</script>
