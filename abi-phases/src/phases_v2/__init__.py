@@ -23,8 +23,22 @@ from naas_abi_core.services.vector_store.VectorStoreService import VectorStoreSe
 
 
 class PhasesV2Configuration(ModuleConfiguration):
-    """No module-specific settings yet: prompts, chunkers and models are all
-    declared in code rather than configured."""
+    """Prompts, chunkers and models are declared in code, not configured.
+
+    Configuration example:
+
+        module: phases_v2
+        enabled: true
+        config:
+            papers_root: "phases_v2"
+    """
+
+    #: Object-storage prefix the pipeline reads papers from. Every other
+    #: module writes into the same storage root, so scanning the root itself
+    #: would offer their private data as a source of papers. Owning a prefix
+    #: keeps them out of scope by construction rather than by a blacklist that
+    #: needs updating whenever a module is added.
+    papers_root: str = "phases_v2"
 
 
 class ABIModule(BaseModule[PhasesV2Configuration]):
@@ -49,7 +63,12 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
             from phases_v2.app.adapters.primary.PipelineAPI import register
             from phases_v2.app.factory import app_service
 
-            register(app, app_service(self._engine))
+            register(
+                app,
+                app_service(
+                    self._engine, papers_root=self._configuration.papers_root
+                ),
+            )
             logger.debug("Mounted phases_v2 pipeline API at /phases_v2/api")
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Failed to mount the phases_v2 pipeline app: {exc}")

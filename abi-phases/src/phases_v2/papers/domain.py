@@ -65,6 +65,15 @@ def ingest(
         seen.add(paper_id)
 
         file_name = key.rsplit("/", 1)[-1]
+
+        # An object storage root holds other modules' data too. Something no
+        # renderer claims is not a paper, so it is skipped rather than recorded
+        # as a failed one — otherwise pointing a run at the wrong prefix fills
+        # the dataset with noise.
+        if not renderer.handles(file_name):
+            report.unsupported += 1
+            continue
+
         try:
             text = renderer.render(content, file_name)
         except RenderFailed as failure:

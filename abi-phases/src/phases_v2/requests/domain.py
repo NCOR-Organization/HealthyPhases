@@ -32,7 +32,7 @@ def submit(
     *,
     locations: list[str],
     chunker_id: str,
-    prompt_id: str,
+    prompt_ids: list[str],
     model_id: str,
     requested_by: str | None = None,
 ) -> RunRequest:
@@ -45,9 +45,10 @@ def submit(
         raise ValueError(
             "a run needs locations: at least one storage location to ingest from"
         )
+    if not prompt_ids:
+        raise ValueError("a run needs prompt_ids: at least one prompt to run")
     for name, value in (
         ("chunker_id", chunker_id),
-        ("prompt_id", prompt_id),
         ("model_id", model_id),
     ):
         if not value:
@@ -58,7 +59,7 @@ def submit(
         status=PENDING,
         locations=list(locations),
         chunker_id=chunker_id,
-        prompt_id=prompt_id,
+        prompt_ids=list(prompt_ids),
         model_id=model_id,
         requested_by=requested_by,
         requested_at=datetime.now(UTC),

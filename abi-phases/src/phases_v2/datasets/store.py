@@ -12,8 +12,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from naas_abi_core import logger
 from naas_abi_core.services.dataset.DatasetPort import (
     DatasetAlreadyExistsError,
+    DatasetNotFoundError,
     DatasetSpec,
 )
 from naas_abi_core.services.dataset.DatasetService import DatasetService
@@ -31,7 +33,9 @@ def ensure_datasets(dataset: DatasetService) -> set[str]:
     first run. Datasets that already exist are left exactly as they are —
     their rows are never touched.
     """
-    existing = {info.name for info in dataset.list(namespace=NAMESPACE)}
+    live = {info.name: info for info in dataset.list(namespace=NAMESPACE)}
+    existing = set(live)
+    _warn_about_drift(live)
     created = set()
     for spec in DATASETS:
         if spec.name in existing:
@@ -84,3 +88,58 @@ def truncate(dataset: DatasetService, name: str) -> None:
     if name not in _BY_NAME:
         raise KeyError(f"{name!r} is not a phases_v2 dataset")
     dataset.write(name, [], namespace=NAMESPACE, mode="replace")
+
+
+def schema_drift(dataset: DatasetService) -> dict[str, dict[str, list[str]]]:
+    """Datasets whose live columns no longer match what this module declares.
+
+    ``ensure_datasets`` only creates what is missing — it never alters a table
+    that already exists — so a schema change here leaves the warehouse behind.
+    That surfaces much later as a write failing with "has no column", which is
+    a long way from the cause.
+    """
+    live = {info.name: info for info in dataset.list(namespace=NAMESPACE)}
+    return _drift(live)
+
+
+def _drift(live: dict) -> dict[str, dict[str, list[str]]]:
+    out: dict[str, dict[str, list[str]]] = {}
+    for spec in DATASETS:
+        info = live.get(spec.name)
+        if info is None:
+            continue
+        declared = {column.name for column in spec.columns}
+        actual = {column.name for column in info.columns}
+        if declared == actual:
+            continue
+        out[spec.name] = {
+            "missing": sorted(declared - actual),
+            "stale": sorted(actual - declared),
+        }
+    return out
+
+
+def _warn_about_drift(live: dict) -> None:
+    for name, diff in _drift(live).items():
+        logger.warning(
+            f"phases_v2: dataset {name!r} does not match its declared schema "
+            f"(missing {diff['missing']}, stale {diff['stale']}). Writes to it "
+            "will fail until it is recreated — see store.recreate()."
+        )
+
+
+def recreate(dataset: DatasetService, name: str) -> None:
+    """Drop and re-create a dataset from its declared schema.
+
+    Destructive: every row is lost. Only for a dataset whose schema has drifted
+    and whose contents are rebuildable — the projections ledger, or anything
+    empty. Never call it on `papers` or `extractions` holding real work.
+    """
+    spec = _BY_NAME.get(name)
+    if spec is None:
+        raise KeyError(f"{name!r} is not a phases_v2 dataset")
+    try:
+        dataset.drop(name, namespace=NAMESPACE)
+    except DatasetNotFoundError:
+        pass
+    dataset.create(spec)

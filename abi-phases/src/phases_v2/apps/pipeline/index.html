@@ -42,7 +42,9 @@
   .pill.succeeded { color: var(--accent); border-color: var(--accent); }
   .pill.failed { color: var(--bad); border-color: var(--bad); }
   code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
-  .wrap { overflow-x: auto; }
+  .wrap { overflow-x: auto; max-height: 22rem; overflow-y: auto; }
+  .hint { color: var(--mute); font-weight: 400; text-transform: none; letter-spacing: 0; }
+  .muted { color: var(--mute); }
 </style>
 
 <main>
@@ -64,8 +66,8 @@
         <select id="chunker"></select>
       </div>
       <div>
-        <label for="prompt">Prompt</label>
-        <select id="prompt"></select>
+        <label for="prompt">Prompts <span class="hint">(all selected)</span></label>
+        <select id="prompt" multiple></select>
       </div>
       <div>
         <label for="model">Model</label>
@@ -77,6 +79,17 @@
       <span id="message" class="msg"></span>
     </div>
     <p id="chunker-warning" class="msg warn"></p>
+  </section>
+
+  <section>
+    <h2>Documents in the selected locations</h2>
+    <p id="documents-summary" class="msg">Select a location to see what would be ingested.</p>
+    <div class="wrap">
+      <table>
+        <thead><tr><th>Document</th><th>Location</th><th>Path</th><th>State</th></tr></thead>
+        <tbody id="documents"></tbody>
+      </table>
+    </div>
   </section>
 
   <section>
@@ -93,13 +106,50 @@
 </main>
 
 <script>
-  const API = "/phases_v2/api";
   const $ = (id) => document.getElementById(id);
 
+  // This page is served by the Nexus frontend through /app-html/, so a
+  // relative fetch would hit Next and come back as its 404 page, not the ABI
+  // API. Nexus inlines its runtime config into the document that embeds us;
+  // the iframe is same-origin (sandbox allows it), so we can read it from the
+  // parent. Falling back to a relative base keeps this working when the page
+  // is served directly by ABI instead.
+  function apiBase() {
+    const fromWindow = (w) => {
+      try {
+        return (w && w.__NEXUS_RUNTIME_CONFIG__ && w.__NEXUS_RUNTIME_CONFIG__.apiUrl) || "";
+      } catch (_crossOrigin) {
+        return "";
+      }
+    };
+    const base = fromWindow(window) || fromWindow(window.parent) || fromWindow(window.top) || "";
+    return base.replace(/\/$/, "");
+  }
+
+  const API = () => `${apiBase()}/phases_v2/api`;
+
+  async function readJson(response, url) {
+    const body = await response.text();
+    try {
+      return JSON.parse(body);
+    } catch (_notJson) {
+      // Almost always means the request reached the wrong server.
+      throw new Error(
+        `Expected JSON from ${url} but got ${response.status} ` +
+        `${response.headers.get("content-type") || "an unknown type"}. ` +
+        `The API base resolved to "${apiBase() || "(relative)"}" — if that is ` +
+        `the Nexus frontend rather than the ABI API, the request never ` +
+        `reached the module.`
+      );
+    }
+  }
+
   async function get(path) {
-    const response = await fetch(`${API}${path}`);
-    if (!response.ok) throw new Error(await response.text());
-    return response.json();
+    const url = `${API()}${path}`;
+    const response = await fetch(url, { credentials: "include" });
+    const payload = await readJson(response, url);
+    if (!response.ok) throw new Error(payload.detail || `${response.status} from ${url}`);
+    return payload;
   }
 
   function fill(select, items, value, label) {
@@ -108,8 +158,17 @@
       const option = document.createElement("option");
       option.value = item[value];
       option.textContent = label(item);
+      // A model this deployment's registry cannot build would fail the run.
+      // Show it, so it is clear the catalog has it, but do not let it be
+      // chosen.
+      if (item.available === false) {
+        option.disabled = true;
+        option.textContent += " — unavailable here";
+      }
       select.append(option);
     }
+    const firstUsable = [...select.options].find((o) => !o.disabled);
+    if (firstUsable) select.value = firstUsable.value;
   }
 
   function selected(select) {
@@ -120,9 +179,12 @@
     const [locations, chunkers, prompts, models] = await Promise.all([
       get("/locations"), get("/chunkers"), get("/prompts"), get("/models"),
     ]);
-    fill($("locations"), locations.locations.map((l) => ({ id: l })), "id", (i) => i.id);
+    fill($("locations"), locations.locations, "prefix", (l) => l.name);
     fill($("chunker"), chunkers.chunkers, "chunker_id", (c) => `${c.name} v${c.version}`);
     fill($("prompt"), prompts.prompts, "prompt_id", (p) => p.name);
+    // Every prompt by default: extracting one dimension of a corpus at a time
+    // is the exception, not the norm.
+    for (const option of $("prompt").options) option.selected = true;
     fill($("model"), models.models, "model_id", (m) => m.display_name);
     await refreshWarning();
   }
@@ -137,7 +199,8 @@
   function result(request) {
     if (!request.counts) return request.error || "—";
     const c = request.counts;
-    return `${c.succeeded} succeeded · ${c.failed} failed · ${c.skipped} skipped`;
+    const prompts = c.prompts_run ? ` over ${c.prompts_run} prompt(s)` : "";
+    return `${c.succeeded} succeeded · ${c.failed} failed · ${c.skipped} skipped${prompts}`;
   }
 
   async function loadRequests() {
@@ -161,6 +224,60 @@
     }
   }
 
+  async function refreshDocuments() {
+    const locations = selected($("locations"));
+    const summary = $("documents-summary");
+    const body = $("documents");
+
+    if (!locations.length) {
+      summary.className = "msg";
+      summary.textContent = "Select a location to see what would be ingested.";
+      body.innerHTML = "";
+      return;
+    }
+
+    summary.className = "msg";
+    summary.textContent = "Reading…";
+    const query = locations.map((l) => `location=${encodeURIComponent(l)}`).join("&");
+
+    let preview;
+    try {
+      preview = await get(`/documents?${query}`);
+    } catch (error) {
+      summary.className = "msg bad";
+      summary.textContent = String(error.message || error);
+      return;
+    }
+
+    const fresh = preview.ingestable - preview.already_ingested;
+    summary.className = fresh === 0 ? "msg warn" : "msg";
+    summary.textContent =
+      `${preview.total} object(s) — ${fresh} to ingest, ` +
+      `${preview.already_ingested} already ingested` +
+      (preview.unsupported
+        ? `, ${preview.unsupported} not a document this pipeline reads`
+        : "") +
+      (preview.truncated ? ` (showing the first ${preview.documents.length})` : "");
+    if (preview.failed_locations && preview.failed_locations.length) {
+      summary.className = "msg warn";
+      summary.textContent += ` · could not read: ${preview.failed_locations.join("; ")}`;
+    }
+
+    body.innerHTML = "";
+    for (const doc of preview.documents) {
+      const row = document.createElement("tr");
+      const state = !doc.supported
+        ? '<span class="pill">not a document</span>'
+        : doc.already_ingested
+          ? '<span class="pill succeeded">ingested</span>'
+          : '<span class="pill pending">new</span>';
+      row.innerHTML =
+        `<td>${doc.name}</td><td class="muted">${doc.location}</td>` +
+        `<td class="muted">${doc.key}</td><td>${state}</td>`;
+      body.append(row);
+    }
+  }
+
   async function submit() {
     const message = $("message");
     message.className = "msg";
@@ -169,16 +286,25 @@
     const body = {
       locations: selected($("locations")),
       chunker_id: $("chunker").value,
-      prompt_id: $("prompt").value,
+      prompt_ids: selected($("prompt")),
       model_id: $("model").value,
     };
 
-    const response = await fetch(`${API}/requests`, {
+    const url = `${API()}/requests`;
+    const response = await fetch(url, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    const payload = await response.json();
+    let payload;
+    try {
+      payload = await readJson(response, url);
+    } catch (error) {
+      message.className = "msg bad";
+      message.textContent = String(error.message || error);
+      return;
+    }
 
     if (!response.ok) {
       message.className = "msg bad";
@@ -192,6 +318,7 @@
 
   $("submit").addEventListener("click", submit);
   $("chunker").addEventListener("change", refreshWarning);
+  $("locations").addEventListener("change", refreshDocuments);
   loadChoices().then(loadRequests).catch((error) => {
     $("message").className = "msg bad";
     $("message").textContent = String(error);

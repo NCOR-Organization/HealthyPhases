@@ -63,6 +63,11 @@ For each paper, the module SHALL produce a plain-text or markdown rendering suit
 - **WHEN** a discovered object cannot be rendered to text
 - **THEN** the run records the failure against that paper and continues with the remaining papers
 
+#### Scenario: A discovered object is not a document at all
+
+- **WHEN** a location holds objects of a kind the module has no renderer for — another module's data sharing the storage root, say
+- **THEN** they are skipped without being recorded as papers or as failures, and the run reports how many were skipped that way
+
 ### Requirement: Ingestion is resumable
 
 An interrupted ingestion run SHALL be safe to re-run. Re-running SHALL only do the work that has not already been recorded.

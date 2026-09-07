@@ -42,7 +42,7 @@ def _submit(store):
         store,
         locations=["papers", "archive"],
         chunker_id="window_1_abc",
-        prompt_id="claims_abc",
+        prompt_ids=["claims_abc"],
         model_id="openai/gpt-4.1-mini",
         requested_by="maxime",
     )

@@ -47,6 +47,8 @@ class IngestReport:
     discovered: int = 0
     ingested: int = 0
     skipped: int = 0
+    #: Objects no renderer claims — not papers, so not failures either.
+    unsupported: int = 0
     failed_locations: dict[str, str] = field(default_factory=dict)
     failed_papers: dict[str, str] = field(default_factory=dict)
 

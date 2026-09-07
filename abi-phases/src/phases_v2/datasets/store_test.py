@@ -208,3 +208,70 @@ def test_truncate_empties_a_dataset_without_dropping_it(dataset):
 def test_truncate_rejects_an_unknown_dataset(dataset):
     with pytest.raises(KeyError):
         store.truncate(dataset, "not_a_dataset")
+
+
+# -- schema drift -------------------------------------------------------
+
+
+def test_a_matching_warehouse_reports_no_drift(dataset):
+    store.ensure_datasets(dataset)
+
+    assert store.schema_drift(dataset) == {}
+
+
+def test_a_dataset_missing_a_declared_column_is_reported(dataset):
+    # ensure_datasets never alters an existing table, so a schema change here
+    # leaves the warehouse behind. Without this it surfaces much later as a
+    # write failing with "has no column".
+    from naas_abi_core.services.dataset.DatasetPort import ColumnSpec, DatasetSpec
+
+    dataset.create(
+        DatasetSpec(
+            name="papers",
+            namespace=NAMESPACE,
+            columns=(ColumnSpec(name="paper_id", type="string"),),
+            primary_key=("paper_id",),
+        )
+    )
+
+    drift = store.schema_drift(dataset)
+
+    assert "papers" in drift
+    assert "file_name" in drift["papers"]["missing"]
+
+
+def test_a_dataset_with_a_stale_column_is_reported(dataset):
+    from naas_abi_core.services.dataset.DatasetPort import ColumnSpec, DatasetSpec
+
+    columns = tuple(
+        ColumnSpec(name=c.name, type=c.type) for c in store._BY_NAME["papers"].columns
+    ) + (ColumnSpec(name="left_over", type="string"),)
+    dataset.create(
+        DatasetSpec(
+            name="papers", namespace=NAMESPACE, columns=columns, primary_key=("paper_id",)
+        )
+    )
+
+    assert store.schema_drift(dataset)["papers"]["stale"] == ["left_over"]
+
+
+def test_recreate_brings_a_drifted_dataset_back_to_its_declared_schema(dataset):
+    from naas_abi_core.services.dataset.DatasetPort import ColumnSpec, DatasetSpec
+
+    dataset.create(
+        DatasetSpec(
+            name="papers",
+            namespace=NAMESPACE,
+            columns=(ColumnSpec(name="paper_id", type="string"),),
+            primary_key=("paper_id",),
+        )
+    )
+
+    store.recreate(dataset, "papers")
+
+    assert "papers" not in store.schema_drift(dataset)
+
+
+def test_recreate_rejects_an_unknown_dataset(dataset):
+    with pytest.raises(KeyError):
+        store.recreate(dataset, "not_a_dataset")

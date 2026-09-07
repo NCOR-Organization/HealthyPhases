@@ -28,7 +28,7 @@ class RunRequest:
     status: str
     locations: list[str]
     chunker_id: str
-    prompt_id: str
+    prompt_ids: list[str]
     model_id: str
     requested_by: str | None = None
     requested_at: datetime | None = None

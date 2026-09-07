@@ -223,3 +223,50 @@ def test_a_run_over_nothing_is_not_an_error():
 
     assert report.discovered == 0
     assert report.failed == 0
+
+
+# -- objects that are not papers ----------------------------------------
+
+
+def test_objects_no_renderer_claims_are_skipped_not_failed():
+    # The object storage root holds other modules' data. Pointing a run at the
+    # wrong prefix should cost nothing, not fill `papers` with failures.
+    source = FakeObjectSource()
+    source.add("mixed", "study.pdf", b"a")
+    source.add("mixed", "analytics/events.json", b"{}")
+    source.add("mixed", "analytics/session.pkl", b"\x80")
+    store = FakePaperStore()
+
+    report = _ingest(
+        source, store, renderer=FakeTextRenderer(suffixes=(".pdf",)), locations=("mixed",)
+    )
+
+    assert report.ingested == 1
+    assert report.unsupported == 2
+    assert report.failed == 0
+    assert len(store.papers) == 1
+
+
+def test_an_unsupported_object_is_never_rendered():
+    source = FakeObjectSource()
+    source.add("mixed", "events.json", b"{}")
+    renderer = FakeTextRenderer(suffixes=(".pdf",))
+
+    _ingest(source, FakePaperStore(), renderer=renderer, locations=("mixed",))
+
+    assert renderer.rendered == []
+
+
+def test_a_location_holding_nothing_ingestable_records_nothing():
+    source = FakeObjectSource()
+    source.add("analytics", "a.json", b"{}")
+    store = FakePaperStore()
+
+    report = _ingest(
+        source, store, renderer=FakeTextRenderer(suffixes=(".pdf",)),
+        locations=("analytics",),
+    )
+
+    assert report.discovered == 1
+    assert report.unsupported == 1
+    assert store.papers == {}

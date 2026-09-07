@@ -88,6 +88,11 @@ modules:
     config:
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
 
+  - module: naas_abi_marketplace.ai.openrouter
+    enabled: true
+    config:
+      openrouter_api_key: "{{ secret.OPENROUTER_API_KEY }}"
+
   - module: phases
     enabled: true
     config:

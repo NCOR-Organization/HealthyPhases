@@ -11,7 +11,7 @@ from phases_v2.requests.interfaces import (
 from phases_v2.sql import literal
 
 _COLUMNS = (
-    "request_id, status, locations, chunker_id, prompt_id, model_id, "
+    "request_id, status, locations, chunker_id, prompt_ids, model_id, "
     "requested_by, requested_at, started_at, finished_at, run_id, error"
 )
 
@@ -29,7 +29,7 @@ class DatasetRequestStore:
                     "status": request.status,
                     "locations": list(request.locations),
                     "chunker_id": request.chunker_id,
-                    "prompt_id": request.prompt_id,
+                    "prompt_ids": list(request.prompt_ids),
                     "model_id": request.model_id,
                     "requested_by": request.requested_by,
                     "requested_at": request.requested_at,
@@ -72,7 +72,7 @@ def _to_request(row: dict) -> RunRequest:
         status=row["status"],
         locations=list(locations),
         chunker_id=row["chunker_id"],
-        prompt_id=row["prompt_id"],
+        prompt_ids=list(row.get("prompt_ids") or []),
         model_id=row["model_id"],
         requested_by=row.get("requested_by"),
         requested_at=row.get("requested_at"),

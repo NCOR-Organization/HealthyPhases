@@ -38,12 +38,19 @@ class FakeObjectSource:
 class FakeTextRenderer:
     """Renders bytes to text, and can be told to fail for specific names."""
 
-    def __init__(self, unreadable: set[str] | None = None):
+    def __init__(
+        self,
+        unreadable: set[str] | None = None,
+        suffixes: tuple[str, ...] | None = None,
+    ):
         self._unreadable = unreadable or set()
+        self._suffixes = suffixes
         self.rendered: list[str] = []
 
     def handles(self, file_name: str) -> bool:
-        return True
+        if self._suffixes is None:
+            return True
+        return file_name.lower().endswith(self._suffixes)
 
     def render(self, content: bytes, file_name: str) -> str:
         if file_name in self._unreadable:

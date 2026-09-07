@@ -15,6 +15,7 @@ from naas_abi_core.services.dataset.DatasetService import DatasetService
 from naas_abi_core.services.vector_store.adapters.SqliteVecAdapter import (
     SqliteVecAdapter,
 )
+from naas_abi_core.services.vector_store.VectorStoreService import VectorStoreService
 
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
@@ -67,7 +68,13 @@ def engine(tmp_path):
           "response": {"results": [f"claim {i}"]}, "raw_response": "{}",
           "item_count": 1, "completed_at": now} for i in range(3)],
     )
-    store = SqliteVecAdapter(persistence_path=str(tmp_path / "vectors.sqlite3"))
+    # Wrapped in the service, because that is what the engine hands the module.
+    # An earlier version passed the bare adapter here, which is precisely why
+    # the sink calling adapter-only methods passed its tests and failed in a
+    # real run.
+    store = VectorStoreService(
+        adapter=SqliteVecAdapter(persistence_path=str(tmp_path / "vectors.sqlite3"))
+    )
     store.initialize()
     return _Engine(dataset, store)
 
@@ -85,16 +92,16 @@ def test_chunks_and_items_are_embedded_into_their_own_collections(engine):
 
     assert report.projected == 6
     store = engine.services.vector_store
-    assert store.count_vectors(CHUNKS_COLLECTION) == 3
-    assert store.count_vectors(ITEMS_COLLECTION) == 3
+    assert store.get_collection_size(CHUNKS_COLLECTION) == 3
+    assert store.get_collection_size(ITEMS_COLLECTION) == 3
 
 
 def test_a_second_run_computes_no_embeddings_and_stores_nothing_new(engine):
     _run(engine, FakeEmbedder())
     store = engine.services.vector_store
     before = (
-        store.count_vectors(CHUNKS_COLLECTION),
-        store.count_vectors(ITEMS_COLLECTION),
+        store.get_collection_size(CHUNKS_COLLECTION),
+        store.get_collection_size(ITEMS_COLLECTION),
     )
     embedder = FakeEmbedder()
 
@@ -103,15 +110,15 @@ def test_a_second_run_computes_no_embeddings_and_stores_nothing_new(engine):
     assert embedder.embedded == []
     assert report.projected == 0
     assert (
-        store.count_vectors(CHUNKS_COLLECTION),
-        store.count_vectors(ITEMS_COLLECTION),
+        store.get_collection_size(CHUNKS_COLLECTION),
+        store.get_collection_size(ITEMS_COLLECTION),
     ) == before
 
 
 def test_provenance_survives_the_round_trip(engine):
     _run(engine, FakeEmbedder())
 
-    stored = engine.services.vector_store.get_vector(ITEMS_COLLECTION, "i0")
+    stored = engine.services.vector_store.get_document(ITEMS_COLLECTION, "i0")
 
     assert stored is not None
     assert stored.metadata["chunk_id"] == "c0"
@@ -124,13 +131,13 @@ def test_re_storing_the_same_id_replaces_rather_than_duplicates(engine):
     # The whole incremental design rests on this being an upsert.
     _run(engine, FakeEmbedder())
     store = engine.services.vector_store
-    before = store.count_vectors(ITEMS_COLLECTION)
+    before = store.get_collection_size(ITEMS_COLLECTION)
 
     sink = VectorStoreSink(store)
     doc, vector = _first_doc_and_vector()
     sink.store(ITEMS_COLLECTION, [doc], [vector])
 
-    assert store.count_vectors(ITEMS_COLLECTION) == before
+    assert store.get_collection_size(ITEMS_COLLECTION) == before
 
 
 def _first_doc_and_vector():

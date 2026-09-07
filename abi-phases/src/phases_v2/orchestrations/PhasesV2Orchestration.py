@@ -24,6 +24,15 @@ SENSOR_INTERVAL_SECONDS = 30
 REQUEST_TAG = "phases_v2/request_id"
 
 
+def extraction_run_id(request_id: str, prompt_id: str) -> str:
+    """The `extraction_runs.run_id` for one prompt of one request.
+
+    A request covers several prompts and each produces its own extraction run,
+    so the request id alone would collide on the run's primary key.
+    """
+    return f"{request_id}:{prompt_id}"
+
+
 def _engine():
     """The loaded engine. Imported late so module import stays cheap."""
     from naas_abi_core.engine.Engine import Engine
@@ -43,7 +52,7 @@ class RunConfig(dg.Config):
 
     locations: list[str] = ["papers"]
     chunker_id: str = ""
-    prompt_id: str = ""
+    prompt_ids: list[str] = []
     model_id: str = ""
     request_id: str = ""
     max_chunks: Optional[int] = None
@@ -57,7 +66,9 @@ def _chunker(chunker_id: str):
 
 
 @dg.op
-def ingest_papers_op(context: dg.OpExecutionContext, config: RunConfig) -> dict:
+def ingest_papers_op(
+    context: dg.OpExecutionContext, config: RunConfig, after: dict | None = None
+) -> dict:
     from phases_v2.papers.factory import ingest_papers
 
     report = ingest_papers(_engine(), config.locations)
@@ -68,7 +79,9 @@ def ingest_papers_op(context: dg.OpExecutionContext, config: RunConfig) -> dict:
 
 
 @dg.op
-def chunk_papers_op(context: dg.OpExecutionContext, config: RunConfig) -> dict:
+def chunk_papers_op(
+    context: dg.OpExecutionContext, config: RunConfig, after: dict
+) -> dict:
     from phases_v2.chunking.factory import chunk_corpus
 
     report = chunk_corpus(_engine(), chunker=_chunker(config.chunker_id))
@@ -79,31 +92,45 @@ def chunk_papers_op(context: dg.OpExecutionContext, config: RunConfig) -> dict:
 
 
 @dg.op
-def run_extraction_op(context: dg.OpExecutionContext, config: RunConfig) -> dict:
+def run_extraction_op(
+    context: dg.OpExecutionContext, config: RunConfig, after: dict
+) -> dict:
+    """Run every selected prompt over the corpus.
+
+    One extraction run per prompt, so each is recorded and retried
+    independently — a prompt whose model output cannot be parsed does not cost
+    the others their results.
+    """
     from phases_v2.extraction.factory import extract
 
-    report = extract(
-        _engine(),
-        model_id=config.model_id,
-        prompt_id=config.prompt_id,
-        chunker=_chunker(config.chunker_id),
-        max_chunks=config.max_chunks,
-        # Use the request id so its counts can be found by that id later.
-        run_id=config.request_id or None,
-    )
-    context.log.info(
-        f"succeeded={report.succeeded} failed={report.failed} "
-        f"skipped={report.skipped}"
-    )
-    return {
-        "succeeded": report.succeeded,
-        "failed": report.failed,
-        "skipped": report.skipped,
-    }
+    totals = {"succeeded": 0, "failed": 0, "skipped": 0}
+    for prompt_id in config.prompt_ids:
+        report = extract(
+            _engine(),
+            model_id=config.model_id,
+            prompt_id=prompt_id,
+            chunker=_chunker(config.chunker_id),
+            max_chunks=config.max_chunks,
+            run_id=(
+                extraction_run_id(config.request_id, prompt_id)
+                if config.request_id
+                else None
+            ),
+        )
+        context.log.info(
+            f"{prompt_id}: succeeded={report.succeeded} failed={report.failed} "
+            f"skipped={report.skipped}"
+        )
+        totals["succeeded"] += report.succeeded
+        totals["failed"] += report.failed
+        totals["skipped"] += report.skipped
+
+    context.log.info(f"{len(config.prompt_ids)} prompt(s): {totals}")
+    return totals
 
 
 @dg.op
-def project_graph_op(context: dg.OpExecutionContext) -> dict:
+def project_graph_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_graph
 
     report = project_to_graph(_engine())
@@ -112,7 +139,7 @@ def project_graph_op(context: dg.OpExecutionContext) -> dict:
 
 
 @dg.op
-def project_vectors_op(context: dg.OpExecutionContext) -> dict:
+def project_vectors_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_vectors
 
     report = project_to_vectors(_engine())
@@ -120,14 +147,20 @@ def project_vectors_op(context: dg.OpExecutionContext) -> dict:
     return {"embedded": report.projected}
 
 
+@dg.op
+def start_op() -> dict:
+    """A no-op so a single-stage job can satisfy an ordering input."""
+    return {}
+
+
 @dg.job(name="phases_v2_ingest_papers")
 def ingest_papers_job():
-    ingest_papers_op()
+    ingest_papers_op(after=start_op())
 
 
 @dg.job(name="phases_v2_chunk_papers")
 def chunk_papers_job():
-    chunk_papers_op()
+    chunk_papers_op(after=start_op())
 
 
 @dg.job(
@@ -138,28 +171,22 @@ def chunk_papers_job():
     tags={"dagster/concurrency_key": "phases_v2_extraction"},
 )
 def run_extraction_job():
-    run_extraction_op()
+    run_extraction_op(after=start_op())
 
 
 @dg.job(name="phases_v2_project_graph")
 def project_graph_job():
-    project_graph_op()
+    project_graph_op(after=start_op())
 
 
 @dg.job(name="phases_v2_project_vectors")
 def project_vectors_job():
-    project_vectors_op()
+    project_vectors_op(after=start_op())
 
 
 @dg.op
 def complete_request_op(
-    context: dg.OpExecutionContext,
-    config: RunConfig,
-    _ingested: dict,
-    _chunked: dict,
-    _extracted: dict,
-    _graph: dict,
-    _vectors: dict,
+    context: dg.OpExecutionContext, config: RunConfig, after: dict
 ) -> None:
     """Close out the request this run was started for, if there was one."""
     if not config.request_id:
@@ -172,14 +199,14 @@ def complete_request_op(
 
 
 @dg.op
-def claim_request_op(context: dg.OpExecutionContext, config: RunConfig) -> None:
+def claim_request_op(context: dg.OpExecutionContext, config: RunConfig) -> dict:
     """Mark the request running. The job owns this, not the sensor."""
-    if not config.request_id:
-        return
-    from phases_v2.requests.domain import start
-    from phases_v2.requests.factory import request_store
+    if config.request_id:
+        from phases_v2.requests.domain import start
+        from phases_v2.requests.factory import request_store
 
-    start(request_store(_engine()), config.request_id, run_id=context.run_id)
+        start(request_store(_engine()), config.request_id, run_id=context.run_id)
+    return {"claimed": bool(config.request_id)}
 
 
 @dg.job(
@@ -187,14 +214,20 @@ def claim_request_op(context: dg.OpExecutionContext, config: RunConfig) -> None:
     tags={"dagster/concurrency_key": "phases_v2_extraction"},
 )
 def full_pipeline_job():
-    claim_request_op()
-    complete_request_op(
-        ingest_papers_op(),
-        chunk_papers_op(),
-        run_extraction_op(),
-        project_graph_op(),
-        project_vectors_op(),
-    )
+    """The stages, in order.
+
+    Each op takes the previous one's output purely to establish the
+    dependency. Without it Dagster sees five independent ops and runs them
+    concurrently — which chunked a corpus before it was ingested, and had five
+    processes contending for the same SQLite catalog.
+    """
+    claimed = claim_request_op()
+    ingested = ingest_papers_op(after=claimed)
+    chunked = chunk_papers_op(after=ingested)
+    extracted = run_extraction_op(after=chunked)
+    projected = project_graph_op(after=extracted)
+    embedded = project_vectors_op(after=projected)
+    complete_request_op(after=embedded)
 
 
 # --------------------------------------------------------------------------
@@ -221,7 +254,7 @@ def build_run_requests(pending) -> list[dg.RunRequest]:
                         "config": {
                             "locations": list(request.locations),
                             "chunker_id": request.chunker_id,
-                            "prompt_id": request.prompt_id,
+                            "prompt_ids": list(request.prompt_ids),
                             "model_id": request.model_id,
                             "request_id": request.request_id,
                         }
@@ -244,6 +277,12 @@ def build_run_requests(pending) -> list[dg.RunRequest]:
     name="phases_v2_run_request_sensor",
     job=full_pipeline_job,
     minimum_interval_seconds=SENSOR_INTERVAL_SECONDS,
+    # On by default. Dagster leaves sensors stopped unless told otherwise, and
+    # a stopped sensor makes the app look broken: a request is recorded, the
+    # UI says pending, and nothing ever picks it up. This one only acts on
+    # requests a user explicitly submitted, so it is not a schedule firing on
+    # its own.
+    default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def run_request_sensor(context: dg.SensorEvaluationContext):
     from phases_v2.requests.factory import request_store
@@ -268,6 +307,7 @@ def request_id_of(tags: dict) -> str | None:
 @dg.run_failure_sensor(
     name="phases_v2_run_failure_sensor",
     monitored_jobs=[full_pipeline_job],
+    default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def run_failure_sensor(context: dg.RunFailureSensorContext):
     """Mark a request failed when its run does.

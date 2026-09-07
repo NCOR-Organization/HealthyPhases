@@ -25,8 +25,14 @@ class UnknownModelError(Exception):
 
 @dataclass(frozen=True)
 class ModelDeclaration:
+    #: Recorded against every extraction. Prefixed with the provider so the
+    #: route a claim was produced through stays visible.
     model_id: str
+    #: Which provider's factory the registry should route through.
     provider: str
+    #: The registry's *canonical* id for the model — not necessarily the
+    #: provider's own slug. OpenRouter serves "anthropic/claude-sonnet-4.6"
+    #: but the registry is keyed on "claude-sonnet-4.6".
     provider_model_id: str
     display_name: str
 
@@ -44,11 +50,32 @@ DECLARED_MODELS: tuple[ModelDeclaration, ...] = (
         provider_model_id="gpt-5-mini",
         display_name="GPT-5 mini",
     ),
+    # Anthropic is reached through OpenRouter rather than direct: one key
+    # covers every vendor. `provider_model_id` is the registry's canonical id
+    # ("claude-sonnet-4.6"), not OpenRouter's vendor-prefixed slug
+    # ("anthropic/claude-sonnet-4.6") — the registry is keyed on the former and
+    # the lookup fails with the latter. The `model_id` keeps the route visible,
+    # because it is recorded against every extraction and "which model produced
+    # this" should include how it was called.
     ModelDeclaration(
-        model_id="google/gemini-2.0-flash",
-        provider="google",
-        provider_model_id="gemini-2.0-flash",
-        display_name="Gemini 2.0 Flash",
+        model_id="openrouter/claude-sonnet-4.6",
+        provider="openrouter",
+        provider_model_id="claude-sonnet-4.6",
+        display_name="Claude Sonnet 4.6 (OpenRouter)",
+    ),
+    ModelDeclaration(
+        model_id="openrouter/claude-haiku-4.5",
+        provider="openrouter",
+        provider_model_id="claude-haiku-4.5",
+        display_name="Claude Haiku 4.5 (OpenRouter)",
+    ),
+    # Also via OpenRouter: the direct `google` provider registers nothing
+    # unless a GOOGLE_API_KEY is configured, whereas this route already works.
+    ModelDeclaration(
+        model_id="openrouter/gemini-3.1-pro-preview",
+        provider="openrouter",
+        provider_model_id="gemini-3.1-pro-preview",
+        display_name="Gemini 3.1 Pro (OpenRouter)",
     ),
 )
 

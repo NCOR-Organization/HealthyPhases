@@ -27,7 +27,7 @@ def _submit(store, **kwargs):
     params = dict(
         locations=["papers"],
         chunker_id="window_1_abc",
-        prompt_id="claims_abc",
+        prompt_ids=["claims_abc"],
         model_id="openai/gpt-4.1-mini",
     )
     params.update(kwargs)
@@ -43,7 +43,7 @@ def test_a_submitted_request_is_recorded_pending_with_its_inputs():
     assert request.request_id
     assert request.locations == ["papers"]
     assert request.chunker_id == "window_1_abc"
-    assert request.prompt_id == "claims_abc"
+    assert request.prompt_ids == ["claims_abc"]
     assert request.model_id == "openai/gpt-4.1-mini"
     assert request.requested_by == "maxime"
     assert request.requested_at is not None
@@ -61,7 +61,7 @@ def test_every_submission_gets_its_own_id():
 def test_a_request_missing_a_required_input_is_refused():
     store = FakeRequestStore()
 
-    for missing in ("chunker_id", "prompt_id", "model_id"):
+    for missing in ("chunker_id", "model_id"):
         with pytest.raises(ValueError, match=missing):
             _submit(store, **{missing: ""})
 
@@ -163,3 +163,18 @@ def test_an_unknown_request_cannot_be_transitioned():
 
     with pytest.raises(RequestNotFound):
         start(store, "nope", run_id="run-1")
+
+
+def test_a_request_with_no_prompts_is_refused():
+    store = FakeRequestStore()
+
+    with pytest.raises(ValueError, match="prompt_ids"):
+        _submit(store, prompt_ids=[])
+
+
+def test_a_request_can_carry_several_prompts():
+    store = FakeRequestStore()
+
+    request = _submit(store, prompt_ids=["a", "b", "c"])
+
+    assert store.get(request.request_id).prompt_ids == ["a", "b", "c"]

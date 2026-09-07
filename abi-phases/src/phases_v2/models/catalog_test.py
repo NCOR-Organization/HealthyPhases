@@ -88,3 +88,22 @@ def test_registering_nothing_is_not_an_error():
 
     assert register_models(store, []) == []
     assert store.count("models") == 0
+
+
+def test_claude_is_declared_and_routed_through_openrouter():
+    # `naas_abi_marketplace.ai.openrouter` registers these under provider
+    # "openrouter" with the vendor-prefixed slug as the model id; the
+    # declaration must match or the registry lookup cannot find it.
+    sonnet = resolve("openrouter/claude-sonnet-4.6")
+
+    assert sonnet.provider == "openrouter"
+    # The registry's canonical id, not OpenRouter's "anthropic/..." slug.
+    assert sonnet.provider_model_id == "claude-sonnet-4.6"
+    assert "Claude Sonnet" in sonnet.display_name
+
+
+def test_the_route_is_visible_in_the_model_id():
+    # model_id is recorded against every extraction, so "which model produced
+    # this" should also say how it was reached.
+    for model in DECLARED_MODELS:
+        assert model.model_id.startswith(model.provider + "/")

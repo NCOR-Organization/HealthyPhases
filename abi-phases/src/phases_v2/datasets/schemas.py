@@ -177,7 +177,9 @@ RUN_REQUESTS = _spec(
         ("status", "string"),
         ("locations", "json"),
         ("chunker_id", "string"),
-        ("prompt_id", "string"),
+        # A run covers several prompts — extracting only one dimension of a
+        # corpus at a time is the exception, not the default.
+        ("prompt_ids", "json"),
         ("model_id", "string"),
         ("requested_by", "string"),
         ("requested_at", "timestamp"),

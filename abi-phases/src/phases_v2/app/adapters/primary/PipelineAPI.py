@@ -10,7 +10,7 @@ sensor picks it up.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI, HTTPException
+from fastapi import APIRouter, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 from phases_v2.app.service import PipelineAppService
@@ -22,7 +22,7 @@ PREFIX = "/phases_v2/api"
 class SubmitRun(BaseModel):
     locations: list[str] = []
     chunker_id: str = ""
-    prompt_id: str = ""
+    prompt_ids: list[str] = []
     model_id: str = ""
     requested_by: str | None = None
 
@@ -43,8 +43,13 @@ def build_router(service: PipelineAppService) -> APIRouter:
         return {"chunkers": service.chunkers()}
 
     @router.get("/locations")
-    def locations(prefix: str = ""):
-        return {"locations": service.locations(prefix)}
+    def locations():
+        return {"locations": service.locations()}
+
+    @router.get("/documents")
+    def documents(location: list[str] = Query(default=[]), limit: int = 200):
+        """Preview what a run over these locations would ingest."""
+        return service.documents(location, limit=limit)
 
     @router.get("/chunker-warning")
     def chunker_warning(chunker_id: str = ""):
@@ -56,7 +61,7 @@ def build_router(service: PipelineAppService) -> APIRouter:
             request = service.submit_run(
                 locations=body.locations,
                 chunker_id=body.chunker_id,
-                prompt_id=body.prompt_id,
+                prompt_ids=body.prompt_ids,
                 model_id=body.model_id,
                 requested_by=body.requested_by,
             )

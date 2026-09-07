@@ -20,7 +20,7 @@ def _request(request_id="req-1"):
         status=PENDING,
         locations=["papers"],
         chunker_id="window_1_abc",
-        prompt_id="claims_abc",
+        prompt_ids=["claims_abc", "other_prompt"],
         model_id="openai/gpt-4.1-mini",
         requested_at=datetime.now(UTC),
     )
@@ -77,7 +77,7 @@ def test_the_selected_inputs_reach_every_op_that_needs_them():
     for op in ("ingest_papers_op", "chunk_papers_op", "run_extraction_op"):
         assert ops[op]["config"]["locations"] == ["papers"]
         assert ops[op]["config"]["model_id"] == "openai/gpt-4.1-mini"
-        assert ops[op]["config"]["prompt_id"] == "claims_abc"
+        assert ops[op]["config"]["prompt_ids"] == ["claims_abc", "other_prompt"]
         assert ops[op]["config"]["chunker_id"] == "window_1_abc"
 
 
@@ -146,3 +146,66 @@ def test_the_failure_sensor_is_registered():
         "phases_v2_run_request_sensor",
         "phases_v2_run_failure_sensor",
     }
+
+
+def test_each_prompt_of_a_request_gets_its_own_extraction_run_id():
+    # `extraction_runs.run_id` is the primary key, so the request id alone
+    # would make several prompts collide onto one row.
+    from phases_v2.orchestrations.PhasesV2Orchestration import extraction_run_id
+
+    first = extraction_run_id("req-1", "solitude_what_aaa")
+    second = extraction_run_id("req-1", "solitude_causes_bbb")
+
+    assert first != second
+    assert first.startswith("req-1")
+
+
+def test_the_run_carries_every_selected_prompt():
+    [run_request] = build_run_requests([_request()])
+
+    config = run_request.run_config["ops"]["run_extraction_op"]["config"]
+    assert config["prompt_ids"] == ["claims_abc", "other_prompt"]
+
+
+def test_the_sensors_are_running_by_default():
+    # Dagster leaves sensors stopped unless told otherwise. A stopped request
+    # sensor makes the app look broken: the request is recorded, the UI says
+    # pending, and nothing ever picks it up.
+    import dagster as dg
+
+    definitions = PhasesV2Orchestration.New().definitions
+
+    for sensor in definitions.sensors:
+        assert sensor.default_status == dg.DefaultSensorStatus.RUNNING, sensor.name
+
+
+def test_the_pipeline_stages_run_in_order_not_in_parallel():
+    # Dagster infers concurrency from the dependency graph. Without an explicit
+    # chain it ran all five stages at once: chunking found no papers because
+    # ingestion had not finished, and five processes contended for one SQLite
+    # catalog.
+    deps = full_pipeline_job.graph.dependencies
+
+    def upstream(node_name):
+        for node, inputs in deps.items():
+            if node.name == node_name:
+                return {dep.node for dep in inputs.values()}
+        return set()
+
+    assert upstream("ingest_papers_op") == {"claim_request_op"}
+    assert upstream("chunk_papers_op") == {"ingest_papers_op"}
+    assert upstream("run_extraction_op") == {"chunk_papers_op"}
+    assert upstream("project_graph_op") == {"run_extraction_op"}
+    assert upstream("project_vectors_op") == {"project_graph_op"}
+    assert upstream("complete_request_op") == {"project_vectors_op"}
+
+
+def test_no_stage_is_left_without_an_upstream_dependency():
+    # A stage with no upstream would run immediately, in parallel with the rest.
+    graph = full_pipeline_job.graph
+    nodes = {n.name for n in graph.nodes}
+    with_upstream = {
+        node.name for node, inputs in graph.dependencies.items() if inputs
+    }
+
+    assert nodes - with_upstream == {"claim_request_op"}
