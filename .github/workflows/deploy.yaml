@@ -5,31 +5,62 @@ on:
     branches:
       - main
 
+# One deploy at a time. Two merges in quick succession would otherwise race
+# each other through the same git pull and container restart.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Deploy to the server
+        uses: appleboy/ssh-action@v1.2.0
         with:
-          python-version: "3.11"
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/HealthyPhases
+            git pull --ff-only origin main
+            # pyproject sources naas-abi* from .abi/libs/* as path dependencies,
+            # so the submodule has to move with the pin or uv cannot resolve them.
+            git submodule update --init --recursive
+            cd abi-phases
 
-      - name: Install dependencies
-        run: |
-            python -m pip install uv
+            # Only these two services. A bare `up -d` would also start headscale
+            # and mcp-server, which are stopped deliberately.
+            #
+            # --force-recreate is required, not optional: config.local.yaml is
+            # bind-mounted through .:/app, so a pull changes the file on disk
+            # while the running container keeps the old config in memory. With
+            # the service definition unchanged, plain `up -d` is a no-op and the
+            # deploy silently does nothing.
+            docker compose up -d --force-recreate abi dagster
 
-      - name: Deploy
-        env:
-          NAAS_API_KEY: ${{ secrets.NAAS_API_KEY }}
-          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          ABI_API_KEY: ${{ secrets.ABI_API_KEY }}
-        run: |
-            cd abi
-            uv sync --no-dev
-            uv run python -m naas_abi_core.cli deploy naas
-
+      - name: Verify the API came back
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/HealthyPhases/abi-phases
+            for i in $(seq 1 24); do
+              sleep 10
+              code=$(docker compose exec -T abi curl -sS -o /dev/null -w '%{http_code}' \
+                       --max-time 8 http://localhost:9879/ 2>/dev/null || true)
+              if [ "$code" = "200" ]; then
+                echo "API healthy after ~$((i*10))s"
+                exit 0
+              fi
+            done
+            echo "API did not return 200 within 240s" >&2
+            docker compose logs --tail=40 abi >&2
+            exit 1
