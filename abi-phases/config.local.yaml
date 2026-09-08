@@ -34,15 +34,22 @@ modules:
         frontend_url: "https://{{ secret.PUBLIC_WEB_HOST }}"
         feature_flags:
           enabled_features:
+            - maps
             - chat
             - files
             - agents
+            - skills
+            - apps
+            - marketplace
             - search
             - ontology
             - graph
+            - datasets
             - settings
+            - code
+            - slides
           role_baseline:
-            owner: [chat, files, agents, search, ontology, graph, settings]
+            owner: [maps, chat, files, agents, skills, apps, marketplace, search, ontology, graph, datasets, settings, code, slides]
             admin: [chat, files, agents, search, ontology, graph, settings]
             member: [chat, files]
             viewer: [chat, files]
@@ -63,6 +70,7 @@ modules:
         users:
           - email: "maxime@naas.ai"
             name: "Maxime"
+            is_superadmin: true
             store_credentials_in_secrets: true
           - email: "jeremy@naas.ai"
             name: "Jeremy"
