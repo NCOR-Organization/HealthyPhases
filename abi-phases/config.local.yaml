@@ -74,6 +74,11 @@ modules:
             store_credentials_in_secrets: true
           - email: "jeremy@naas.ai"
             name: "Jeremy"
+            is_superadmin: true
+            store_credentials_in_secrets: true
+          - email: "florent@naas.ai"
+            name: "Florent"
+            is_superadmin: true
             store_credentials_in_secrets: true
         organizations:
           - name: "HealthyPhases"
@@ -87,7 +92,9 @@ modules:
               - email: "maxime@naas.ai"
                 role: "owner"
               - email: "jeremy@naas.ai"
-                role: "member"
+                role: "owner"
+              - email: "florent@naas.ai"
+                role: "owner"
             workspaces:
               - name: "Main Workspace"
                 slug: "main"
@@ -97,7 +104,9 @@ modules:
                   - email: "maxime@naas.ai"
                     role: "owner"
                   - email: "jeremy@naas.ai"
-                    role: "member"
+                    role: "owner"
+                  - email: "florent@naas.ai"
+                    role: "owner"
 
   - module: naas_abi_marketplace.ai.chatgpt
     enabled: true
