@@ -1,22 +1,16 @@
 {$PUBLIC_WEB_HOST:localhost} {
-    # Bundled Nexus app HTML (e.g. phases reverse-search) is served by the core
-    # API and proxied here so iframes load same-origin (see naas-abi #1024).
+    # Same-origin /app-html/ → ABI without forging ABI_API_KEY (anonymous
+    # browsers must present a scoped JWT / cookie / user Bearer).
     handle /app-html/* {
         reverse_proxy abi:9879 {
             header_up X-Forwarded-Proto {scheme}
-        }
-    }
-    # The reverse-search app's backend lives on the core API; proxy it on the
-    # web host too so the same-origin bundled page can call /phases/api/* via a
-    # relative URL (no cross-origin / CORS / API-host injection needed).
-    handle /phases/api/* {
-        reverse_proxy abi:9879 {
-            header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
         }
     }
     handle {
         reverse_proxy nexus-web:3000 {
             header_up X-Forwarded-Proto {scheme}
+            header_up X-Forwarded-Host {host}
         }
     }
 }
@@ -24,19 +18,14 @@
 {$PUBLIC_API_HOST:api.localhost} {
     reverse_proxy abi:9879 {
         header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Host {host}
     }
 }
 
 
-{$HEADSCALE_SERVER_URL:headscale.localhost} {
-    reverse_proxy headscale:8080 {
-        header_up X-Forwarded-Proto {scheme}
-    }
-}
 
-
-graph-explorer.localhost {
-    @allowed remote_ip 0.0.0.0/0 ::/0 127.0.0.1/32 ::1/128 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 fd7a:115c:a1e0::/48
+graph-explorer.{$PUBLIC_WEB_HOST:localhost} {
+    @allowed remote_ip 127.0.0.1/32 ::1/128 10.0.0.0/8 172.16.0.0/12 192.168.0.0/16 100.64.0.0/10 fd7a:115c:a1e0::/48
     handle @allowed {
         @root path /
         redir @root /explorer 308
@@ -52,3 +41,5 @@ graph-explorer.localhost {
         respond "Forbidden" 403
     }
 }
+
+

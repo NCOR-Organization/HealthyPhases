@@ -37,3 +37,4 @@ compute_logs:
 # Disable telemetry by default; enable manually if desired.
 telemetry:
   enabled: false
+

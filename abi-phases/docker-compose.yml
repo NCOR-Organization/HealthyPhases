@@ -51,6 +51,27 @@ x-abi-template: &abi_template
     # - ./.env:/app/.env
     # Cached volumes for performance
     - venv_cache:/app/.venv       # Python virtual environment cache
+    - huggingface_cache:/root/.cache/huggingface  # Docling / HF model weights
+  # Models come from OpenRouter by default, so nothing below is needed out of
+  # the box. It is pre-wired for the opt-in local path: if you enable
+  # `naas_abi_marketplace.ai.ollama` in config.local.yaml, Ollama runs on the
+  # *host*, not in the stack. `host.docker.internal` is built in on Docker
+  # Desktop (macOS/Windows) but not on Linux Docker, where host-gateway
+  # supplies it.
+  #
+  # LINUX ONLY: host-gateway makes the host *resolvable*, it does not change
+  # what Ollama listens on. A stock Linux install binds 127.0.0.1:11434, so
+  # this container will get "connection refused" until the host is bound
+  # somewhere the bridge can reach:
+  #   sudo systemctl edit ollama
+  #     [Service]
+  #     Environment="OLLAMA_HOST=0.0.0.0:11434"
+  #   sudo systemctl restart ollama
+  # Do that only on a trusted network, or bind the bridge address instead
+  # (OLLAMA_HOST=172.17.0.1:11434) and firewall the port. See the project
+  # README. Docker Desktop on macOS/Windows needs none of this.
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
   environment:
     - ENV=local
     - LOG_LEVEL=DEBUG
@@ -59,6 +80,9 @@ x-abi-template: &abi_template
     - VECTOR_STORE_ADAPTER=qdrant
     - QDRANT_HOST=qdrant
     - QDRANT_PORT=${QDRANT_PORT}
+    # Override to point at a remote/dedicated Ollama server instead of the host.
+    - ABI_OLLAMA_BASE_URL=${ABI_OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+
   # env_file:
   #   - .env  # Load environment variables (API keys, AI_MODE, etc.)
   depends_on:
@@ -74,6 +98,7 @@ x-abi-template: &abi_template
       condition: service_healthy
     minio:
       condition: service_healthy
+
   healthcheck:
     test: ["CMD-SHELL", "for i in 1 2 3; do curl -fsS http://localhost:9879/ >/dev/null || exit 1; sleep 2; done"]
     interval: 10s
@@ -90,14 +115,16 @@ services:
     restart: unless-stopped
     ports:
       - ${NEXUS_WEB_PORT}:3000
-    platform: linux/amd64
     environment:
       - NODE_ENV=production
       - PORT=3000
       - NEXT_PUBLIC_NEXUS_ENV=local
       - NEXUS_API_URL=${NEXUS_API_URL}
       - NEXT_PUBLIC_API_URL=${NEXUS_API_URL}
+      - NEXUS_INTERNAL_API_URL=http://abi:9879
+      - NEXT_PUBLIC_SITE_URL=https://${PUBLIC_WEB_HOST}
       - NEXT_PUBLIC_WS_PATH=/ws/socket.io
+      - DEFAULT_WORKSPACE=${NEXUS_DEFAULT_WORKSPACE:-primary}
     networks:
       - abi-network
 
@@ -112,8 +139,6 @@ services:
       - PUBLIC_WEB_HOST=${PUBLIC_WEB_HOST:-localhost}
       - PUBLIC_API_HOST=${PUBLIC_API_HOST:-api.localhost}
 
-      - HEADSCALE_SERVER_URL=${HEADSCALE_SERVER_URL:-headscale.localhost}
-
     volumes:
       - ./.deploy/docker/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
@@ -121,8 +146,6 @@ services:
     depends_on:
       - nexus-web
       - abi
-
-      - headscale
 
     networks:
       - abi-network
@@ -191,15 +214,28 @@ services:
   # Stores structured knowledge as RDF triples for semantic reasoning
   # TDB2 provides transactional storage with SPARQL query/update endpoints
   fuseki:
+    # Staying on stain/jena-fuseki (the older community image) for now — this is
+    # only about making the *current* store reliable. Apache does NOT publish a
+    # prebuilt Fuseki image on Docker Hub (the official path is the build-your-own
+    # jena-fuseki-docker kit), so moving off this is a real migration (build an
+    # image + back up + dump-and-reload the TDB2 data), tracked separately.
+    # `pull_policy: always` dropped on purpose: a boot now uses the locally cached
+    # image instead of requiring a registry pull every start (one less thing that
+    # can fail a restart). Re-add it if you'd rather always re-pull.
     image: stain/jena-fuseki:latest
-    pull_policy: always
     restart: unless-stopped
     ports:
       - 3030:3030
     volumes:
       - fuseki_data:/fuseki
+    # Cap Docker memory so the JVM can't balloon and get OOM-killed mid-write —
+    # an unclean kill is what leaves TDB2's node table/journal corrupt. Keep
+    # mem_limit comfortably above JVM_ARGS -Xmx: TDB2 memory-maps its files
+    # off-heap, so it needs headroom on top of the Java heap. Tune to host/data.
+    mem_limit: 4g
     environment:
       - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD}
+      - JVM_ARGS=-Xmx2g
     command: >-
       bash -c '
       mkdir -p /fuseki/configuration /fuseki/databases/ds &&
@@ -232,10 +268,51 @@ services:
       " > /fuseki/configuration/ds.ttl &&
       /jena-fuseki/fuseki-server'
     healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:3030/ >/dev/null || exit 1"]
+      # Probe the DATASET, not just the web root. `curl /` returns 200 even when
+      # the `ds` dataset failed to attach or is corrupt, which lets dependents
+      # start against a dead store and then 500 on the first query. `ASK { ?s ?p
+      # ?o }` short-circuits at the first triple (cheap) but opens TDB2 storage,
+      # so a broken dataset correctly marks the container unhealthy. Authenticated
+      # because the server runs with ADMIN_PASSWORD; `$$` is a literal `$` in the
+      # container shell (Compose would otherwise treat `$ADMIN_PASSWORD` as a
+      # host-side variable).
+      test: ["CMD-SHELL", "curl -fsS -u admin:$$ADMIN_PASSWORD 'http://localhost:3030/ds/query?query=ASK%20%7B%20%3Fs%20%3Fp%20%3Fo%20%7D' >/dev/null || exit 1"]
       interval: 10s
-      timeout: 5s
+      timeout: 10s
       retries: 10
+      # Grace window for TDB2 to attach/recover before probes count; the
+      # interval×retries budget below still covers slower recoveries.
+      start_period: 20s
+    networks:
+      - abi-network
+
+  # -----------------------------------------------------------------------------
+  # Fuseki Compaction - Periodic TDB2 database compaction
+  # -----------------------------------------------------------------------------
+  # TDB2 retains previous versions of the data after updates/deletes, so the
+  # on-disk database keeps growing. This lightweight sidecar periodically calls
+  # Fuseki's admin compact endpoint (deleteOld=true) to reclaim that space and
+  # keep query latency stable. The cadence is controlled by
+  # FUSEKI_COMPACT_INTERVAL_SECONDS (default: 86400s = 1 day).
+  # NOTE: "$$" is how docker-compose escapes a literal "$" so the shell (not
+  # compose) expands the variable and the "/$/compact" admin path is preserved.
+  fuseki-compact:
+    image: curlimages/curl:latest
+    pull_policy: always
+    restart: unless-stopped
+    depends_on:
+      - fuseki
+    environment:
+      - ADMIN_PASSWORD=${FUSEKI_ADMIN_PASSWORD}
+      - COMPACT_INTERVAL_SECONDS=${FUSEKI_COMPACT_INTERVAL_SECONDS}
+    entrypoint: /bin/sh
+    command: >-
+      -c 'while true; do
+            sleep "$$COMPACT_INTERVAL_SECONDS";
+            echo "[fuseki-compact] triggering TDB2 compaction (deleteOld=true)...";
+            curl -fsS -u "admin:$$ADMIN_PASSWORD" -X POST "http://fuseki:3030/$$/compact/ds?deleteOld=true"
+              || echo "[fuseki-compact] compaction request failed";
+          done'
     networks:
       - abi-network
 
@@ -300,6 +377,7 @@ services:
       - /bin/bash
       - -c
       - 'uv run dagster dev --host 0.0.0.0 --port 3001 -m naas_abi_core.apps.dagster.dagster'
+
     networks:
       - abi-network
 
@@ -403,42 +481,6 @@ services:
     networks:
       - abi-network
 
-  # # -----------------------------------------------------------------------------
-  # # Matrix (Synapse) - Federated Messaging Server
-  # # -----------------------------------------------------------------------------
-  # matrix:
-  #   image: matrixdotorg/synapse:latest
-  #   pull_policy: always
-  #   restart: unless-stopped
-  #   environment:
-  #     SYNAPSE_SERVER_NAME: localhost
-  #     SYNAPSE_REPORT_STATS: "no"
-  #   ports:
-  #     - 8008:8008  # Matrix client-server API - http://localhost:8008
-  #     - 8448:8448  # Matrix federation API
-  #   volumes:
-  #     - synapse_data:/data
-  #     - ./.deploy/docker/synapse/bootstrap.sh:/bootstrap.sh:ro
-  #   entrypoint: ["/bin/sh", "/bootstrap.sh"]
-  #   networks:
-  #     - abi-network
-
-  # # -----------------------------------------------------------------------------
-  # # Element Web - Matrix Client
-  # # -----------------------------------------------------------------------------
-  # element-web:
-  #   image: vectorim/element-web:latest
-  #   pull_policy: always
-  #   restart: unless-stopped
-  #   ports:
-  #     - 8081:80  # Element web client - http://localhost:8081
-  #   volumes:
-  #     - ./.deploy/docker/element-config.json:/app/config.json:ro
-  #   depends_on:
-  #     - matrix
-  #   networks:
-  #     - abi-network
-
   # -----------------------------------------------------------------------------
   # Service Portal - Single-page navigation for all HTTP UIs
   # -----------------------------------------------------------------------------
@@ -471,31 +513,7 @@ services:
       - abi-network
 
 
-  # -----------------------------------------------------------------------------
-  # Headscale - Self-hosted Tailscale control server
-  # -----------------------------------------------------------------------------
-  headscale:
-    image: docker.io/headscale/headscale:stable
-    pull_policy: always
-    restart: unless-stopped
-    command: ["serve"]
-    ports:
-      - ${HEADSCALE_SERVER_PORT}:8080
-      - ${HEADSCALE_METRICS_PORT}:9090
-      - ${HEADSCALE_GRPC_PORT}:50443
-    volumes:
-      - ./.deploy/docker/headscale/config.yaml:/etc/headscale/config.yaml:ro
-      - ./.deploy/docker/headscale/extra-records.json:/var/lib/headscale/extra-records.json:ro
-      - headscale_data:/var/lib/headscale
-      - headscale_run:/var/run/headscale
-    healthcheck:
-      test: ["CMD", "headscale", "health"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
-    networks:
-      - abi-network
+
 
 
 # =============================================================================
@@ -525,18 +543,16 @@ services:
 
 volumes:
   venv_cache:     # Python virtual environment cache for faster startup
+  huggingface_cache: # Hugging Face model cache (docling layout / table models)
   fuseki_data:    # RDF triple store data (knowledge graph persistence)
   postgres_data:  # PostgreSQL database files (agent memory persistence)
   dagster_home:   # Dagster metadata, run history, and configuration
   qdrant_storage: # Qdrant vector store data
 
-  headscale_data: # Headscale state and sqlite database
-  headscale_run:  # Headscale unix socket runtime data
 
   minio_data:     # MinIO object storage data
   rabbitmq_data:  # RabbitMQ message bus data
   redis_data:     # Redis persistence data
-  synapse_data:   # Matrix Synapse data
   caddy_data:     # Caddy certificates and ACME data
   caddy_config:   # Caddy runtime configuration
 
