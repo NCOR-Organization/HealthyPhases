@@ -77,6 +77,9 @@ x-abi-template: &abi_template
     - LOG_LEVEL=DEBUG
     - PYTHONPATH=/app
     - POSTGRES_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:${POSTGRES_PORT}/${POSTGRES_DB}
+    # v1 phases builds OpenAIEmbeddings() without an api_key, so langchain
+    # reads this from the environment. The secret service is not consulted.
+    - OPENAI_API_KEY=${OPENAI_API_KEY}
     - VECTOR_STORE_ADAPTER=qdrant
     - QDRANT_HOST=qdrant
     - QDRANT_PORT=${QDRANT_PORT}
@@ -378,6 +381,7 @@ services:
       - ENV=local
       - PYTHONPATH=/app
       - DAGSTER_HOME=/app/.dagster
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
       - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
       - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
       - DAGSTER_S3_LOG_BUCKET=dagster-logs
