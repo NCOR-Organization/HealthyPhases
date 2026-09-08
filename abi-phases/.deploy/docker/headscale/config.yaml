@@ -1,7 +1,7 @@
 ---
 # The URL clients will connect to.
 # Local deploy terminates TLS at Caddy and exposes Headscale over HTTPS.
-server_url: https://headscale.healthyphases.org:443
+server_url: https://headscale.localhost:443
 
 # Address to listen to / bind to on the server.
 listen_addr: 0.0.0.0:8080
@@ -70,7 +70,7 @@ dns:
   magic_dns: true
 
   # Base domain used to generate hostnames for nodes.
-  base_domain: vpn.healthyphases.org
+  base_domain: vpn.localhost
 
   # Override client local DNS settings with Headscale DNS.
   override_local_dns: true
