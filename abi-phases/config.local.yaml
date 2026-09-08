@@ -17,6 +17,16 @@ modules:
   - module: naas_abi
     enabled: true
     config:
+      # naas_abi defaults both of these to "claude-sonnet-5" with no provider.
+      # Nothing registers that id here — it exists only through the direct
+      # `ai.anthropic` module, and OpenRouter's newest Sonnet is 4.6 — so the
+      # default fails at API boot with ModelNotFoundError. The provider must be
+      # named too: without it the registry has no factory to route an
+      # off-catalog id through.
+      abi_agent_model: "claude-sonnet-4.6"
+      abi_agent_provider: "openrouter"
+      ontology_engineer_model: "claude-sonnet-4.6"
+      ontology_engineer_provider: "openrouter"
       nexus_config:
         database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@postgres:5432/nexus"
         app_name: "HealthyPhases Nexus"
