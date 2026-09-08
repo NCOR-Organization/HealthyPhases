@@ -23,6 +23,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script_stop: true
+          command_timeout: 5m
           script: |
             set -euo pipefail
             cd ~/HealthyPhases
@@ -32,15 +33,23 @@ jobs:
             git submodule update --init --recursive
             cd abi-phases
 
-            # Only these two services. A bare `up -d` would also start headscale
-            # and mcp-server, which are stopped deliberately.
+            # --no-deps is load-bearing. Naming two services does NOT limit the
+            # blast radius: compose still resolves depends_on, and dagster
+            # depends on coding-init (service_completed_successfully), which
+            # pulls in coder and forgejo. Without this flag the deploy starts
+            # the whole coding stack and leaves abi in `created`, waiting behind
+            # a bootstrap that takes many minutes -- an outage, not a deploy.
             #
-            # --force-recreate is required, not optional: config.local.yaml is
+            # --force-recreate is also required: config.local.yaml is
             # bind-mounted through .:/app, so a pull changes the file on disk
             # while the running container keeps the old config in memory. With
             # the service definition unchanged, plain `up -d` is a no-op and the
             # deploy silently does nothing.
-            docker compose up -d --force-recreate abi dagster
+            #
+            # Dependencies are long-running services that are already up; this
+            # deploy replaces application containers, it does not bootstrap the
+            # stack.
+            docker compose up -d --no-deps --force-recreate abi dagster
 
       - name: Verify the API came back
         uses: appleboy/ssh-action@v1.2.0
