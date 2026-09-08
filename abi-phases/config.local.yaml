@@ -30,8 +30,8 @@ modules:
       nexus_config:
         database_url: "postgresql+asyncpg://{{ secret.POSTGRES_USER }}:{{ secret.POSTGRES_PASSWORD }}@postgres:5432/nexus"
         app_name: "HealthyPhases Nexus"
-        api_url: "http://{{ secret.PUBLIC_API_HOST }}"
-        frontend_url: "http://{{ secret.PUBLIC_WEB_HOST }}"
+        api_url: "https://{{ secret.PUBLIC_API_HOST }}"
+        frontend_url: "https://{{ secret.PUBLIC_WEB_HOST }}"
         feature_flags:
           enabled_features:
             - chat
@@ -125,6 +125,18 @@ services:
     secret_adapters:
       - adapter: "dotenv"
         config: {}
+
+  email:
+    email_adapter:
+      adapter: "smtp"
+      config:
+        host: "{{ secret.SMTP_HOST }}"
+        port: "{{ secret.SMTP_PORT }}"
+        username: "{{ secret.SMTP_USERNAME }}"
+        password: "{{ secret.SMTP_PASSWORD }}"
+        use_tls: true
+        use_ssl: false
+        timeout: 10
   # Q: Where does structured pipeline data live?
   # A: DuckLake. The catalog is PostgreSQL rather than SQLite because api,
   #    dagster and its workers are separate containers: a per-container SQLite
