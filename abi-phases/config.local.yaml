@@ -34,15 +34,22 @@ modules:
         frontend_url: "https://{{ secret.PUBLIC_WEB_HOST }}"
         feature_flags:
           enabled_features:
+            - maps
             - chat
             - files
             - agents
+            - skills
+            - apps
+            - marketplace
             - search
             - ontology
             - graph
+            - datasets
             - settings
+            - code
+            - slides
           role_baseline:
-            owner: [chat, files, agents, search, ontology, graph, settings]
+            owner: [maps, chat, files, agents, skills, apps, marketplace, search, ontology, graph, datasets, settings, code, slides]
             admin: [chat, files, agents, search, ontology, graph, settings]
             member: [chat, files]
             viewer: [chat, files]
@@ -63,9 +70,15 @@ modules:
         users:
           - email: "maxime@naas.ai"
             name: "Maxime"
+            is_superadmin: true
             store_credentials_in_secrets: true
           - email: "jeremy@naas.ai"
             name: "Jeremy"
+            is_superadmin: true
+            store_credentials_in_secrets: true
+          - email: "florent@naas.ai"
+            name: "Florent"
+            is_superadmin: true
             store_credentials_in_secrets: true
         organizations:
           - name: "HealthyPhases"
@@ -79,7 +92,9 @@ modules:
               - email: "maxime@naas.ai"
                 role: "owner"
               - email: "jeremy@naas.ai"
-                role: "member"
+                role: "owner"
+              - email: "florent@naas.ai"
+                role: "owner"
             workspaces:
               - name: "Main Workspace"
                 slug: "main"
@@ -89,7 +104,9 @@ modules:
                   - email: "maxime@naas.ai"
                     role: "owner"
                   - email: "jeremy@naas.ai"
-                    role: "member"
+                    role: "owner"
+                  - email: "florent@naas.ai"
+                    role: "owner"
 
   - module: naas_abi_marketplace.ai.chatgpt
     enabled: true
