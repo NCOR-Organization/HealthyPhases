@@ -48,6 +48,8 @@ modules:
             viewer: [chat, files]
           workspace_overrides: {}
         magic_link_allow_signup: false
+        email_from_address: "{{ secret.SMTP_FROM_EMAIL }}"
+        email_from_name: "{{ secret.SMTP_FROM_NAME }}"
         magic_link_email_app_name: "HealthyPhases Platform"
         magic_link_email_subject_template: "Your {app_name} sign-in link"
         magic_link_email_text_template: "Use this link to sign in to {app_name}:\n\n{magic_link_url}\n\nThis link expires in {expire_minutes} minutes."
