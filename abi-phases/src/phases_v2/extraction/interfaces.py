@@ -13,6 +13,10 @@ FAILED = "failed"
 class ModelFailed(Exception):
     """The model could not be called, or returned something unusable."""
 
+    def __init__(self, message: str, *, raw_response: str | None = None):
+        super().__init__(message)
+        self.raw_response = raw_response
+
 
 @dataclass(frozen=True)
 class ChunkRef:

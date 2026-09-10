@@ -1,0 +1,57 @@
+syntax = "proto3";
+package phases_v2.extraction.v1;
+import "buf/validate/validate.proto";
+
+// Shape validation only; grounding and sentence semantics remain prompt duties.
+message ResultsOutput {
+  repeated string results = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message WhatOutput {
+  repeated string what = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message CausesOutput {
+  repeated string causes = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message HowOutput {
+  repeated string how = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message WhenOutput {
+  repeated string when = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message WhereOutput {
+  repeated string where = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message EffectsOutput {
+  repeated string effects = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message LogicalSentencesOutput {
+  repeated string logical_sentences = 1 [(buf.validate.field).repeated = {
+    max_items: 10, items: {string: {min_len: 1}}
+  }];
+}
+message Relation {
+  string subject_process = 1 [(buf.validate.field).string.min_len = 1];
+  string subject_participant = 2 [(buf.validate.field).string.min_len = 1];
+  string target_process = 3 [(buf.validate.field).string.min_len = 1];
+  string direction = 4 [(buf.validate.field).string = {
+    in: ["increases", "decreases", "no-effect"]
+  }];
+  string evidence_text = 5 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+}
+message RelationsOutput {
+  repeated Relation relations = 1 [(buf.validate.field).repeated.max_items = 8];
+}

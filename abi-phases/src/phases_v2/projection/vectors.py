@@ -26,6 +26,8 @@ from phases_v2.projection.interfaces import (
 
 CHUNKS_COLLECTION = "phases_v2_chunks"
 ITEMS_COLLECTION = "phases_v2_extracted_items"
+# Checkpoint after each batch so a later API/storage failure can resume cheaply.
+PROJECTION_BATCH_SIZE = 128
 
 
 def project_vectors(
@@ -110,8 +112,14 @@ def _project(
     if not outstanding:
         return report
 
-    vectors = embedder.embed([doc.text for doc in outstanding])
-    sink.store(collection, outstanding, vectors)
-    ledger.record(target, [doc.id for doc in outstanding])
-    report.projected += len(outstanding)
+    for start in range(0, len(outstanding), PROJECTION_BATCH_SIZE):
+        batch = outstanding[start : start + PROJECTION_BATCH_SIZE]
+        vectors = embedder.embed([doc.text for doc in batch])
+        if len(vectors) != len(batch):
+            raise ValueError(
+                "embedder returned a different number of vectors than documents"
+            )
+        sink.store(collection, batch, vectors)
+        ledger.record(target, [doc.id for doc in batch])
+        report.projected += len(batch)
     return report

@@ -33,13 +33,13 @@ def resolve_prompt(prompt_id: str) -> PromptTemplate:
     )
 
 
-def model_for(engine, model_id: str) -> ExtractionModel:
+def model_for(engine, model_id: str, output_key: str = "results") -> ExtractionModel:
     """Build the chat model a declared catalog entry describes."""
     declaration = resolve_model(model_id)
     registered = engine.services.model_registry.get(
         declaration.provider_model_id, provider=declaration.provider
     )
-    return LangchainExtractionModel(registered.model)
+    return LangchainExtractionModel(registered.model, output_key)
 
 
 def extract(
@@ -63,7 +63,9 @@ def extract(
 
     return run_extraction(
         store=DatasetExtractionStore(DatasetRowStore(engine.services.dataset)),
-        model=model if model is not None else model_for(engine, model_id),
+        model=model
+        if model is not None
+        else model_for(engine, model_id, prompt.output_key),
         prompt=prompt,
         model_id=model_id,
         chunker_id=chunker.chunker_id,
