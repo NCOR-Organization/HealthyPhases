@@ -72,6 +72,9 @@
   }
   mark { background: var(--mark); padding: 0 .1rem; border-radius: 3px; }
   .empty { text-align: center; color: var(--mute); padding: 2.5rem 0; }
+  #paths { width: 100%; margin-top: .4rem; background: var(--ground); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; }
+  #export:disabled { opacity: .5; cursor: default; }
+  .source-path { overflow-wrap: anywhere; }
 </style>
 
 <main>
@@ -106,15 +109,28 @@
     </div>
 
     <div class="facets" id="facets"></div>
+    <div class="facets" id="model-facets" role="group" aria-label="Extraction models">Loading models…</div>
+    <div style="margin-top:1rem">
+      <label for="paths">Source paths</label>
+      <select id="paths" multiple size="4" aria-describedby="paths-help"></select>
+      <span id="paths-help" class="status">Select folders to include their subfolders. No selection includes all paths.</span>
+      <button type="button" class="facet" id="clear-paths">All paths</button>
+      <div id="paths-status" class="status"></div>
+    </div>
   </div>
 
   <div class="status" id="status"></div>
+  <button type="button" class="facet" id="export" disabled>Export displayed results (CSV)</button>
   <div class="results" id="results"></div>
 </main>
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const state = { mode: "semantic", prompts: new Set(), selected: new Set() };
+  const state = {
+    mode: "semantic", prompts: new Set(), selected: new Set(),
+    models: [], selectedModels: new Set(),
+    selectedPaths: new Set(), displayedResults: null,
+  };
 
   // This page is served by the Nexus frontend through /app-html/, so a
   // relative fetch would hit Next and come back as its 404 page, not the ABI
@@ -202,6 +218,62 @@
     });
   }
 
+  async function loadModels() {
+    try {
+      const data = await get("/models");
+      state.models = data.models || [];
+      renderModelFacets();
+    } catch (_error) {
+      $("model-facets").textContent = "Model filters unavailable. Reload the page to retry.";
+    }
+  }
+
+  function renderModelFacets() {
+    const box = $("model-facets");
+    box.replaceChildren();
+    const hint = document.createElement("span");
+    hint.textContent = "Extraction models:";
+    box.appendChild(hint);
+    const add = (label, selected, action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "facet" + (selected ? " on" : "");
+      button.setAttribute("aria-pressed", String(selected));
+      button.textContent = label;
+      button.onclick = () => { action(); renderModelFacets(); };
+      box.appendChild(button);
+    };
+    add("All models", state.selectedModels.size === 0, () => state.selectedModels.clear());
+    state.models.forEach((model) => add(model, state.selectedModels.has(model), () => {
+      state.selectedModels.has(model)
+        ? state.selectedModels.delete(model) : state.selectedModels.add(model);
+    }));
+  }
+
+  async function loadPaths() {
+    try {
+      const data = await get("/paths");
+      $("paths").replaceChildren();
+      (data.paths || []).forEach((path) => {
+        const option = document.createElement("option");
+        option.value = path;
+        option.textContent = path;
+        $("paths").appendChild(option);
+      });
+      $("paths-status").textContent = data.paths.length ? "" : "No source paths available yet.";
+    } catch (_error) {
+      $("paths-status").textContent = "Path filters unavailable. Reload the page to retry.";
+    }
+  }
+
+  $("paths").addEventListener("change", () => {
+    state.selectedPaths = new Set([...$("paths").selectedOptions].map((option) => option.value));
+  });
+  $("clear-paths").addEventListener("click", () => {
+    state.selectedPaths.clear();
+    [...$("paths").options].forEach((option) => { option.selected = false; });
+  });
+
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -219,6 +291,8 @@
   }
 
   function renderHits(data) {
+    state.displayedResults = data;
+    $("export").disabled = !data.hits.length;
     const box = $("results");
     box.innerHTML = "";
     if (!data.hits.length) {
@@ -232,13 +306,19 @@
       const where = h.chunk_seq != null ? `chunk #${h.chunk_seq}` : "";
       const paper = h.paper_name ? `<span class="paper">${escapeHtml(h.paper_name)}</span>` : "(unknown paper)";
       const prompt = h.prompt_name ? `<span class="badge">${escapeHtml(h.prompt_name)}</span>` : "";
+      const model = `<span class="badge">Model: ${escapeHtml(h.model_id || "unknown")}</span>`;
+      const source = h.source_path ? `<div class="meta source-path">Source path: ${escapeHtml(h.source_path)}</div>` : "";
+      const extractionPrompt = `<details><summary>View extraction prompt</summary>
+        <div class="meta">Prompt ID: ${escapeHtml(h.prompt_id || "unknown")}</div>
+        <div class="meta">Stored template for this prompt version.</div>
+        <div class="context">${escapeHtml(h.prompt_template || "Stored prompt unavailable for this result.")}</div></details>`;
       const context = h.chunk_text
         ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query)}</div></details>`
         : "";
       card.innerHTML = `
         <div class="text">${highlight(h.extracted_text, data.query)}</div>
-        <div class="meta">${prompt}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
-        ${context}`;
+        <div class="meta">${prompt}${model}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
+        ${source}${extractionPrompt}${context}`;
       box.appendChild(card);
     });
   }
@@ -250,9 +330,13 @@
     $("status").className = "status";
     $("status").textContent = "Searching…";
     $("results").innerHTML = "";
+    state.displayedResults = null;
+    $("export").disabled = true;
 
     const params = new URLSearchParams({ q });
     state.selected.forEach((p) => params.append("prompt", p));
+    state.selectedModels.forEach((model) => params.append("model", model));
+    state.selectedPaths.forEach((path) => params.append("path", path));
 
     let path;
     if (state.mode === "semantic") {
@@ -281,6 +365,38 @@
   $("go").addEventListener("click", search);
   $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
 
+  function csvCell(value) {
+    let text = value == null ? "" : String(value);
+    // Keep extracted text from being interpreted as a spreadsheet formula.
+    if (typeof value === "string" && (/^\s*[=+@-]/.test(text) || /^[\t\r\n]/.test(text))) text = "'" + text;
+    return '"' + text.replace(/"/g, '""') + '"';
+  }
+
+  function resultsCsv(data) {
+    const columns = ["query", "mode", "item_id", "extracted_text", "score", "model_id",
+      "prompt_id", "prompt_name", "prompt_template", "paper_id", "paper_name",
+      "source_path", "chunk_id", "chunk_seq", "chunk_text"];
+    const rows = [columns.map(csvCell).join(",")];
+    data.hits.forEach((hit) => rows.push(columns.map((column) =>
+      csvCell(column === "query" ? data.query : column === "mode" ? data.mode : hit[column])).join(",")));
+    return "\uFEFF" + rows.join("\r\n") + "\r\n";
+  }
+
+  $("export").addEventListener("click", () => {
+    const data = state.displayedResults;
+    if (!data || !data.hits.length) return;
+    const url = URL.createObjectURL(new Blob([resultsCsv(data)], { type: "text/csv;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `phases-v2-search-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+
   setMode("semantic");
   loadPrompts();
+  loadModels();
+  loadPaths();
 </script>

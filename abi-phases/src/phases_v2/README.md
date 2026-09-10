@@ -109,6 +109,38 @@ the verbatim text. The JSON column *rejects* unparseable output — which is exa
 keeping the model's words matters most — so the split is what makes "re-parse later instead of
 re-paying" true for failures as well as successes.
 
+## Reverse search
+
+Reverse-search results display the extraction `model_id`. The model filters list models
+with extracted items in the dataset, independently of which models are currently configured
+for new ingestion. Select several models to include any of them; prompt and model filters
+are combined. With no models selected, all models are included.
+
+Both `/phases_v2/api/search/semantic` and `/phases_v2/api/search/keyword` accept repeated
+`model` query parameters. `/phases_v2/api/search/models` returns the available model IDs.
+Semantic search embeds the query once and retrieves top matches per selected model using
+vector metadata filters, then merges them by score. Existing projections already store
+`model_id`, so this change does not require re-embedding.
+
+Source-path filters include subfolders, match complete path components, and combine with
+model and prompt filters. Both search endpoints accept repeated `path` parameters;
+`/phases_v2/api/search/paths` lists folders and parents from papers with extracted items.
+Paths combine the paper's `storage_prefix` with the directory of its `storage_key`.
+The UI selects folders only, not individual papers. Unknown paths return no results.
+Semantic search resolves the selected folders to existing `paper_id` vector metadata,
+then combines top-k lookups per paper/model. This avoids re-embedding, at the cost of more
+vector-store calls for broad folders containing many papers.
+
+Each result includes `source_path` and the stored `prompt_template` associated with its
+`prompt_id`. The prompt viewer shows that historical template, keeping its chunk placeholder,
+alongside the separately available source context. It never substitutes the current code template.
+
+"Export displayed results (CSV)" downloads the current response without another search.
+Columns include query, mode, item ID, extracted text, score, model, prompt ID/name/template,
+paper ID/name, source folder, and chunk ID/sequence/context. CSV uses UTF-8 with a BOM,
+quoted multiline fields, and escaped quotes. Formula-like text is prefixed with an apostrophe
+to keep spreadsheet applications from evaluating it. Empty or failed searches disable export.
+
 ## Layout
 
 Organised by **domain**, not by ABI construct. This differs from what `abi new module` scaffolds
@@ -174,11 +206,17 @@ phases_v2_run_extraction     phases_v2_full_pipeline
     enabled: true
     config:
       papers_root: "phases_v2"   # object-storage prefix papers are read from
+      openai_api_key: "{{ secret.OPENAI_API_KEY }}"
 ```
 
 `papers_root` matters: the object-storage root is shared with every other module, so scanning it
 would offer their private data as a source of papers. Owning a prefix keeps them out of scope by
 construction rather than by a blacklist that needs updating whenever a module is added.
+
+The embedding key is resolved by ABI's secret service (including its `.env` adapter) and
+passed explicitly to the shared embedder factory for both ingestion and semantic search.
+Both use `text-embedding-3-large` at 3072 dimensions. The key is required when embedding;
+keyword search does not need it. No process environment fallback is used.
 
 Prompts, chunkers and models are declared in code, not configured — they are published to datasets
 on module load so a client can list them without reading the source.
@@ -200,3 +238,18 @@ time costs nothing: 20 skipped, zero calls, no new rows.
 - **No union view across v1 and v2 graphs.** The shared vocabulary would make one possible.
 - **Snapshot retention is an operator concern.** Every write creates a DuckLake snapshot; expiry and
   compaction are not scheduled here.
+
+
+### Extraction concurrency
+
+One ingestion request still starts one full-pipeline Dagster run. Stages and
+prompts execute in order; within each prompt, a bounded thread pool overlaps
+model HTTP calls. Set `modules[].config.extraction_workers` on `phases_v2`
+(default `20`, positive integer; `1` for sequential requests). The existing
+engine and prompt-bound model are reused. Database writes and report updates
+stay on the coordinating thread, with items saved before success records.
+Only a pool-sized window is submitted, so queued work and completed responses
+remain bounded. Failed calls remain individually retryable on the next run.
+Provider retry/timeout behavior is unchanged; lower the worker count if provider
+rate limits are encountered. This setting applies to newly started execution,
+not an already-running extraction process.

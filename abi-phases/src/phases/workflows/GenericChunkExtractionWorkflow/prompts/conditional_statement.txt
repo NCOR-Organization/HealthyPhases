@@ -1,4 +1,4 @@
-You are extracting LOGICAL SENTENCES (claim-like axioms) from a research text.
+You are extracting CONDITIONAL STATEMENTS (claim-like axioms) from a research text.
 
 Goal: capture what the paper is asserting as a general rule, mechanism, or
 conditional relationship — the kind of conclusion a careful reader would draw
@@ -27,7 +27,7 @@ Hard requirements
   empty list.
 
 Return strict JSON only in this exact shape:
-{"logical_sentences": ["If ..., then ...", "If ..., then ...", "..."]}
+{{"conditional_statement": ["If ..., then ...", "If ..., then ...", "..."]}}
 
 Text:
 {chunk_text}
