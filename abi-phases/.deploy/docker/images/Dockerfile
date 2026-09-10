@@ -27,3 +27,9 @@ RUN if [ "$TARGETARCH" = "arm64" ]; then \
 
 # Install OpenCode CLI (required by OpencodeAgent)
 RUN curl -fsSL https://opencode.ai/install | bash
+
+# PyMuPDF4LLM automatically OCRs image-only papers when Tesseract is available.
+# English is the language used by the current paper corpus and renderer default.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-eng \
+    && rm -rf /var/lib/apt/lists/*
