@@ -29,6 +29,8 @@ class ItemLocation:
     chunk_text: str | None = None
     paper_id: str | None = None
     paper_name: str | None = None
+    source_path: str | None = None
+    prompt_template: str | None = None
 
 
 @dataclass(frozen=True)
@@ -46,6 +48,8 @@ class SearchHit:
     chunk_text: str | None = None
     paper_id: str | None = None
     paper_name: str | None = None
+    source_path: str | None = None
+    prompt_template: str | None = None
 
     @classmethod
     def build(
@@ -69,6 +73,8 @@ class SearchHit:
             chunk_text=loc.chunk_text,
             paper_id=loc.paper_id,
             paper_name=loc.paper_name,
+            source_path=loc.source_path,
+            prompt_template=loc.prompt_template,
         )
 
 

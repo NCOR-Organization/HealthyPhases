@@ -15,6 +15,7 @@ from naas_abi_core import logger
 
 from phases_v2.ports import RowStore
 from phases_v2.search.models import ItemLocation
+from phases_v2.search.paths import matches_path, parent_paths, source_folder
 from phases_v2.sql import in_list, literal
 
 # Shared FROM/JOIN so provenance columns line up the same way for both queries
@@ -34,12 +35,15 @@ _COLUMNS = """
     ei.text AS text,
     ei.prompt_id AS prompt_id,
     pr.name AS prompt_name,
+    pr.template AS prompt_template,
     e.model_id AS model_id,
     ei.chunk_id AS chunk_id,
     c.seq AS chunk_seq,
     c.text AS chunk_text,
     ei.paper_id AS paper_id,
-    p.file_name AS paper_name
+    p.file_name AS paper_name,
+    p.storage_prefix AS storage_prefix,
+    p.storage_key AS storage_key
 """
 
 
@@ -53,6 +57,8 @@ def _row_to_location(row: dict[str, Any]) -> ItemLocation:
         chunk_text=row.get("chunk_text"),
         paper_id=row.get("paper_id"),
         paper_name=row.get("paper_name"),
+        source_path=source_folder(row.get("storage_prefix"), row.get("storage_key")),
+        prompt_template=row.get("prompt_template"),
     )
 
 
@@ -88,6 +94,7 @@ class DatasetExtractedItemsAdapter:
         prompts: list[str] | None,
         limit: int,
         models: list[str] | None = None,
+        paths: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         if not tokens:
             return []
@@ -100,6 +107,11 @@ class DatasetExtractedItemsAdapter:
             where = f"{where} AND pr.name IN {in_list(prompts)}"
         if models:
             where = f"{where} AND e.model_id IN {in_list(models)}"
+        if paths:
+            paper_ids = self.paper_ids_for_paths(paths)
+            if not paper_ids:
+                return []
+            where = f"{where} AND ei.paper_id IN {in_list(paper_ids)}"
 
         sql = (
             f"SELECT {_COLUMNS} {_FROM} {where} "  # nosec B608 - values escaped via sql.literal
@@ -130,3 +142,34 @@ class DatasetExtractedItemsAdapter:
             "WHERE e.model_id IS NOT NULL AND e.model_id != '' ORDER BY e.model_id"
         )
         return [row["model_id"] for row in self._query(sql)]
+
+    def _paper_paths(self) -> list[dict[str, Any]]:
+        return self._query(
+            "SELECT p.paper_id, p.storage_prefix, p.storage_key FROM papers p "
+            "WHERE EXISTS (SELECT 1 FROM extracted_items ei WHERE ei.paper_id = p.paper_id)"
+        )
+
+    def list_paths(self) -> list[str]:
+        return parent_paths(
+            [
+                folder
+                for row in self._paper_paths()
+                if (
+                    folder := source_folder(
+                        row.get("storage_prefix"), row.get("storage_key")
+                    )
+                )
+            ]
+        )
+
+    def paper_ids_for_paths(self, paths: list[str]) -> list[str]:
+        return sorted(
+            {
+                row["paper_id"]
+                for row in self._paper_paths()
+                if matches_path(
+                    source_folder(row.get("storage_prefix"), row.get("storage_key")),
+                    paths,
+                )
+            }
+        )

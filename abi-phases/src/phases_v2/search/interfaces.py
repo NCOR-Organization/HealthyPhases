@@ -28,6 +28,7 @@ class ISemanticIndexPort(Protocol):
         k: int,
         score_threshold: float | None = None,
         models: list[str] | None = None,
+        paper_ids: list[str] | None = None,
     ) -> list[SemanticMatch]:
         """Return the ``k`` most similar extracted items to ``query``."""
         ...
@@ -46,6 +47,7 @@ class IExtractedItemsPort(Protocol):
         prompts: list[str] | None,
         limit: int,
         models: list[str] | None = None,
+        paths: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         """Word-presence search over extracted text.
 
@@ -61,4 +63,12 @@ class IExtractedItemsPort(Protocol):
 
     def list_models(self) -> list[str]:
         """Extraction model IDs actually present in the corpus."""
+        ...
+
+    def list_paths(self) -> list[str]:
+        """Source folders and their parents present in extracted items."""
+        ...
+
+    def paper_ids_for_paths(self, paths: list[str]) -> list[str]:
+        """Resolve folders, including descendants, to IDs for vector filtering."""
         ...

@@ -34,9 +34,18 @@ def build_router(service: SearchService) -> APIRouter:
         model: Annotated[
             list[str] | None, Query(description="Extraction model IDs (repeatable).")
         ] = None,
+        path: Annotated[
+            list[str] | None,
+            Query(description="Source folders, including subfolders (repeatable)."),
+        ] = None,
     ):
         hits = service.semantic_search(
-            q, k=k, score_threshold=score_threshold, prompts=prompt, models=model
+            q,
+            k=k,
+            score_threshold=score_threshold,
+            prompts=prompt,
+            models=model,
+            paths=path,
         )
         return {
             "query": q,
@@ -56,8 +65,14 @@ def build_router(service: SearchService) -> APIRouter:
         model: Annotated[
             list[str] | None, Query(description="Extraction model IDs (repeatable).")
         ] = None,
+        path: Annotated[
+            list[str] | None,
+            Query(description="Source folders, including subfolders (repeatable)."),
+        ] = None,
     ):
-        hits = service.keyword_search(q, limit=limit, prompts=prompt, models=model)
+        hits = service.keyword_search(
+            q, limit=limit, prompts=prompt, models=model, paths=path
+        )
         return {
             "query": q,
             "mode": "keyword",
@@ -72,6 +87,10 @@ def build_router(service: SearchService) -> APIRouter:
     @router.get("/models")
     def models():
         return {"models": service.list_models()}
+
+    @router.get("/paths")
+    def paths():
+        return {"paths": service.list_paths()}
 
     return router
 

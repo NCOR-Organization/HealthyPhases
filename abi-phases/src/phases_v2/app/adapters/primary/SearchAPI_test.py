@@ -17,6 +17,14 @@ def _client() -> TestClient:
     items[1].location = replace(
         items[1].location, model_id="openrouter/claude-sonnet-4.6"
     )
+    items[0].location = replace(
+        items[0].location,
+        source_path="phases_v2/solitude/paid",
+        prompt_template="Stored instructions\n{chunk_text}",
+    )
+    items[1].location = replace(
+        items[1].location, source_path="phases_v2/solitude-other"
+    )
     service = SearchService(FakeSemanticIndex(items), FakeExtractedItems(items))
     app = FastAPI()
     register(app, service)
@@ -92,4 +100,38 @@ def test_model_facets_only_include_models_present_in_results():
     assert response.json()["models"] == [
         "openai/gpt-5-mini",
         "openrouter/claude-sonnet-4.6",
+    ]
+
+
+@pytest.mark.parametrize("mode", ["semantic", "keyword"])
+def test_source_paths_and_prompt_text_in_search_results(mode):
+    client = _client()
+    params = [
+        ("q", "solitude"),
+        ("path", "phases_v2/solitude"),
+        ("model", "openai/gpt-5-mini"),
+        ("prompt", "solitude_effects"),
+    ]
+    result = client.get(f"{PREFIX}/{mode}", params=params)
+    assert result.status_code == 200
+    assert [hit["item_id"] for hit in result.json()["hits"]] == ["item-effects"]
+    hit = result.json()["hits"][0]
+    assert hit["source_path"] == "phases_v2/solitude/paid"
+    assert hit["prompt_template"] == "Stored instructions\n{chunk_text}"
+    assert (
+        client.get(
+            f"{PREFIX}/{mode}", params={"q": "solitude", "path": "unknown"}
+        ).json()["count"]
+        == 0
+    )
+
+
+def test_path_options_include_parent_folders():
+    response = _client().get(f"{PREFIX}/paths")
+    assert response.status_code == 200
+    assert response.json()["paths"] == [
+        "phases_v2",
+        "phases_v2/solitude",
+        "phases_v2/solitude-other",
+        "phases_v2/solitude/paid",
     ]

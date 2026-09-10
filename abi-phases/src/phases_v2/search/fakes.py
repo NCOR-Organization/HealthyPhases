@@ -10,6 +10,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 
 from phases_v2.search.models import ItemLocation, SemanticMatch
+from phases_v2.search.paths import matches_path, parent_paths
 
 
 @dataclass
@@ -31,11 +32,13 @@ class FakeSemanticIndex:
         k: int,
         score_threshold: float | None = None,
         models: list[str] | None = None,
+        paper_ids: list[str] | None = None,
     ) -> list[SemanticMatch]:
         ranked = sorted(self.items, key=lambda i: i.similarity, reverse=True)
         out = [
             SemanticMatch(item_id=i.item_id, text=i.text, score=i.similarity)
             for i in ranked
+            if paper_ids is None or i.location.paper_id in paper_ids
             if not models or i.location.model_id in models
             if score_threshold is None or i.similarity >= score_threshold
         ]
@@ -56,10 +59,13 @@ class FakeExtractedItems:
         prompts: list[str] | None,
         limit: int,
         models: list[str] | None = None,
+        paths: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         wanted = set(prompts) if prompts else None
         rows: list[tuple[str, str, ItemLocation]] = []
         for item in self.items:
+            if paths and not matches_path(item.location.source_path, paths):
+                continue
             if models and item.location.model_id not in models:
                 continue
             text = item.text.lower()
@@ -77,3 +83,17 @@ class FakeExtractedItems:
 
     def list_models(self) -> list[str]:
         return sorted({i.location.model_id for i in self.items if i.location.model_id})
+
+    def list_paths(self) -> list[str]:
+        return parent_paths(
+            [i.location.source_path for i in self.items if i.location.source_path]
+        )
+
+    def paper_ids_for_paths(self, paths: list[str]) -> list[str]:
+        return sorted(
+            {
+                i.location.paper_id
+                for i in self.items
+                if i.location.paper_id and matches_path(i.location.source_path, paths)
+            }
+        )

@@ -9,6 +9,8 @@ this module repeating the model/dimension choice.
 
 from __future__ import annotations
 
+from itertools import product
+
 import numpy as np
 from naas_abi_core import logger
 from naas_abi_core.services.vector_store.IVectorStorePort import SearchResult
@@ -54,21 +56,32 @@ class VectorStoreSemanticAdapter:
         k: int,
         score_threshold: float | None = None,
         models: list[str] | None = None,
+        paper_ids: list[str] | None = None,
     ) -> list[SemanticMatch]:
+        if paper_ids == []:
+            return []
         [vector] = self._embedder.embed([query])
         query_vector = np.asarray(vector, dtype=np.float32)
         try:
             # The vector port supports equality filters. Take top-k per model,
             # then combine them, so other models cannot crowd out selected ones.
             selected_models = list(dict.fromkeys(models)) if models else [None]
+            selected_papers = (
+                list(dict.fromkeys(paper_ids)) if paper_ids is not None else [None]
+            )
             results = []
-            for model in selected_models:
+            for model, paper in product(selected_models, selected_papers):
+                filters = {
+                    key: value
+                    for key, value in (("model_id", model), ("paper_id", paper))
+                    if value is not None
+                }
                 results.extend(
                     self._vector_store.search_similar(
                         collection_name=self._collection_name,
                         query_vector=query_vector,
                         k=k,
-                        filter={"model_id": model} if model is not None else None,
+                        filter=filters or None,
                         score_threshold=score_threshold,
                     )
                 )

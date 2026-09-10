@@ -123,6 +123,42 @@ def test_the_contract(adapter):
     assert_extracted_items_contract(adapter)
 
 
+def test_folders_and_stored_prompt_are_resolved_from_result_provenance(adapter):
+    from phases_v2.sql import literal
+
+    template = 'Original instructions, with "quotes".\nRead {chunk_text} exactly.'
+    adapter._rows.query(
+        "UPDATE papers SET storage_prefix = 'phases_v2/solitude', storage_key = 'paid/nested/a.pdf' WHERE paper_id = 'paper-a'"
+    )
+    adapter._rows.query(
+        "UPDATE papers SET storage_prefix = 'phases_v2/solitude-other', storage_key = 'b.pdf' WHERE paper_id = 'paper-b'"
+    )
+    adapter._rows.query(
+        f"UPDATE prompts SET template = {literal(template)} WHERE prompt_id = 'prompt-effects-hash'"
+    )
+    assert adapter.list_paths() == [
+        "phases_v2",
+        "phases_v2/solitude",
+        "phases_v2/solitude-other",
+        "phases_v2/solitude/paid",
+        "phases_v2/solitude/paid/nested",
+    ]
+    assert adapter.paper_ids_for_paths(["phases_v2/solitude/"]) == ["paper-a"]
+    assert adapter.paper_ids_for_paths(
+        ["phases_v2/solitude", "phases_v2/solitude/paid"]
+    ) == ["paper-a"]
+    assert adapter.paper_ids_for_paths(
+        ["phases_v2/solitude", "phases_v2/solitude-other"]
+    ) == ["paper-a", "paper-b"]
+    assert adapter.paper_ids_for_paths(["x' OR '1'='1"]) == []
+    hits = adapter.keyword_search(["s"], None, 1, paths=["phases_v2/solitude-other"])
+    assert [hit[0] for hit in hits] == ["item-causes"]
+    location = adapter.resolve_locations(["item-effects"])["item-effects"]
+    assert location.source_path == "phases_v2/solitude/paid/nested"
+    assert location.prompt_template == template
+    assert adapter.keyword_search(["solitude"], None, 10, paths=["unknown"]) == []
+
+
 def test_model_facets_and_keyword_filters_use_extraction_provenance(adapter):
     adapter._rows.query(
         "UPDATE extractions SET model_id = 'openrouter/claude-sonnet-4.6' "

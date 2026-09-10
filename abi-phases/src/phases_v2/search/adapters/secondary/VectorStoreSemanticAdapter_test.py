@@ -71,8 +71,16 @@ def test_qdrant_filters_models_before_top_k_and_merges_selected_models():
             for i in range(20)
         ]
         docs += [
-            VectorDoc(id="a", text="first", metadata={"model_id": "model-a"}),
-            VectorDoc(id="b", text="second", metadata={"model_id": "model-b"}),
+            VectorDoc(
+                id="a",
+                text="first",
+                metadata={"model_id": "model-a", "paper_id": "paper-a"},
+            ),
+            VectorDoc(
+                id="b",
+                text="second",
+                metadata={"model_id": "model-b", "paper_id": "paper-b"},
+            ),
         ]
         sink.store(ITEMS_COLLECTION, docs, [[1.0, 0.0]] * 20 + [[0.8, 0.6], [0.6, 0.8]])
         calls = []
@@ -91,3 +99,18 @@ def test_qdrant_filters_models_before_top_k_and_merges_selected_models():
         assert len(calls) == 1
         assert index.search("claim", k=1, models=["unknown"]) == []
         assert index.search("claim", k=1, models=["model-a"], score_threshold=0.9) == []
+        assert [
+            m.item_id for m in index.search("claim", k=1, paper_ids=["paper-b"])
+        ] == ["b"]
+        assert (
+            index.search("claim", k=1, models=["model-a"], paper_ids=["paper-b"]) == []
+        )
+        assert [
+            m.item_id
+            for m in index.search(
+                "claim", k=2, paper_ids=["paper-a", "paper-b", "paper-a"]
+            )
+        ] == ["a", "b"]
+        calls.clear()
+        assert index.search("claim", k=1, paper_ids=[]) == []
+        assert calls == []
