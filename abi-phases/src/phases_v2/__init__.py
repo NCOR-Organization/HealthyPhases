@@ -20,6 +20,7 @@ from naas_abi_core.services.object_storage.ObjectStorageService import (
 )
 from naas_abi_core.services.triple_store.TripleStoreService import TripleStoreService
 from naas_abi_core.services.vector_store.VectorStoreService import VectorStoreService
+from pydantic import SecretStr
 
 
 class PhasesV2Configuration(ModuleConfiguration):
@@ -39,6 +40,7 @@ class PhasesV2Configuration(ModuleConfiguration):
     #: keeps them out of scope by construction rather than by a blacklist that
     #: needs updating whenever a module is added.
     papers_root: str = "phases_v2"
+    openai_api_key: SecretStr | None = None
 
 
 class ABIModule(BaseModule[PhasesV2Configuration]):
@@ -75,10 +77,14 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
             logger.error(f"Failed to mount the phases_v2 pipeline app: {exc}")
 
         try:
-            from phases_v2.app.adapters.primary.SearchAPI import register as register_search
+            from phases_v2.app.adapters.primary.SearchAPI import (
+                register as register_search,
+            )
             from phases_v2.search.factory import search_service
 
-            register_search(app, search_service(self._engine))
+            register_search(
+                app, search_service(self._engine, configuration=self._configuration)
+            )
             logger.debug("Mounted phases_v2 reverse-search API at /phases_v2/api/search")
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Failed to mount the phases_v2 reverse-search app: {exc}")

@@ -174,11 +174,17 @@ phases_v2_run_extraction     phases_v2_full_pipeline
     enabled: true
     config:
       papers_root: "phases_v2"   # object-storage prefix papers are read from
+      openai_api_key: "{{ secret.OPENAI_API_KEY }}"
 ```
 
 `papers_root` matters: the object-storage root is shared with every other module, so scanning it
 would offer their private data as a source of papers. Owning a prefix keeps them out of scope by
 construction rather than by a blacklist that needs updating whenever a module is added.
+
+The embedding key is resolved by ABI's secret service (including its `.env` adapter) and
+passed explicitly to the shared embedder factory for both ingestion and semantic search.
+Both use `text-embedding-3-large` at 3072 dimensions. The key is required when embedding;
+keyword search does not need it. No process environment fallback is used.
 
 Prompts, chunkers and models are declared in code, not configured — they are published to datasets
 on module load so a client can list them without reading the source.

@@ -7,12 +7,15 @@ dataset, the same split ``projection.factory_test`` uses for the embedder.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 from naas_abi_core.services.dataset.adapters.secondary.DatasetSecondaryAdapterDuckLake import (
     DatasetSecondaryAdapterDuckLake,
 )
 from naas_abi_core.services.dataset.DatasetService import DatasetService
 
+from phases_v2 import PhasesV2Configuration
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
 from phases_v2.search.adapters.secondary.VectorStoreSemanticAdapter import (
@@ -32,6 +35,13 @@ class _Services:
 class _Engine:
     def __init__(self, dataset):
         self.services = _Services(dataset)
+        self.modules = {
+            "phases_v2": SimpleNamespace(
+                configuration=PhasesV2Configuration(
+                    global_config={"ai_mode": "cloud"}, openai_api_key="configured-test-key"
+                )
+            )
+        }
 
 
 @pytest.fixture
@@ -78,6 +88,14 @@ def test_the_default_semantic_index_is_the_vector_store_adapter(engine):
     service = search_service(engine)
 
     assert isinstance(service._index, VectorStoreSemanticAdapter)
+
+
+def test_api_proxy_uses_explicit_module_configuration(engine, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    configuration = engine.modules["phases_v2"].configuration
+    del engine.modules
+    service = search_service(engine, configuration=configuration)
+    assert service._index._embedder._api_key == "configured-test-key"
 
 
 def test_keyword_search_and_facets_run_against_the_real_dataset(engine):

@@ -36,8 +36,8 @@ def project_to_vectors(
     engine, sink=None, embedder=None
 ) -> ProjectionReport:
     """Embed outstanding chunks and items, reading at one pinned snapshot."""
-    from phases_v2.projection.adapters.secondary.OpenAIEmbedder import OpenAIEmbedder
     from phases_v2.projection.adapters.secondary.VectorStoreSink import VectorStoreSink
+    from phases_v2.projection.embedding_factory import embedder_for
     from phases_v2.projection.vectors import project_vectors
 
     live = DatasetRowStore(engine.services.dataset)
@@ -45,7 +45,7 @@ def project_to_vectors(
 
     return project_vectors(
         reader=DatasetExtractionReader(pinned),
-        embedder=embedder if embedder is not None else OpenAIEmbedder(),
+        embedder=embedder if embedder is not None else embedder_for(engine),
         sink=sink if sink is not None else VectorStoreSink(engine.services.vector_store),
         ledger=DatasetProjectionLedger(live),
     )
