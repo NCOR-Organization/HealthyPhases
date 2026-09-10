@@ -38,7 +38,7 @@ class TestPdfTextRenderer(TextRendererContract):
     def test_a_pdf_with_no_extractable_text_is_a_failure_not_empty_output(
         self, renderer
     ):
-        # An image-only scan renders to nothing. Recording it as a successful
+        # A blank PDF renders to nothing. Recording it as a successful
         # ingestion with empty text would let it reach chunking and quietly
         # produce no chunks at all.
         import pymupdf
@@ -49,3 +49,27 @@ class TestPdfTextRenderer(TextRendererContract):
 
         with pytest.raises(RenderFailed, match="no text"):
             renderer.render(blank, "scan.pdf")
+
+
+def test_an_image_only_paper_is_ocr_rendered_when_english_data_is_installed():
+    import os
+
+    import pymupdf
+
+    try:
+        data = pymupdf.get_tessdata()
+    except RuntimeError:
+        pytest.skip("Tesseract language data is not installed locally")
+    if not os.path.isfile(os.path.join(data, "eng.traineddata")):
+        pytest.skip("English OCR data is not installed locally")
+
+    with pymupdf.open(stream=_make_pdf(), filetype="pdf") as original:
+        image = original[0].get_pixmap(matrix=pymupdf.Matrix(2, 2))
+        with pymupdf.open() as scanned:
+            page = scanned.new_page()
+            page.insert_image(page.rect, pixmap=image)
+            assert page.get_text() == ""
+            content = scanned.tobytes()
+
+    text = PdfTextRenderer().render(content, "scanned-study.pdf")
+    assert SAMPLE_PHRASE.lower() in text.lower()

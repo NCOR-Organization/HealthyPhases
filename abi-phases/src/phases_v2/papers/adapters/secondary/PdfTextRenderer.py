@@ -33,6 +33,19 @@ class PdfTextRenderer:
                 if document.page_count == 0:
                     raise RenderFailed(f"{file_name} has no pages")
                 markdown = pymupdf4llm.to_markdown(document, show_progress=False)
+                if not markdown.strip():
+                    # Layout detection can miss image-only pages even with OCR
+                    # available. Fall back only when it produced no text.
+                    pages = []
+                    for page in document:
+                        text = page.get_text(sort=True)
+                        if not text.strip() and page.get_images():
+                            text_page = page.get_textpage_ocr(
+                                language="eng", dpi=150, full=True
+                            )
+                            text = page.get_text(textpage=text_page, sort=True)
+                        pages.append(text)
+                    markdown = "\n\n".join(pages)
         except RenderFailed:
             raise
         except Exception as failure:  # noqa: BLE001 - any library error is a failure to render

@@ -23,7 +23,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           script_stop: true
-          command_timeout: 5m
+          command_timeout: 15m
           script: |
             set -euo pipefail
             cd ~/HealthyPhases
@@ -49,7 +49,9 @@ jobs:
             # Dependencies are long-running services that are already up; this
             # deploy replaces application containers, it does not bootstrap the
             # stack.
-            docker compose up -d --no-deps --force-recreate abi dagster
+            # Build changes to native runtime dependencies before replacing services.
+            # BuildKit reuses cached layers when the Dockerfile is unchanged.
+            docker compose up -d --build --no-deps --force-recreate abi dagster
 
       - name: Verify the API came back
         uses: appleboy/ssh-action@v1.2.0

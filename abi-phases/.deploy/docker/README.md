@@ -97,3 +97,17 @@ make build.linux.x86_64  # Build Linux x86_64 image
 4. **Integration**: Seamless integration with existing build and deployment workflows
 
 This organization follows patterns established by major projects like Kubernetes, Prometheus, and HashiCorp Vault for maximum developer familiarity and maintainability.
+
+## Scanned-paper OCR
+
+The shared ABI/Dagster image installs Tesseract and English language data.
+When normal PDF-to-Markdown conversion returns no text, the phases_v2 renderer
+tries page text extraction and OCRs image-only pages sequentially at 150 DPI.
+Successful normal rendering remains unchanged. OCR quality depends on the scan;
+the fallback defaults to English for the current corpus.
+
+Production deployment uses `docker compose up -d --build --no-deps
+--force-recreate abi dagster` so native dependency changes reach the running
+containers. Cached layers are reused. Allow up to 15 minutes for the deployment
+command, and finish active ingestion runs before merging runtime image changes.
+The OCR smoke test skips when local English Tesseract data is unavailable.

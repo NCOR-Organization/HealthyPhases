@@ -32,7 +32,10 @@ Three properties fall out of it:
 
 Every id is derived from content, so the same input always produces the same id. That single fact is
 what makes each stage idempotent without any coordination between them — one id serves as the dataset
-primary key, the vector id, the local name of the RDF URI, and the Dagster run key.
+primary key, the local name of the RDF URI, and the Dagster run key. The vector adapter maps
+collection + row id to a deterministic UUIDv5 because Qdrant requires integer or UUID point ids.
+The original row id remains in vector metadata as `document_id` (alongside `chunk_id` or `item_id`)
+and in the projection ledger, so retries and source lookup keep the same identity.
 
 | Id | Derived from |
 |---|---|
