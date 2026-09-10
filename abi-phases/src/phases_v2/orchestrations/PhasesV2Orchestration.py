@@ -75,6 +75,10 @@ def ingest_papers_op(
     context.log.info(
         f"ingested={report.ingested} skipped={report.skipped} failed={report.failed}"
     )
+    for location, error in report.failed_locations.items():
+        context.log.warning(f"Could not read ingestion location {location}: {error}")
+    for paper, error in report.failed_papers.items():
+        context.log.warning(f"Could not ingest paper {paper}: {error}")
     return {"ingested": report.ingested, "skipped": report.skipped}
 
 
