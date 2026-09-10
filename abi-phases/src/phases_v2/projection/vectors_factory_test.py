@@ -118,9 +118,17 @@ def test_a_second_run_computes_no_embeddings_and_stores_nothing_new(engine):
 def test_provenance_survives_the_round_trip(engine):
     _run(engine, FakeEmbedder())
 
-    stored = engine.services.vector_store.get_document(ITEMS_COLLECTION, "i0")
+    import numpy as np
+
+    store = engine.services.vector_store
+    hits = store.search_similar(
+        ITEMS_COLLECTION, np.asarray(FakeEmbedder().embed(["claim 0"])[0]), k=3
+    )
+    hit = next(hit for hit in hits if hit.metadata["item_id"] == "i0")
+    stored = store.get_document(ITEMS_COLLECTION, hit.id)
 
     assert stored is not None
+    assert stored.metadata["document_id"] == "i0"
     assert stored.metadata["chunk_id"] == "c0"
     assert stored.metadata["paper_id"] == "p0"
     assert stored.metadata["model_id"] == "m"
