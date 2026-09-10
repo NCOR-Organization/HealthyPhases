@@ -4,7 +4,13 @@ The mapping is tested as a pure function: it is the part that carries the
 exactly-once guarantee, and it should not need a running Dagster to check.
 """
 
+import sys
 from datetime import UTC, datetime
+from importlib import import_module
+from types import ModuleType, SimpleNamespace
+from unittest.mock import Mock
+
+import dagster as dg
 
 from phases_v2.orchestrations.PhasesV2Orchestration import (
     PhasesV2Orchestration,
@@ -24,6 +30,58 @@ def _request(request_id="req-1"):
         model_id="openai/gpt-4.1-mini",
         requested_at=datetime.now(UTC),
     )
+
+
+def test_engine_access_reuses_the_bootstrapped_instance(monkeypatch):
+    from phases_v2.orchestrations.PhasesV2Orchestration import _engine
+
+    entrypoint = ModuleType("naas_abi_core.apps.dagster.dagster")
+    entrypoint.engine = object()
+    monkeypatch.setitem(sys.modules, entrypoint.__name__, entrypoint)
+    constructor = Mock(side_effect=AssertionError("Engine must not be rebuilt"))
+    monkeypatch.setattr(
+        import_module("naas_abi_core.engine.Engine"), "Engine", constructor
+    )
+
+    assert _engine() is entrypoint.engine
+    assert _engine() is entrypoint.engine
+    constructor.assert_not_called()
+
+
+def test_prompts_and_sensor_ticks_share_the_bootstrapped_engine(monkeypatch):
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        run_extraction_op,
+        run_request_sensor,
+    )
+
+    entrypoint = ModuleType("naas_abi_core.apps.dagster.dagster")
+    available = Mock(return_value=False)
+    entrypoint.engine = SimpleNamespace(
+        services=SimpleNamespace(dataset_available=available)
+    )
+    monkeypatch.setitem(sys.modules, entrypoint.__name__, entrypoint)
+    extract = Mock(return_value=SimpleNamespace(succeeded=1, failed=0, skipped=0))
+    monkeypatch.setattr("phases_v2.extraction.factory.extract", extract)
+
+    with dg.build_op_context() as context:
+        totals = run_extraction_op(
+            context, RunConfig(prompt_ids=["first", "second"]), after={}
+        )
+    with dg.build_sensor_context() as context:
+        assert isinstance(run_request_sensor(context), dg.SkipReason)
+        assert isinstance(run_request_sensor(context), dg.SkipReason)
+
+    assert totals == {"succeeded": 2, "failed": 0, "skipped": 0}
+    assert [call.args[0] for call in extract.call_args_list] == [
+        entrypoint.engine,
+        entrypoint.engine,
+    ]
+    assert [call.kwargs["prompt_id"] for call in extract.call_args_list] == [
+        "first",
+        "second",
+    ]
+    assert available.call_count == 2
 
 
 def test_the_definitions_expose_every_stage_and_the_pipeline():
@@ -96,9 +154,7 @@ def test_no_pending_requests_produce_no_runs():
 def test_extraction_and_the_pipeline_share_a_concurrency_key():
     # Two runs over the same scope would both find the work outstanding and
     # both pay a model for it.
-    assert (
-        full_pipeline_job.tags["dagster/concurrency_key"] == "phases_v2_extraction"
-    )
+    assert full_pipeline_job.tags["dagster/concurrency_key"] == "phases_v2_extraction"
 
 
 def test_the_run_config_is_accepted_by_the_job():
@@ -106,12 +162,9 @@ def test_the_run_config_is_accepted_by_the_job():
     # already consumed the run key.
     [run_request] = build_run_requests([_request()])
 
-    result = full_pipeline_job.execute_in_process(
-        run_config=run_request.run_config, raise_on_error=False
-    )
+    result = dg.validate_run_config(full_pipeline_job, run_request.run_config)
 
-    # It will not succeed without services, but it must get past config
-    # validation rather than raising DagsterInvalidConfigError.
+    # Validate without starting the engine or contacting production services.
     assert result is not None
 
 
@@ -204,8 +257,6 @@ def test_no_stage_is_left_without_an_upstream_dependency():
     # A stage with no upstream would run immediately, in parallel with the rest.
     graph = full_pipeline_job.graph
     nodes = {n.name for n in graph.nodes}
-    with_upstream = {
-        node.name for node, inputs in graph.dependencies.items() if inputs
-    }
+    with_upstream = {node.name for node, inputs in graph.dependencies.items() if inputs}
 
     assert nodes - with_upstream == {"claim_request_op"}
