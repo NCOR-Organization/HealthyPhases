@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import UTC, datetime
 
 from phases_v2 import identity
@@ -72,6 +73,7 @@ def run_extraction(
     paper_ids: list[str] | None = None,
     max_chunks: int | None = None,
     run_id: str | None = None,
+    workers: int = 20,
 ) -> ExtractionReport:
     """Extract from every chunk that has no succeeded extraction yet.
 
@@ -79,6 +81,8 @@ def run_extraction(
     work — a run request, say — can find this run's counts later by that id
     rather than guessing which of several runs was theirs.
     """
+    if isinstance(workers, bool) or not isinstance(workers, int) or workers < 1:
+        raise ValueError("workers must be a positive integer")
     run_id = run_id or str(uuid.uuid4())
     started_at = datetime.now(UTC)
     report = ExtractionReport(run_id=run_id)
@@ -93,16 +97,43 @@ def run_extraction(
     candidates = store.count_candidates(chunker_id=chunker_id, paper_ids=paper_ids)
     report.skipped = max(candidates - len(outstanding), 0)
 
-    for chunk in outstanding:
-        _extract_one(
-            chunk,
-            store=store,
-            model=model,
-            prompt=prompt,
-            model_id=model_id,
-            run_id=run_id,
-            report=report,
-        )
+    # Only model calls run in workers. Persist and update counts on this thread.
+    chunks = iter(outstanding)
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+
+        def submit(chunk):
+            return pool.submit(
+                _extract_one,
+                chunk,
+                model=model,
+                prompt=prompt,
+                model_id=model_id,
+                run_id=run_id,
+            )
+
+        pending = {submit(chunk) for chunk in outstanding[:workers]}
+        for _ in range(min(workers, len(outstanding))):
+            next(chunks)
+        try:
+            while pending:
+                completed, pending = wait(pending, return_when=FIRST_COMPLETED)
+                for future in completed:
+                    record, items = future.result()
+                    _save(store, record, items=items)
+                    if record.status == FAILED:
+                        report.failed += 1
+                        report.errors[record.chunk_id] = (
+                            record.error or "extraction failed"
+                        )
+                    else:
+                        report.succeeded += 1
+                for _ in completed:
+                    chunk = next(chunks, None)
+                    if chunk is not None:
+                        pending.add(submit(chunk))
+        finally:
+            for future in pending:
+                future.cancel()
 
     store.save_run(
         RunRecord(
@@ -123,13 +154,11 @@ def run_extraction(
 def _extract_one(
     chunk: ChunkRef,
     *,
-    store: ExtractionStore,
     model: ExtractionModel,
     prompt: PromptTemplate,
     model_id: str,
     run_id: str,
-    report: ExtractionReport,
-) -> None:
+) -> tuple[ExtractionRecord, list[ExtractedItemRecord]]:
     extraction_id = identity.extraction_id(chunk.chunk_id, model_id, prompt.prompt_id)
     raw: str | None = None
 
@@ -139,10 +168,7 @@ def _extract_one(
     except (ModelFailed, UnusableResponse) as failure:
         if isinstance(failure, ModelFailed):
             raw = failure.raw_response
-        report.failed += 1
-        report.errors[chunk.chunk_id] = str(failure)
-        _save(
-            store,
+        return (
             _record(
                 extraction_id,
                 chunk,
@@ -158,13 +184,10 @@ def _extract_one(
                 error=str(failure),
                 item_count=0,
             ),
-            items=[],
+            [],
         )
-        return
 
-    report.succeeded += 1
-    _save(
-        store,
+    return (
         _record(
             extraction_id,
             chunk,
@@ -177,7 +200,7 @@ def _extract_one(
             error=None,
             item_count=len(items),
         ),
-        items=[
+        [
             ExtractedItemRecord(
                 item_id=identity.item_id(extraction_id, seq),
                 extraction_id=extraction_id,

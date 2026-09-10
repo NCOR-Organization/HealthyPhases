@@ -104,6 +104,7 @@ modules:
     enabled: true
     config:
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
+      extraction_workers: 20
 
   - module: naas_abi_marketplace.applications.pubmed
     enabled: true

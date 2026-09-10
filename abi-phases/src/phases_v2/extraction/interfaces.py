@@ -81,6 +81,8 @@ class ExtractionModel(Protocol):
     def complete(self, prompt: str) -> str:
         """Send ``prompt`` and return the model's raw response.
 
+        Implementations must support concurrent calls from extraction workers.
+
         Raises :class:`ModelFailed` for anything that stops one unit of work,
         so a single bad call is recorded and the run continues.
         """

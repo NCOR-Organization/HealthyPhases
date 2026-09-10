@@ -20,7 +20,7 @@ from naas_abi_core.services.object_storage.ObjectStorageService import (
 )
 from naas_abi_core.services.triple_store.TripleStoreService import TripleStoreService
 from naas_abi_core.services.vector_store.VectorStoreService import VectorStoreService
-from pydantic import SecretStr
+from pydantic import Field, SecretStr
 
 
 class PhasesV2Configuration(ModuleConfiguration):
@@ -41,6 +41,7 @@ class PhasesV2Configuration(ModuleConfiguration):
     #: needs updating whenever a module is added.
     papers_root: str = "phases_v2"
     openai_api_key: SecretStr | None = None
+    extraction_workers: int = Field(default=20, ge=1, strict=True)
 
 
 class ABIModule(BaseModule[PhasesV2Configuration]):

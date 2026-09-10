@@ -238,3 +238,18 @@ time costs nothing: 20 skipped, zero calls, no new rows.
 - **No union view across v1 and v2 graphs.** The shared vocabulary would make one possible.
 - **Snapshot retention is an operator concern.** Every write creates a DuckLake snapshot; expiry and
   compaction are not scheduled here.
+
+
+### Extraction concurrency
+
+One ingestion request still starts one full-pipeline Dagster run. Stages and
+prompts execute in order; within each prompt, a bounded thread pool overlaps
+model HTTP calls. Set `modules[].config.extraction_workers` on `phases_v2`
+(default `20`, positive integer; `1` for sequential requests). The existing
+engine and prompt-bound model are reused. Database writes and report updates
+stay on the coordinating thread, with items saved before success records.
+Only a pool-sized window is submitted, so queued work and completed responses
+remain bounded. Failed calls remain individually retryable on the next run.
+Provider retry/timeout behavior is unchanged; lower the worker count if provider
+rate limits are encountered. This setting applies to newly started execution,
+not an already-running extraction process.

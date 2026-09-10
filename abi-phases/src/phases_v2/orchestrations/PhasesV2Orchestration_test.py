@@ -58,7 +58,12 @@ def test_prompts_and_sensor_ticks_share_the_bootstrapped_engine(monkeypatch):
     entrypoint = ModuleType("naas_abi_core.apps.dagster.dagster")
     available = Mock(return_value=False)
     entrypoint.engine = SimpleNamespace(
-        services=SimpleNamespace(dataset_available=available)
+        services=SimpleNamespace(dataset_available=available),
+        modules={
+            "phases_v2": SimpleNamespace(
+                configuration=SimpleNamespace(extraction_workers=7)
+            )
+        },
     )
     monkeypatch.setitem(sys.modules, entrypoint.__name__, entrypoint)
     extract = Mock(return_value=SimpleNamespace(succeeded=1, failed=0, skipped=0))
@@ -81,6 +86,7 @@ def test_prompts_and_sensor_ticks_share_the_bootstrapped_engine(monkeypatch):
         "first",
         "second",
     ]
+    assert all(call.kwargs["workers"] == 7 for call in extract.call_args_list)
     assert available.call_count == 2
 
 

@@ -52,6 +52,7 @@ def extract(
     max_chunks: int | None = None,
     model: ExtractionModel | None = None,
     run_id: str | None = None,
+    workers: int = 20,
 ) -> ExtractionReport:
     """Run one prompt over the outstanding chunks for one model.
 
@@ -72,4 +73,5 @@ def extract(
         paper_ids=paper_ids,
         max_chunks=max_chunks,
         run_id=run_id,
+        workers=workers,
     )

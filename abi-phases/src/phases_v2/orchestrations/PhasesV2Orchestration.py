@@ -107,10 +107,14 @@ def run_extraction_op(
     """
     from phases_v2.extraction.factory import extract
 
+    engine = _engine()
+    workers = engine.modules["phases_v2"].configuration.extraction_workers
+    context.log.info(f"Extraction worker pool size: {workers}")
     totals = {"succeeded": 0, "failed": 0, "skipped": 0}
     for prompt_id in config.prompt_ids:
         report = extract(
-            _engine(),
+            engine,
+            workers=workers,
             model_id=config.model_id,
             prompt_id=prompt_id,
             chunker=_chunker(config.chunker_id),

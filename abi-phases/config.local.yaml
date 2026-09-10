@@ -130,6 +130,7 @@ modules:
       # shared with every other module.
       papers_root: "phases_v2"
       openai_api_key: "{{ secret.OPENAI_API_KEY }}"
+      extraction_workers: 20
 
   - module: naas_abi_marketplace.applications.pubmed
     enabled: true

@@ -269,3 +269,81 @@ def test_model_validation_failure_keeps_raw_tool_message():
     assert report.failed == 1
     [record] = store.extractions.values()
     assert record.raw_response == '{"tool_calls": []}'
+
+
+def test_worker_pool_overlaps_calls_and_keeps_writes_on_coordinator():
+    from threading import Barrier, get_ident
+
+    coordinator = get_ident()
+    barrier = Barrier(3, timeout=5)
+    threads = set()
+
+    class ConcurrentModel:
+        def complete(self, prompt):
+            threads.add(get_ident())
+            barrier.wait()
+            return '{"results": ["claim"]}'
+
+    class CheckedStore(FakeExtractionStore):
+        def save_items(self, items):
+            assert get_ident() == coordinator
+            super().save_items(items)
+
+        def save_extractions(self, records):
+            assert get_ident() == coordinator
+            super().save_extractions(records)
+
+    store = CheckedStore(_store(6)._chunks)
+    report = _run(store, ConcurrentModel(), workers=3)
+    assert report.succeeded == 6
+    assert len(threads) == 3
+    assert coordinator not in threads
+    assert store.write_order == ["items", "extractions"] * 6 + ["run"]
+
+
+def test_single_worker_preserves_sequential_calls():
+    model = FakeModel()
+    report = _run(_store(4), model, workers=1)
+    assert report.succeeded == 4
+    assert model.prompts == [PROMPT.rendered_for(f"chunk text {i}") for i in range(4)]
+
+
+def test_invalid_worker_counts_fail_before_work():
+    import pytest
+
+    for value in [0, -1, True, 1.5]:
+        model = FakeModel()
+        with pytest.raises(ValueError, match="positive integer"):
+            _run(_store(), model, workers=value)
+        assert model.prompts == []
+
+
+def test_store_failure_does_not_submit_the_rest_of_the_corpus():
+    import pytest
+
+    class BrokenStore(FakeExtractionStore):
+        def save_items(self, items):
+            raise RuntimeError("database unavailable")
+
+    model = FakeModel()
+    store = BrokenStore(_store(100)._chunks)
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        _run(store, model, workers=3)
+    assert len(model.prompts) <= 3
+    assert not store.runs
+
+
+def test_module_worker_configuration_defaults_and_validation():
+    import pytest
+    from pydantic import ValidationError
+
+    from phases_v2 import PhasesV2Configuration
+
+    def config(**kwargs):
+        return PhasesV2Configuration(global_config={"ai_mode": "cloud"}, **kwargs)
+
+    assert config().extraction_workers == 20
+    assert config(extraction_workers=7).extraction_workers == 7
+    for value in [0, -1, True, 1.5]:
+        with pytest.raises(ValidationError):
+            config(extraction_workers=value)
