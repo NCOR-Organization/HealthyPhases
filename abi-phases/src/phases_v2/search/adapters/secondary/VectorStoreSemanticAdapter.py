@@ -49,17 +49,30 @@ class VectorStoreSemanticAdapter:
         return ""
 
     def search(
-        self, query: str, k: int, score_threshold: float | None = None
+        self,
+        query: str,
+        k: int,
+        score_threshold: float | None = None,
+        models: list[str] | None = None,
     ) -> list[SemanticMatch]:
         [vector] = self._embedder.embed([query])
         query_vector = np.asarray(vector, dtype=np.float32)
         try:
-            results = self._vector_store.search_similar(
-                collection_name=self._collection_name,
-                query_vector=query_vector,
-                k=k,
-                score_threshold=score_threshold,
-            )
+            # The vector port supports equality filters. Take top-k per model,
+            # then combine them, so other models cannot crowd out selected ones.
+            selected_models = list(dict.fromkeys(models)) if models else [None]
+            results = []
+            for model in selected_models:
+                results.extend(
+                    self._vector_store.search_similar(
+                        collection_name=self._collection_name,
+                        query_vector=query_vector,
+                        k=k,
+                        filter={"model_id": model} if model is not None else None,
+                        score_threshold=score_threshold,
+                    )
+                )
+            results = sorted(results, key=lambda result: result.score, reverse=True)[:k]
         except Exception as exc:  # noqa: BLE001 - collection missing, store down, etc.
             logger.error(f"Semantic search failed on '{self._collection_name}': {exc}")
             return []
@@ -71,6 +84,8 @@ class VectorStoreSemanticAdapter:
                 # Pre-payload vectors can't be mapped back to an extracted item.
                 continue
             matches.append(
-                SemanticMatch(item_id=item_id, text=self._text(result), score=float(result.score))
+                SemanticMatch(
+                    item_id=item_id, text=self._text(result), score=float(result.score)
+                )
             )
         return matches

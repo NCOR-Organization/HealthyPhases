@@ -51,3 +51,43 @@ def test_a_missing_collection_is_reported_as_no_results(tmp_path):
     adapter = VectorStoreSemanticAdapter(store, FakeEmbedder())
 
     assert adapter.search("anything", k=5) == []
+
+
+def test_qdrant_filters_models_before_top_k_and_merges_selected_models():
+    from contextlib import closing
+    from types import SimpleNamespace
+
+    from naas_abi_core.services.vector_store.adapters.QdrantAdapter import QdrantAdapter
+    from qdrant_client import QdrantClient
+
+    with closing(QdrantClient(":memory:")) as client:
+        port = QdrantAdapter()
+        port.client = client
+        store = VectorStoreService(port)
+        sink = VectorStoreSink(store)
+        sink.ensure_collection(ITEMS_COLLECTION, 2)
+        docs = [
+            VectorDoc(id=f"other-{i}", text="other", metadata={"model_id": "other"})
+            for i in range(20)
+        ]
+        docs += [
+            VectorDoc(id="a", text="first", metadata={"model_id": "model-a"}),
+            VectorDoc(id="b", text="second", metadata={"model_id": "model-b"}),
+        ]
+        sink.store(ITEMS_COLLECTION, docs, [[1.0, 0.0]] * 20 + [[0.8, 0.6], [0.6, 0.8]])
+        calls = []
+
+        def embed(texts):
+            calls.append(texts)
+            return [[1.0, 0.0]]
+
+        index = VectorStoreSemanticAdapter(store, SimpleNamespace(embed=embed))
+        assert [m.item_id for m in index.search("claim", k=1, models=["model-a"])] == [
+            "a"
+        ]
+        calls.clear()
+        hits = index.search("claim", k=2, models=["model-b", "model-a", "model-a"])
+        assert [m.item_id for m in hits] == ["a", "b"]
+        assert len(calls) == 1
+        assert index.search("claim", k=1, models=["unknown"]) == []
+        assert index.search("claim", k=1, models=["model-a"], score_threshold=0.9) == []

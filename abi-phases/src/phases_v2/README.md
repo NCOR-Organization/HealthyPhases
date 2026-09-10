@@ -109,6 +109,19 @@ the verbatim text. The JSON column *rejects* unparseable output — which is exa
 keeping the model's words matters most — so the split is what makes "re-parse later instead of
 re-paying" true for failures as well as successes.
 
+## Reverse search
+
+Reverse-search results display the extraction `model_id`. The model filters list models
+with extracted items in the dataset, independently of which models are currently configured
+for new ingestion. Select several models to include any of them; prompt and model filters
+are combined. With no models selected, all models are included.
+
+Both `/phases_v2/api/search/semantic` and `/phases_v2/api/search/keyword` accept repeated
+`model` query parameters. `/phases_v2/api/search/models` returns the available model IDs.
+Semantic search embeds the query once and retrieves top matches per selected model using
+vector metadata filters, then merges them by score. Existing projections already store
+`model_id`, so this change does not require re-embedding.
+
 ## Layout
 
 Organised by **domain**, not by ABI construct. This differs from what `abi new module` scaffolds

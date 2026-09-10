@@ -106,6 +106,7 @@
     </div>
 
     <div class="facets" id="facets"></div>
+    <div class="facets" id="model-facets" role="group" aria-label="Extraction models">Loading models…</div>
   </div>
 
   <div class="status" id="status"></div>
@@ -114,7 +115,10 @@
 
 <script>
   const $ = (id) => document.getElementById(id);
-  const state = { mode: "semantic", prompts: new Set(), selected: new Set() };
+  const state = {
+    mode: "semantic", prompts: new Set(), selected: new Set(),
+    models: [], selectedModels: new Set(),
+  };
 
   // This page is served by the Nexus frontend through /app-html/, so a
   // relative fetch would hit Next and come back as its 404 page, not the ABI
@@ -202,6 +206,38 @@
     });
   }
 
+  async function loadModels() {
+    try {
+      const data = await get("/models");
+      state.models = data.models || [];
+      renderModelFacets();
+    } catch (_error) {
+      $("model-facets").textContent = "Model filters unavailable. Reload the page to retry.";
+    }
+  }
+
+  function renderModelFacets() {
+    const box = $("model-facets");
+    box.replaceChildren();
+    const hint = document.createElement("span");
+    hint.textContent = "Extraction models:";
+    box.appendChild(hint);
+    const add = (label, selected, action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "facet" + (selected ? " on" : "");
+      button.setAttribute("aria-pressed", String(selected));
+      button.textContent = label;
+      button.onclick = () => { action(); renderModelFacets(); };
+      box.appendChild(button);
+    };
+    add("All models", state.selectedModels.size === 0, () => state.selectedModels.clear());
+    state.models.forEach((model) => add(model, state.selectedModels.has(model), () => {
+      state.selectedModels.has(model)
+        ? state.selectedModels.delete(model) : state.selectedModels.add(model);
+    }));
+  }
+
   function escapeHtml(s) {
     return (s || "").replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -232,12 +268,13 @@
       const where = h.chunk_seq != null ? `chunk #${h.chunk_seq}` : "";
       const paper = h.paper_name ? `<span class="paper">${escapeHtml(h.paper_name)}</span>` : "(unknown paper)";
       const prompt = h.prompt_name ? `<span class="badge">${escapeHtml(h.prompt_name)}</span>` : "";
+      const model = `<span class="badge">Model: ${escapeHtml(h.model_id || "unknown")}</span>`;
       const context = h.chunk_text
         ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query)}</div></details>`
         : "";
       card.innerHTML = `
         <div class="text">${highlight(h.extracted_text, data.query)}</div>
-        <div class="meta">${prompt}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
+        <div class="meta">${prompt}${model}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
         ${context}`;
       box.appendChild(card);
     });
@@ -253,6 +290,7 @@
 
     const params = new URLSearchParams({ q });
     state.selected.forEach((p) => params.append("prompt", p));
+    state.selectedModels.forEach((model) => params.append("model", model));
 
     let path;
     if (state.mode === "semantic") {
@@ -283,4 +321,5 @@
 
   setMode("semantic");
   loadPrompts();
+  loadModels();
 </script>

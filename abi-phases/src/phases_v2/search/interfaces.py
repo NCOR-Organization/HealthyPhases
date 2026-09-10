@@ -23,7 +23,11 @@ class ISemanticIndexPort(Protocol):
     """
 
     def search(
-        self, query: str, k: int, score_threshold: float | None = None
+        self,
+        query: str,
+        k: int,
+        score_threshold: float | None = None,
+        models: list[str] | None = None,
     ) -> list[SemanticMatch]:
         """Return the ``k`` most similar extracted items to ``query``."""
         ...
@@ -41,6 +45,7 @@ class IExtractedItemsPort(Protocol):
         tokens: list[str],
         prompts: list[str] | None,
         limit: int,
+        models: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         """Word-presence search over extracted text.
 
@@ -52,4 +57,8 @@ class IExtractedItemsPort(Protocol):
 
     def list_prompts(self) -> list[str]:
         """Prompt names actually present in the corpus (for facets)."""
+        ...
+
+    def list_models(self) -> list[str]:
+        """Extraction model IDs actually present in the corpus."""
         ...

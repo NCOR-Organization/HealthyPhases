@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -11,6 +14,9 @@ from phases_v2.search.fakes import FakeExtractedItems, FakeSemanticIndex
 
 def _client() -> TestClient:
     items = canonical_items()
+    items[1].location = replace(
+        items[1].location, model_id="openrouter/claude-sonnet-4.6"
+    )
     service = SearchService(FakeSemanticIndex(items), FakeExtractedItems(items))
     app = FastAPI()
     register(app, service)
@@ -51,3 +57,39 @@ def test_prompts_endpoint():
     res = _client().get(f"{PREFIX}/prompts")
     assert res.status_code == 200
     assert set(res.json()["prompts"]) >= {"solitude_causes", "solitude_effects"}
+
+
+@pytest.mark.parametrize("mode", ["semantic", "keyword"])
+def test_model_filter_combines_with_prompt_filter(mode):
+    client = _client()
+    params = [("q", "isolation"), ("model", "openrouter/claude-sonnet-4.6")]
+    response = client.get(f"{PREFIX}/{mode}", params=params)
+    assert response.status_code == 200
+    assert [h["item_id"] for h in response.json()["hits"]] == ["item-causes"]
+    assert response.json()["hits"][0]["model_id"] == "openrouter/claude-sonnet-4.6"
+    assert (
+        client.get(
+            f"{PREFIX}/{mode}", params=params + [("prompt", "solitude_effects")]
+        ).json()["count"]
+        == 0
+    )
+    both = client.get(
+        f"{PREFIX}/{mode}", params=params + [("model", "openai/gpt-5-mini")]
+    )
+    assert both.status_code == 200
+    assert both.json()["count"] >= 1
+    assert (
+        client.get(
+            f"{PREFIX}/{mode}", params={"q": "isolation", "model": "unknown"}
+        ).json()["count"]
+        == 0
+    )
+
+
+def test_model_facets_only_include_models_present_in_results():
+    response = _client().get(f"{PREFIX}/models")
+    assert response.status_code == 200
+    assert response.json()["models"] == [
+        "openai/gpt-5-mini",
+        "openrouter/claude-sonnet-4.6",
+    ]

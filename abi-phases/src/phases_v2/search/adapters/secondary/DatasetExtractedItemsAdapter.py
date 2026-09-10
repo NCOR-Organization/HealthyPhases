@@ -87,6 +87,7 @@ class DatasetExtractedItemsAdapter:
         tokens: list[str],
         prompts: list[str] | None,
         limit: int,
+        models: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         if not tokens:
             return []
@@ -97,6 +98,8 @@ class DatasetExtractedItemsAdapter:
         where = f"WHERE {filters}"
         if prompts:
             where = f"{where} AND pr.name IN {in_list(prompts)}"
+        if models:
+            where = f"{where} AND e.model_id IN {in_list(models)}"
 
         sql = (
             f"SELECT {_COLUMNS} {_FROM} {where} "  # nosec B608 - values escaped via sql.literal
@@ -116,4 +119,14 @@ class DatasetExtractedItemsAdapter:
             "WHERE pr.name IS NOT NULL "
             "ORDER BY pr.name"
         )
-        return [row["prompt_name"] for row in self._query(sql) if row.get("prompt_name")]
+        return [
+            row["prompt_name"] for row in self._query(sql) if row.get("prompt_name")
+        ]
+
+    def list_models(self) -> list[str]:
+        sql = (
+            "SELECT DISTINCT e.model_id FROM extracted_items ei "
+            "JOIN extractions e ON e.extraction_id = ei.extraction_id "
+            "WHERE e.model_id IS NOT NULL AND e.model_id != '' ORDER BY e.model_id"
+        )
+        return [row["model_id"] for row in self._query(sql)]
