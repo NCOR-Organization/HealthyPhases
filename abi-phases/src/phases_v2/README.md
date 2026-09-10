@@ -109,6 +109,38 @@ the verbatim text. The JSON column *rejects* unparseable output — which is exa
 keeping the model's words matters most — so the split is what makes "re-parse later instead of
 re-paying" true for failures as well as successes.
 
+## Reverse search
+
+Reverse-search results display the extraction `model_id`. The model filters list models
+with extracted items in the dataset, independently of which models are currently configured
+for new ingestion. Select several models to include any of them; prompt and model filters
+are combined. With no models selected, all models are included.
+
+Both `/phases_v2/api/search/semantic` and `/phases_v2/api/search/keyword` accept repeated
+`model` query parameters. `/phases_v2/api/search/models` returns the available model IDs.
+Semantic search embeds the query once and retrieves top matches per selected model using
+vector metadata filters, then merges them by score. Existing projections already store
+`model_id`, so this change does not require re-embedding.
+
+Source-path filters include subfolders, match complete path components, and combine with
+model and prompt filters. Both search endpoints accept repeated `path` parameters;
+`/phases_v2/api/search/paths` lists folders and parents from papers with extracted items.
+Paths combine the paper's `storage_prefix` with the directory of its `storage_key`.
+The UI selects folders only, not individual papers. Unknown paths return no results.
+Semantic search resolves the selected folders to existing `paper_id` vector metadata,
+then combines top-k lookups per paper/model. This avoids re-embedding, at the cost of more
+vector-store calls for broad folders containing many papers.
+
+Each result includes `source_path` and the stored `prompt_template` associated with its
+`prompt_id`. The prompt viewer shows that historical template, keeping its chunk placeholder,
+alongside the separately available source context. It never substitutes the current code template.
+
+"Export displayed results (CSV)" downloads the current response without another search.
+Columns include query, mode, item ID, extracted text, score, model, prompt ID/name/template,
+paper ID/name, source folder, and chunk ID/sequence/context. CSV uses UTF-8 with a BOM,
+quoted multiline fields, and escaped quotes. Formula-like text is prefixed with an apostrophe
+to keep spreadsheet applications from evaluating it. Empty or failed searches disable export.
+
 ## Layout
 
 Organised by **domain**, not by ABI construct. This differs from what `abi new module` scaffolds

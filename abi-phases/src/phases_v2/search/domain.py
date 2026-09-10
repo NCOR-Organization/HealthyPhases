@@ -11,6 +11,7 @@ import re
 
 from phases_v2.search.interfaces import IExtractedItemsPort, ISemanticIndexPort
 from phases_v2.search.models import SearchHit
+from phases_v2.search.paths import matches_path
 
 # Semantic search over-fetches before optional prompt filtering so a tight
 # facet doesn't starve the result set.
@@ -44,6 +45,8 @@ class SearchService:
         k: int = 10,
         score_threshold: float | None = None,
         prompts: list[str] | None = None,
+        models: list[str] | None = None,
+        paths: list[str] | None = None,
     ) -> list[SearchHit]:
         query = (query or "").strip()
         if not query:
@@ -51,7 +54,16 @@ class SearchService:
         k = max(1, min(k, _MAX_K))
 
         fetch = k * _SEMANTIC_OVERFETCH if prompts else k
-        matches = self._index.search(query, k=fetch, score_threshold=score_threshold)
+        paper_ids = self._items.paper_ids_for_paths(paths) if paths else None
+        if paper_ids == []:
+            return []
+        matches = self._index.search(
+            query,
+            k=fetch,
+            score_threshold=score_threshold,
+            models=models,
+            paper_ids=paper_ids,
+        )
         if not matches:
             return []
 
@@ -61,6 +73,12 @@ class SearchService:
         hits: list[SearchHit] = []
         for match in matches:
             location = locations.get(match.item_id)
+            if paths and (
+                location is None or not matches_path(location.source_path, paths)
+            ):
+                continue
+            if models and (location is None or location.model_id not in models):
+                continue
             if wanted is not None and (
                 location is None or location.prompt_name not in wanted
             ):
@@ -82,13 +100,17 @@ class SearchService:
         query: str,
         limit: int = 25,
         prompts: list[str] | None = None,
+        models: list[str] | None = None,
+        paths: list[str] | None = None,
     ) -> list[SearchHit]:
         tokens = tokenize(query)
         if not tokens:
             return []
         limit = max(1, min(limit, _MAX_K))
 
-        rows = self._items.keyword_search(tokens, prompts=prompts, limit=limit)
+        rows = self._items.keyword_search(
+            tokens, prompts=prompts, limit=limit, models=models, paths=paths
+        )
         return [
             SearchHit.build(
                 item_id=item_id,
@@ -101,3 +123,9 @@ class SearchService:
 
     def list_prompts(self) -> list[str]:
         return self._items.list_prompts()
+
+    def list_models(self) -> list[str]:
+        return self._items.list_models()
+
+    def list_paths(self) -> list[str]:
+        return self._items.list_paths()

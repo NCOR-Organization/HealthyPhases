@@ -4,7 +4,7 @@
 Protovalidate annotations are executed locally for every tool response. The
 adapter derives the tool JSON Schema from the same descriptor, including list
 limits, nonempty strings, direction values, and evidence length. Semantic
-requirements (grounding, process wording, and logical sentence phrasing) still
+requirements (grounding, process wording, and conditional statement phrasing) still
 belong to the prompts; shape validation cannot prove them.
 
 `extraction_output.pb` is a checked-in descriptor set, including dependencies.

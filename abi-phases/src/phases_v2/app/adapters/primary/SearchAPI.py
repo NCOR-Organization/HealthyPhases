@@ -8,6 +8,7 @@ map requests to calls and dataclasses to JSON.
 from __future__ import annotations
 
 from dataclasses import asdict
+from typing import Annotated
 
 from fastapi import APIRouter, FastAPI, Query
 
@@ -26,12 +27,25 @@ def build_router(service: SearchService) -> APIRouter:
         score_threshold: float | None = Query(
             None, description="Optional minimum cosine similarity."
         ),
-        prompt: list[str] | None = Query(
-            None, description="Restrict to these prompts, by name (repeatable)."
-        ),
+        prompt: Annotated[
+            list[str] | None,
+            Query(description="Restrict to these prompts, by name (repeatable)."),
+        ] = None,
+        model: Annotated[
+            list[str] | None, Query(description="Extraction model IDs (repeatable).")
+        ] = None,
+        path: Annotated[
+            list[str] | None,
+            Query(description="Source folders, including subfolders (repeatable)."),
+        ] = None,
     ):
         hits = service.semantic_search(
-            q, k=k, score_threshold=score_threshold, prompts=prompt
+            q,
+            k=k,
+            score_threshold=score_threshold,
+            prompts=prompt,
+            models=model,
+            paths=path,
         )
         return {
             "query": q,
@@ -44,11 +58,21 @@ def build_router(service: SearchService) -> APIRouter:
     def keyword_search(
         q: str = Query(..., description="Words that must all be present."),
         limit: int = Query(25, ge=1, le=100, description="Max results."),
-        prompt: list[str] | None = Query(
-            None, description="Restrict to these prompts, by name (repeatable)."
-        ),
+        prompt: Annotated[
+            list[str] | None,
+            Query(description="Restrict to these prompts, by name (repeatable)."),
+        ] = None,
+        model: Annotated[
+            list[str] | None, Query(description="Extraction model IDs (repeatable).")
+        ] = None,
+        path: Annotated[
+            list[str] | None,
+            Query(description="Source folders, including subfolders (repeatable)."),
+        ] = None,
     ):
-        hits = service.keyword_search(q, limit=limit, prompts=prompt)
+        hits = service.keyword_search(
+            q, limit=limit, prompts=prompt, models=model, paths=path
+        )
         return {
             "query": q,
             "mode": "keyword",
@@ -59,6 +83,14 @@ def build_router(service: SearchService) -> APIRouter:
     @router.get("/prompts")
     def prompts():
         return {"prompts": service.list_prompts()}
+
+    @router.get("/models")
+    def models():
+        return {"models": service.list_models()}
+
+    @router.get("/paths")
+    def paths():
+        return {"paths": service.list_paths()}
 
     return router
 

@@ -41,20 +41,34 @@ def adapter(tmp_path):
     rows.write_rows(
         "prompts",
         [
-            {"prompt_id": "prompt-effects-hash", "name": "solitude_effects", "output_key": "effects"},
-            {"prompt_id": "prompt-causes-hash", "name": "solitude_causes", "output_key": "causes"},
+            {
+                "prompt_id": "prompt-effects-hash",
+                "name": "solitude_effects",
+                "output_key": "effects",
+            },
+            {
+                "prompt_id": "prompt-causes-hash",
+                "name": "solitude_causes",
+                "output_key": "causes",
+            },
         ],
     )
     rows.write_rows(
         "chunks",
         [
             {
-                "chunk_id": "chunk-1", "paper_id": "paper-a", "chunker_id": "w1",
-                "seq": 1, "text": "In several studies solitude reduces stress.",
+                "chunk_id": "chunk-1",
+                "paper_id": "paper-a",
+                "chunker_id": "w1",
+                "seq": 1,
+                "text": "In several studies solitude reduces stress.",
             },
             {
-                "chunk_id": "chunk-2", "paper_id": "paper-b", "chunker_id": "w1",
-                "seq": 2, "text": "Prolonged isolation increases loneliness over time.",
+                "chunk_id": "chunk-2",
+                "paper_id": "paper-b",
+                "chunker_id": "w1",
+                "seq": 2,
+                "text": "Prolonged isolation increases loneliness over time.",
             },
         ],
     )
@@ -62,14 +76,20 @@ def adapter(tmp_path):
         "extractions",
         [
             {
-                "extraction_id": "extraction-1", "chunk_id": "chunk-1",
-                "model_id": "openai/gpt-5-mini", "prompt_id": "prompt-effects-hash",
-                "run_id": "r1", "status": "succeeded",
+                "extraction_id": "extraction-1",
+                "chunk_id": "chunk-1",
+                "model_id": "openai/gpt-5-mini",
+                "prompt_id": "prompt-effects-hash",
+                "run_id": "r1",
+                "status": "succeeded",
             },
             {
-                "extraction_id": "extraction-2", "chunk_id": "chunk-2",
-                "model_id": "openai/gpt-5-mini", "prompt_id": "prompt-causes-hash",
-                "run_id": "r1", "status": "succeeded",
+                "extraction_id": "extraction-2",
+                "chunk_id": "chunk-2",
+                "model_id": "openai/gpt-5-mini",
+                "prompt_id": "prompt-causes-hash",
+                "run_id": "r1",
+                "status": "succeeded",
             },
         ],
     )
@@ -77,15 +97,21 @@ def adapter(tmp_path):
         "extracted_items",
         [
             {
-                "item_id": "item-effects", "extraction_id": "extraction-1",
-                "chunk_id": "chunk-1", "paper_id": "paper-a",
-                "prompt_id": "prompt-effects-hash", "seq": 0,
+                "item_id": "item-effects",
+                "extraction_id": "extraction-1",
+                "chunk_id": "chunk-1",
+                "paper_id": "paper-a",
+                "prompt_id": "prompt-effects-hash",
+                "seq": 0,
                 "text": "Solitude reduces stress.",
             },
             {
-                "item_id": "item-causes", "extraction_id": "extraction-2",
-                "chunk_id": "chunk-2", "paper_id": "paper-b",
-                "prompt_id": "prompt-causes-hash", "seq": 0,
+                "item_id": "item-causes",
+                "extraction_id": "extraction-2",
+                "chunk_id": "chunk-2",
+                "paper_id": "paper-b",
+                "prompt_id": "prompt-causes-hash",
+                "seq": 0,
                 "text": "Isolation increases loneliness.",
             },
         ],
@@ -95,6 +121,75 @@ def adapter(tmp_path):
 
 def test_the_contract(adapter):
     assert_extracted_items_contract(adapter)
+
+
+def test_folders_and_stored_prompt_are_resolved_from_result_provenance(adapter):
+    from phases_v2.sql import literal
+
+    template = 'Original instructions, with "quotes".\nRead {chunk_text} exactly.'
+    adapter._rows.query(
+        "UPDATE papers SET storage_prefix = 'phases_v2/solitude', storage_key = 'paid/nested/a.pdf' WHERE paper_id = 'paper-a'"
+    )
+    adapter._rows.query(
+        "UPDATE papers SET storage_prefix = 'phases_v2/solitude-other', storage_key = 'b.pdf' WHERE paper_id = 'paper-b'"
+    )
+    adapter._rows.query(
+        f"UPDATE prompts SET template = {literal(template)} WHERE prompt_id = 'prompt-effects-hash'"
+    )
+    assert adapter.list_paths() == [
+        "phases_v2",
+        "phases_v2/solitude",
+        "phases_v2/solitude-other",
+        "phases_v2/solitude/paid",
+        "phases_v2/solitude/paid/nested",
+    ]
+    assert adapter.paper_ids_for_paths(["phases_v2/solitude/"]) == ["paper-a"]
+    assert adapter.paper_ids_for_paths(
+        ["phases_v2/solitude", "phases_v2/solitude/paid"]
+    ) == ["paper-a"]
+    assert adapter.paper_ids_for_paths(
+        ["phases_v2/solitude", "phases_v2/solitude-other"]
+    ) == ["paper-a", "paper-b"]
+    assert adapter.paper_ids_for_paths(["x' OR '1'='1"]) == []
+    hits = adapter.keyword_search(["s"], None, 1, paths=["phases_v2/solitude-other"])
+    assert [hit[0] for hit in hits] == ["item-causes"]
+    location = adapter.resolve_locations(["item-effects"])["item-effects"]
+    assert location.source_path == "phases_v2/solitude/paid/nested"
+    assert location.prompt_template == template
+    assert adapter.keyword_search(["solitude"], None, 10, paths=["unknown"]) == []
+
+
+def test_model_facets_and_keyword_filters_use_extraction_provenance(adapter):
+    adapter._rows.query(
+        "UPDATE extractions SET model_id = 'openrouter/claude-sonnet-4.6' "
+        "WHERE extraction_id = 'extraction-2'"
+    )
+    assert adapter.list_models() == [
+        "openai/gpt-5-mini",
+        "openrouter/claude-sonnet-4.6",
+    ]
+    assert (
+        adapter.keyword_search(
+            ["solitude"], None, 1, models=["openrouter/claude-sonnet-4.6"]
+        )
+        == []
+    )
+    hits = adapter.keyword_search(
+        ["s"], None, 1, models=["openrouter/claude-sonnet-4.6"]
+    )
+    assert [hit[0] for hit in hits] == ["item-causes"]
+    assert (
+        adapter.keyword_search(
+            ["isolation"],
+            ["solitude_effects"],
+            1,
+            models=["openrouter/claude-sonnet-4.6"],
+        )
+        == []
+    )
+    assert (
+        adapter.keyword_search(["isolation"], None, 10, models=["x' OR '1'='1"]) == []
+    )
 
 
 def test_a_hostile_item_id_cannot_break_resolve_locations(adapter):

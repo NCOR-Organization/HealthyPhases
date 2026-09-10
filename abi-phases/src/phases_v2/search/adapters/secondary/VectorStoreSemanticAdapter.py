@@ -9,6 +9,8 @@ this module repeating the model/dimension choice.
 
 from __future__ import annotations
 
+from itertools import product
+
 import numpy as np
 from naas_abi_core import logger
 from naas_abi_core.services.vector_store.IVectorStorePort import SearchResult
@@ -49,17 +51,41 @@ class VectorStoreSemanticAdapter:
         return ""
 
     def search(
-        self, query: str, k: int, score_threshold: float | None = None
+        self,
+        query: str,
+        k: int,
+        score_threshold: float | None = None,
+        models: list[str] | None = None,
+        paper_ids: list[str] | None = None,
     ) -> list[SemanticMatch]:
+        if paper_ids == []:
+            return []
         [vector] = self._embedder.embed([query])
         query_vector = np.asarray(vector, dtype=np.float32)
         try:
-            results = self._vector_store.search_similar(
-                collection_name=self._collection_name,
-                query_vector=query_vector,
-                k=k,
-                score_threshold=score_threshold,
+            # The vector port supports equality filters. Take top-k per model,
+            # then combine them, so other models cannot crowd out selected ones.
+            selected_models = list(dict.fromkeys(models)) if models else [None]
+            selected_papers = (
+                list(dict.fromkeys(paper_ids)) if paper_ids is not None else [None]
             )
+            results = []
+            for model, paper in product(selected_models, selected_papers):
+                filters = {
+                    key: value
+                    for key, value in (("model_id", model), ("paper_id", paper))
+                    if value is not None
+                }
+                results.extend(
+                    self._vector_store.search_similar(
+                        collection_name=self._collection_name,
+                        query_vector=query_vector,
+                        k=k,
+                        filter=filters or None,
+                        score_threshold=score_threshold,
+                    )
+                )
+            results = sorted(results, key=lambda result: result.score, reverse=True)[:k]
         except Exception as exc:  # noqa: BLE001 - collection missing, store down, etc.
             logger.error(f"Semantic search failed on '{self._collection_name}': {exc}")
             return []
@@ -71,6 +97,8 @@ class VectorStoreSemanticAdapter:
                 # Pre-payload vectors can't be mapped back to an extracted item.
                 continue
             matches.append(
-                SemanticMatch(item_id=item_id, text=self._text(result), score=float(result.score))
+                SemanticMatch(
+                    item_id=item_id, text=self._text(result), score=float(result.score)
+                )
             )
         return matches
