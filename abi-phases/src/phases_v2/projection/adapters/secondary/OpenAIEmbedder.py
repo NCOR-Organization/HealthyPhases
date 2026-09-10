@@ -10,6 +10,10 @@ from typing import Any
 
 MODEL = "text-embedding-3-large"
 DIMENSION = 3072
+# LangChain splits long inputs before batching: at most 32 * 8191 = 262112
+# tokens per API request, below OpenAI's 300000-token aggregate limit.
+TOKEN_CHUNK_SIZE = 8191
+REQUEST_CHUNKS = 32
 
 
 class OpenAIEmbedder:
@@ -29,6 +33,9 @@ class OpenAIEmbedder:
             from langchain_openai import OpenAIEmbeddings
 
             self._client = OpenAIEmbeddings(
-                model=self._model, dimensions=self._dimension
+                model=self._model,
+                dimensions=self._dimension,
+                embedding_ctx_length=TOKEN_CHUNK_SIZE,
+                chunk_size=REQUEST_CHUNKS,
             )
         return self._client.embed_documents(texts)

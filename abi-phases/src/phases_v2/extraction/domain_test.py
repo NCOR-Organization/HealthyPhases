@@ -5,7 +5,7 @@ import json
 from phases_v2 import identity
 from phases_v2.extraction.domain import run_extraction
 from phases_v2.extraction.fakes import FakeExtractionStore, FakeModel
-from phases_v2.extraction.interfaces import ChunkRef, FAILED, SUCCEEDED
+from phases_v2.extraction.interfaces import FAILED, SUCCEEDED, ChunkRef
 from phases_v2.prompts.domain import PromptTemplate
 
 PROMPT = PromptTemplate(
@@ -249,3 +249,23 @@ def test_skipped_counts_what_was_already_done_within_the_scope():
 
     assert report.skipped == 3
     assert report.executed == 0
+
+
+def test_model_validation_failure_keeps_raw_tool_message():
+    from phases_v2.extraction.interfaces import ModelFailed
+
+    class InvalidToolModel:
+        def complete(self, prompt):
+            raise ModelFailed("invalid tool schema", raw_response='{"tool_calls": []}')
+
+    store = FakeExtractionStore([ChunkRef("c1", "p1", "text")])
+    report = run_extraction(
+        store=store,
+        model=InvalidToolModel(),
+        prompt=PROMPT,
+        model_id="m",
+        chunker_id="w1",
+    )
+    assert report.failed == 1
+    [record] = store.extractions.values()
+    assert record.raw_response == '{"tool_calls": []}'

@@ -226,3 +226,46 @@ def test_without_one_a_run_id_is_generated(engine):
     [run] = _query(engine, "SELECT run_id FROM extraction_runs")
     assert run["run_id"] == report.run_id
     assert run["run_id"]
+
+
+def test_failed_fenced_output_is_replaced_by_a_fresh_tool_call(engine):
+    from langchain_core.messages import AIMessage
+
+    from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
+        LangchainExtractionModel,
+    )
+
+    # One existing success must survive; the other three are old fenced failures.
+    _run(engine, max_chunks=1)
+    _run(engine, model=FakeModel('```json\n{"what": ["old"]}\n```'))
+
+    class Chat:
+        calls = 0
+
+        def bind_tools(self, tools, **kwargs):
+            assert tools[0]["function"]["parameters"]["required"] == ["what"]
+            return self
+
+        def invoke(self, prompt):
+            self.calls += 1
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "submit_extraction",
+                        "args": {"what": ["fresh"]},
+                        "id": "call-1",
+                    }
+                ],
+            )
+
+    chat = Chat()
+    report = _run(engine, model=LangchainExtractionModel(chat, "what"))
+    assert (report.succeeded, report.failed, report.skipped, chat.calls) == (3, 0, 1, 3)
+    rows = _query(engine, "SELECT response, status FROM extractions")
+    assert len(rows) == 4
+    assert all(row["status"] == "succeeded" for row in rows)
+    assert sum(row["response"] == {"what": ["fresh"]} for row in rows) == 3
+    assert sum(row["response"] == {"what": ["one", "two"]} for row in rows) == 1
+    again = _run(engine, model=LangchainExtractionModel(chat, "what"))
+    assert (again.executed, chat.calls) == (0, 3)

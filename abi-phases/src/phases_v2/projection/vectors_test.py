@@ -19,13 +19,38 @@ V1_COLLECTIONS = {"chunks", "extracted_items", "axioms", "labels"}
 def _reader(n=2):
     return FakeExtractionReader(
         papers=[{"paper_id": f"p{i}", "file_name": f"{i}.pdf"} for i in range(n)],
-        chunks=[{"chunk_id": f"c{i}", "paper_id": f"p{i}", "chunker_id": "w1",
-                 "seq": i, "text": f"chunk {i}"} for i in range(n)],
-        extractions=[{"extraction_id": f"e{i}", "chunk_id": f"c{i}", "model_id": "m",
-                      "prompt_id": "pr", "item_count": 1} for i in range(n)],
-        items=[{"item_id": f"i{i}", "extraction_id": f"e{i}", "chunk_id": f"c{i}",
-                "paper_id": f"p{i}", "prompt_id": "pr", "seq": 0,
-                "text": f"claim {i}"} for i in range(n)],
+        chunks=[
+            {
+                "chunk_id": f"c{i}",
+                "paper_id": f"p{i}",
+                "chunker_id": "w1",
+                "seq": i,
+                "text": f"chunk {i}",
+            }
+            for i in range(n)
+        ],
+        extractions=[
+            {
+                "extraction_id": f"e{i}",
+                "chunk_id": f"c{i}",
+                "model_id": "m",
+                "prompt_id": "pr",
+                "item_count": 1,
+            }
+            for i in range(n)
+        ],
+        items=[
+            {
+                "item_id": f"i{i}",
+                "extraction_id": f"e{i}",
+                "chunk_id": f"c{i}",
+                "paper_id": f"p{i}",
+                "prompt_id": "pr",
+                "seq": 0,
+                "text": f"claim {i}",
+            }
+            for i in range(n)
+        ],
     )
 
 
@@ -33,9 +58,7 @@ def _project(reader, sink=None, ledger=None, embedder=None):
     sink = sink or FakeVectorSink()
     ledger = ledger or FakeProjectionLedger()
     embedder = embedder or FakeEmbedder()
-    report = project_vectors(
-        reader=reader, embedder=embedder, sink=sink, ledger=ledger
-    )
+    report = project_vectors(reader=reader, embedder=embedder, sink=sink, ledger=ledger)
     return report, sink, ledger, embedder
 
 
@@ -89,10 +112,24 @@ def test_only_new_rows_are_embedded():
     reader = _reader()
     _r, sink, ledger, _e = _project(reader)
     reader.add_extraction(
-        {"extraction_id": "e9", "chunk_id": "c9", "model_id": "m", "prompt_id": "pr",
-         "item_count": 1},
-        items=[{"item_id": "i9", "extraction_id": "e9", "chunk_id": "c9",
-                "paper_id": "p0", "prompt_id": "pr", "seq": 0, "text": "new claim"}],
+        {
+            "extraction_id": "e9",
+            "chunk_id": "c9",
+            "model_id": "m",
+            "prompt_id": "pr",
+            "item_count": 1,
+        },
+        items=[
+            {
+                "item_id": "i9",
+                "extraction_id": "e9",
+                "chunk_id": "c9",
+                "paper_id": "p0",
+                "prompt_id": "pr",
+                "seq": 0,
+                "text": "new claim",
+            }
+        ],
     )
 
     _report, _s, _l, embedder = _project(reader, sink=sink, ledger=ledger)
@@ -129,3 +166,47 @@ def test_nothing_to_embed_calls_the_embedder_not_at_all():
     _report, _s, _l, embedder = _project(_reader(n=0))
 
     assert embedder.embedded == []
+
+
+def test_later_batch_failure_preserves_checkpoints_for_retry(monkeypatch):
+    import pytest
+
+    from phases_v2.projection import vectors
+
+    monkeypatch.setattr(vectors, "PROJECTION_BATCH_SIZE", 2)
+    reader = _reader(n=5)
+    ledger = FakeProjectionLedger()
+    sink = FakeVectorSink()
+
+    class InterruptedEmbedder(FakeEmbedder):
+        calls = 0
+
+        def embed(self, texts):
+            self.calls += 1
+            if self.calls == 2:
+                raise RuntimeError("temporary provider failure")
+            return super().embed(texts)
+
+    with pytest.raises(RuntimeError, match="provider failure"):
+        _project(reader, ledger=ledger, sink=sink, embedder=InterruptedEmbedder())
+    assert ledger.projected_keys(VECTOR_CHUNKS) == {"c0", "c1"}
+    report, _, _, embedder = _project(reader, ledger=ledger, sink=sink)
+    assert report.already_projected == 2
+    assert report.projected == 8
+    assert "chunk 0" not in embedder.embedded
+    assert "chunk 1" not in embedder.embedded
+    assert sink.count(CHUNKS_COLLECTION) == 5
+    assert sink.count(ITEMS_COLLECTION) == 5
+
+
+def test_missing_vectors_do_not_mark_documents_as_projected():
+    import pytest
+
+    class BrokenEmbedder(FakeEmbedder):
+        def embed(self, texts):
+            return []
+
+    ledger = FakeProjectionLedger()
+    with pytest.raises(ValueError, match="different number"):
+        _project(_reader(), ledger=ledger, embedder=BrokenEmbedder())
+    assert ledger.projected_keys(VECTOR_CHUNKS) == set()

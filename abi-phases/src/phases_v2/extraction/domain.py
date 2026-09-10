@@ -137,6 +137,8 @@ def _extract_one(
         raw = model.complete(prompt.rendered_for(chunk.text))
         response, items = parse_items(raw, prompt.output_key)
     except (ModelFailed, UnusableResponse) as failure:
+        if isinstance(failure, ModelFailed):
+            raw = failure.raw_response
         report.failed += 1
         report.errors[chunk.chunk_id] = str(failure)
         _save(
