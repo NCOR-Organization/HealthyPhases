@@ -32,7 +32,7 @@ _DECLARED: tuple[tuple[str, str], ...] = (
     ("solitude_when", "when"),
     ("solitude_where", "where"),
     ("solitude_effects", "effects"),
-    ("logical_sentences", "logical_sentences"),
+    ("conditional_statement", "conditional_statement"),
     ("probabilistic_processes", "relations"),
 )
 

@@ -24,7 +24,7 @@ class ItemLocation(BaseModel):
     pipeline: str | None = Field(
         default=None,
         description="Extraction pipeline that produced the item "
-        "(causes / how / when / where / effects / logical_sentences / ...).",
+        "(causes / how / when / where / effects / conditional_statement / ...).",
     )
     model: str | None = Field(
         default=None, description="LLM that produced the extraction."
