@@ -1,0 +1,286 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Phases V2 Reverse Search</title>
+<style>
+  :root {
+    --ground: #f6f8f7; --surface: #fff; --ink: #0f172a; --mute: #64748b;
+    --rule: #e2e8f0; --accent: #16a34a; --accent-2: #22c55e;
+    --chip: #ecfdf5; --chip-ink: #166534; --mark: #fde68a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --ground: #0e1413; --surface: #151d1c; --ink: #e3eae8; --mute: #859894;
+      --rule: #253431; --accent: #34d399; --accent-2: #22c55e;
+      --chip: #10241c; --chip-ink: #6ee7b7; --mark: #7c5e12;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--ground); color: var(--ink);
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
+  }
+  main { max-width: 46rem; margin: 0 auto; display: grid; gap: 1.25rem; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  p.lede { color: var(--mute); margin: .3rem 0 0; }
+  .panel {
+    background: var(--surface); border: 1px solid var(--rule); border-radius: 10px;
+    padding: 1.1rem 1.25rem;
+  }
+  .tabs { display: flex; gap: .5rem; margin-bottom: .9rem; }
+  .tab {
+    flex: 1; padding: .6rem .7rem; border: 1px solid var(--rule); background: var(--ground);
+    border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--mute); text-align: center;
+  }
+  .tab.active { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); }
+  .tab small { display: block; font-weight: 400; font-size: .72rem; opacity: .85; }
+  .searchbar { display: flex; gap: .6rem; }
+  .searchbar input[type=text] {
+    flex: 1; padding: .65rem .75rem; border: 1px solid var(--rule); border-radius: 8px;
+    font-size: .95rem; background: var(--ground); color: var(--ink);
+  }
+  button.go {
+    padding: 0 1.1rem; border: none; border-radius: 8px; background: var(--accent);
+    color: #06281a; font-weight: 700; cursor: pointer; font-size: .95rem;
+  }
+  button.go:disabled { opacity: .55; cursor: default; }
+  .controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-top: .8rem; }
+  .controls label { font-size: .8rem; color: var(--mute); display: flex; align-items: center; gap: .4rem; }
+  .controls input[type=number] {
+    width: 4.2rem; padding: .35rem .45rem; border: 1px solid var(--rule); border-radius: 6px;
+    background: var(--ground); color: var(--ink);
+  }
+  .facets { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .7rem; }
+  .facet {
+    padding: .3rem .7rem; border-radius: 999px; border: 1px solid var(--rule); background: var(--ground);
+    cursor: pointer; font-size: .8rem; color: var(--mute); user-select: none;
+  }
+  .facet.on { background: var(--chip); color: var(--chip-ink); border-color: var(--accent); font-weight: 600; }
+  .status { color: var(--mute); font-size: .85rem; margin: .9rem .1rem 0; }
+  .status.bad { color: #e0806e; }
+  .results { margin-top: .7rem; display: grid; gap: .75rem; }
+  .hit { background: var(--surface); border: 1px solid var(--rule); border-radius: 10px; padding: .9rem 1rem; }
+  .hit .text { font-size: .95rem; font-weight: 600; }
+  .meta { display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; margin-top: .6rem; font-size: .78rem; color: var(--mute); }
+  .badge { padding: .15rem .55rem; border-radius: 999px; background: var(--chip); color: var(--chip-ink); font-weight: 600; }
+  .paper { font-weight: 600; color: var(--ink); }
+  .score { margin-left: auto; font-variant-numeric: tabular-nums; }
+  details { margin-top: .6rem; }
+  details summary { cursor: pointer; color: var(--accent); font-size: .78rem; font-weight: 600; }
+  details .context {
+    margin-top: .5rem; padding: .6rem .7rem; background: var(--ground); border: 1px solid var(--rule);
+    border-radius: 6px; font-size: .8rem; color: var(--ink); white-space: pre-wrap; max-height: 16rem; overflow: auto;
+  }
+  mark { background: var(--mark); padding: 0 .1rem; border-radius: 3px; }
+  .empty { text-align: center; color: var(--mute); padding: 2.5rem 0; }
+</style>
+
+<main>
+  <header>
+    <h1>Phases V2 · Reverse Search</h1>
+    <p class="lede">Find which papers — and where in them — a claim is asserted. Search
+      semantically or by word presence over phases_v2's extracted items.</p>
+  </header>
+
+  <div class="panel">
+    <div class="tabs">
+      <div class="tab active" data-mode="semantic" id="tab-semantic">
+        Semantic<small>meaning / vector search</small>
+      </div>
+      <div class="tab" data-mode="keyword" id="tab-keyword">
+        Keyword<small>exact word presence</small>
+      </div>
+    </div>
+
+    <div class="searchbar">
+      <input type="text" id="q" placeholder="e.g. solitude reduces stress in older adults" autofocus>
+      <button class="go" id="go">Search</button>
+    </div>
+
+    <div class="controls">
+      <label id="kwrap">Results
+        <input type="number" id="k" value="10" min="1" max="100">
+      </label>
+      <label id="thwrap">Min score
+        <input type="number" id="threshold" step="0.05" min="0" max="1" placeholder="any" style="width:4.6rem">
+      </label>
+    </div>
+
+    <div class="facets" id="facets"></div>
+  </div>
+
+  <div class="status" id="status"></div>
+  <div class="results" id="results"></div>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const state = { mode: "semantic", prompts: new Set(), selected: new Set() };
+
+  // This page is served by the Nexus frontend through /app-html/, so a
+  // relative fetch would hit Next and come back as its 404 page, not the ABI
+  // API. Nexus inlines its runtime config into the document that embeds us;
+  // the iframe is same-origin (sandbox allows it), so we can read it from the
+  // parent. Falling back to a relative base keeps this working when the page
+  // is served directly by ABI instead.
+  function apiBase() {
+    const fromWindow = (w) => {
+      try {
+        return (w && w.__NEXUS_RUNTIME_CONFIG__ && w.__NEXUS_RUNTIME_CONFIG__.apiUrl) || "";
+      } catch (_crossOrigin) {
+        return "";
+      }
+    };
+    const base = fromWindow(window) || fromWindow(window.parent) || fromWindow(window.top) || "";
+    return base.replace(/\/$/, "");
+  }
+
+  const API = () => `${apiBase()}/phases_v2/api/search`;
+
+  async function readJson(response, url) {
+    const body = await response.text();
+    try {
+      return JSON.parse(body);
+    } catch (_notJson) {
+      // Almost always means the request reached the wrong server.
+      throw new Error(
+        `Expected JSON from ${url} but got ${response.status} ` +
+        `${response.headers.get("content-type") || "an unknown type"}. ` +
+        `The API base resolved to "${apiBase() || "(relative)"}" — if that is ` +
+        `the Nexus frontend rather than the ABI API, the request never ` +
+        `reached the module.`
+      );
+    }
+  }
+
+  async function get(path) {
+    const url = `${API()}${path}`;
+    const response = await fetch(url, { credentials: "include" });
+    const payload = await readJson(response, url);
+    if (!response.ok) throw new Error(payload.detail || `${response.status} from ${url}`);
+    return payload;
+  }
+
+  function setMode(mode) {
+    state.mode = mode;
+    $("tab-semantic").classList.toggle("active", mode === "semantic");
+    $("tab-keyword").classList.toggle("active", mode === "keyword");
+    $("thwrap").style.display = mode === "semantic" ? "" : "none";
+    $("kwrap").querySelector("input").value = mode === "semantic" ? 10 : 25;
+    $("q").placeholder = mode === "semantic"
+      ? "e.g. solitude reduces stress in older adults"
+      : "e.g. loneliness cortisol";
+  }
+
+  document.querySelectorAll(".tab").forEach((t) =>
+    t.addEventListener("click", () => setMode(t.dataset.mode)));
+
+  async function loadPrompts() {
+    try {
+      const data = await get("/prompts");
+      state.prompts = new Set(data.prompts || []);
+      renderFacets();
+    } catch (_e) { /* facets are optional */ }
+  }
+
+  function renderFacets() {
+    const box = $("facets");
+    box.innerHTML = "";
+    if (!state.prompts.size) return;
+    const hint = document.createElement("span");
+    hint.style.cssText = "font-size:.78rem;color:var(--mute);align-self:center;margin-right:.15rem";
+    hint.textContent = "Prompts:";
+    box.appendChild(hint);
+    [...state.prompts].forEach((p) => {
+      const el = document.createElement("span");
+      el.className = "facet" + (state.selected.has(p) ? " on" : "");
+      el.textContent = p;
+      el.onclick = () => {
+        state.selected.has(p) ? state.selected.delete(p) : state.selected.add(p);
+        renderFacets();
+      };
+      box.appendChild(el);
+    });
+  }
+
+  function escapeHtml(s) {
+    return (s || "").replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  }
+
+  function highlight(text, q) {
+    if (state.mode !== "keyword" || !text) return escapeHtml(text);
+    const tokens = (q.toLowerCase().match(/\w+/g) || []);
+    let out = escapeHtml(text);
+    [...new Set(tokens)].forEach((tok) => {
+      const re = new RegExp(`(${tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      out = out.replace(re, "<mark>$1</mark>");
+    });
+    return out;
+  }
+
+  function renderHits(data) {
+    const box = $("results");
+    box.innerHTML = "";
+    if (!data.hits.length) {
+      box.innerHTML = `<div class="empty">No matches for “${escapeHtml(data.query)}”.</div>`;
+      return;
+    }
+    data.hits.forEach((h) => {
+      const card = document.createElement("div");
+      card.className = "hit";
+      const score = h.score != null ? `<span class="score">score ${h.score.toFixed(3)}</span>` : "";
+      const where = h.chunk_seq != null ? `chunk #${h.chunk_seq}` : "";
+      const paper = h.paper_name ? `<span class="paper">${escapeHtml(h.paper_name)}</span>` : "(unknown paper)";
+      const prompt = h.prompt_name ? `<span class="badge">${escapeHtml(h.prompt_name)}</span>` : "";
+      const context = h.chunk_text
+        ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query)}</div></details>`
+        : "";
+      card.innerHTML = `
+        <div class="text">${highlight(h.extracted_text, data.query)}</div>
+        <div class="meta">${prompt}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
+        ${context}`;
+      box.appendChild(card);
+    });
+  }
+
+  async function search() {
+    const q = $("q").value.trim();
+    if (!q) return;
+    $("go").disabled = true;
+    $("status").className = "status";
+    $("status").textContent = "Searching…";
+    $("results").innerHTML = "";
+
+    const params = new URLSearchParams({ q });
+    state.selected.forEach((p) => params.append("prompt", p));
+
+    let path;
+    if (state.mode === "semantic") {
+      params.set("k", $("k").value || 10);
+      const th = $("threshold").value;
+      if (th) params.set("score_threshold", th);
+      path = `/semantic?${params}`;
+    } else {
+      params.set("limit", $("k").value || 25);
+      path = `/keyword?${params}`;
+    }
+
+    try {
+      const data = await get(path);
+      $("status").className = "status";
+      $("status").textContent = `${data.count} result${data.count === 1 ? "" : "s"} · ${data.mode} search`;
+      renderHits(data);
+    } catch (e) {
+      $("status").className = "status bad";
+      $("status").textContent = `Search failed: ${e.message}`;
+    } finally {
+      $("go").disabled = false;
+    }
+  }
+
+  $("go").addEventListener("click", search);
+  $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
+
+  setMode("semantic");
+  loadPrompts();
+</script>
