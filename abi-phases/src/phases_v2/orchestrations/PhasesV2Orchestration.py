@@ -16,9 +16,10 @@ does that, so a sensor that crashes mid-evaluation cannot strand a request in a
 state no run is working on.
 """
 
+from typing import Optional
+
 import dagster as dg
 from naas_abi_core.orchestrations.DagsterOrchestration import DagsterOrchestration
-from typing import Optional
 
 SENSOR_INTERVAL_SECONDS = 30
 REQUEST_TAG = "phases_v2/request_id"
@@ -34,11 +35,10 @@ def extraction_run_id(request_id: str, prompt_id: str) -> str:
 
 
 def _engine():
-    """The loaded engine. Imported late so module import stays cheap."""
-    from naas_abi_core.engine.Engine import Engine
+    """Reuse the engine loaded by ABI's Dagster entry point in this process."""
+    # Import at execution time: the entry point also loads these definitions.
+    from naas_abi_core.apps.dagster.dagster import engine
 
-    engine = Engine()
-    engine.load()
     return engine
 
 
