@@ -127,13 +127,16 @@ phases_v2/
 ├── chunking/               #  │ each: interfaces.py, domain.py, fakes.py,
 ├── extraction/             #  │ adapters/secondary/, factory.py, and a _test.py per file
 ├── projection/             #  │
-├── requests/               # ─┘
+├── requests/               #  │
+├── search/                 # ─┘ reverse search: semantic + keyword, over extracted_items
 ├── prompts/                # templates declared in code + their text
 ├── models/                 # the AI models a run may use
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
-├── app/                    # the pipeline app's service and HTTP endpoints
-└── apps/pipeline/          # manifest.json + the page itself
+├── app/                    # the pipeline and reverse-search apps' services and HTTP endpoints
+└── apps/
+    ├── pipeline/           # manifest.json + the page itself
+    └── reverse_search/     # manifest.json + the page itself
 ```
 
 Each domain takes its collaborators as arguments and imports no adapter, so its tests run against
