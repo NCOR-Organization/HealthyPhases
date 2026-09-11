@@ -114,3 +114,29 @@ def test_qdrant_filters_models_before_top_k_and_merges_selected_models():
         calls.clear()
         assert index.search("claim", k=1, paper_ids=[]) == []
         assert calls == []
+
+
+def test_complete_semantic_search_exceeds_one_hundred_with_stable_score_ties():
+    from contextlib import closing
+    from types import SimpleNamespace
+
+    from naas_abi_core.services.vector_store.adapters.QdrantAdapter import QdrantAdapter
+    from qdrant_client import QdrantClient
+
+    with closing(QdrantClient(":memory:")) as client:
+        port = QdrantAdapter()
+        port.client = client
+        store = VectorStoreService(port)
+        sink = VectorStoreSink(store)
+        sink.ensure_collection(ITEMS_COLLECTION, 2)
+        docs = [
+            VectorDoc(id=f"item-{i:04d}", text="claim", metadata={"model_id": "m"})
+            for i in range(205)
+        ]
+        sink.store(ITEMS_COLLECTION, docs, [[1.0, 0.0]] * 205)
+        adapter = VectorStoreSemanticAdapter(
+            store, SimpleNamespace(embed=lambda texts: [[1.0, 0.0]])
+        )
+        matches = adapter.search_all("claim", models=["m"])
+        assert [m.item_id for m in matches] == [doc.id for doc in docs]
+        assert adapter.search_all("claim", models=["missing"]) == []

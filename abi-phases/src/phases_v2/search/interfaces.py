@@ -22,6 +22,16 @@ class ISemanticIndexPort(Protocol):
     search, so the domain stays free of any embedding/vector technology.
     """
 
+    def search_all(
+        self,
+        query: str,
+        score_threshold: float | None = None,
+        models: list[str] | None = None,
+        paper_ids: list[str] | None = None,
+    ) -> list[SemanticMatch]:
+        """Return every indexed match, ordered by descending score then item ID."""
+        ...
+
     def search(
         self,
         query: str,
@@ -37,6 +47,18 @@ class ISemanticIndexPort(Protocol):
 class IExtractedItemsPort(Protocol):
     """Read access to the extracted-item corpus."""
 
+    def snapshot(self) -> int | None: ...
+
+    def at_snapshot(self, snapshot: int | None) -> IExtractedItemsPort: ...
+
+    def keyword_count(
+        self,
+        tokens: list[str],
+        prompts: list[str] | None = None,
+        models: list[str] | None = None,
+        paths: list[str] | None = None,
+    ) -> int: ...
+
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
         """Map each ``item_id`` to its paper + chunk provenance."""
         ...
@@ -48,6 +70,7 @@ class IExtractedItemsPort(Protocol):
         limit: int,
         models: list[str] | None = None,
         paths: list[str] | None = None,
+        offset: int = 0,
     ) -> list[tuple[str, str, ItemLocation]]:
         """Word-presence search over extracted text.
 

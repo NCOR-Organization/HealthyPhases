@@ -1,5 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phases V2 Reverse Search</title>
 <style>
   :root {
@@ -19,6 +20,8 @@
     margin: 0; padding: 2rem 1.25rem 4rem; background: var(--ground); color: var(--ink);
     font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, sans-serif;
   }
+  main > *, .searchbar input[type=text] { min-width: 0; }
+  .hit { overflow-wrap: anywhere; }
   main { max-width: 46rem; margin: 0 auto; display: grid; gap: 1.25rem; }
   h1 { font-size: 1.4rem; margin: 0; }
   p.lede { color: var(--mute); margin: .3rem 0 0; }
@@ -100,7 +103,7 @@
     </div>
 
     <div class="controls">
-      <label id="kwrap">Results
+      <label id="kwrap">Batch size
         <input type="number" id="k" value="10" min="1" max="100">
       </label>
       <label id="thwrap">Min score
@@ -119,9 +122,11 @@
     </div>
   </div>
 
-  <div class="status" id="status"></div>
-  <button type="button" class="facet" id="export" disabled>Export displayed results (CSV)</button>
+  <div class="status" id="status" role="status"></div>
+  <button type="button" class="facet" id="export" disabled>Export all matches (CSV)</button>
+  <div id="export-status" class="status" role="status"></div>
   <div class="results" id="results"></div>
+  <div id="scroll-sentinel"><button type="button" class="facet" id="load-more" hidden>Load more</button></div>
 </main>
 
 <script>
@@ -129,7 +134,8 @@
   const state = {
     mode: "semantic", prompts: new Set(), selected: new Set(),
     models: [], selectedModels: new Set(),
-    selectedPaths: new Set(), displayedResults: null,
+    selectedPaths: new Set(), activeSearch: null, version: 0, loading: false,
+    nextOffset: null, total: 0, seen: new Set(), controller: null, exportController: null, exporting: false,
   };
 
   // This page is served by the Nexus frontend through /app-html/, so a
@@ -168,9 +174,9 @@
     }
   }
 
-  async function get(path) {
+  async function get(path, signal) {
     const url = `${API()}${path}`;
-    const response = await fetch(url, { credentials: "include" });
+    const response = await fetch(url, { credentials: "include", signal });
     const payload = await readJson(response, url);
     if (!response.ok) throw new Error(payload.detail || `${response.status} from ${url}`);
     return payload;
@@ -279,8 +285,8 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function highlight(text, q) {
-    if (state.mode !== "keyword" || !text) return escapeHtml(text);
+  function highlight(text, q, mode) {
+    if (mode !== "keyword" || !text) return escapeHtml(text);
     const tokens = (q.toLowerCase().match(/\w+/g) || []);
     let out = escapeHtml(text);
     [...new Set(tokens)].forEach((tok) => {
@@ -290,16 +296,17 @@
     return out;
   }
 
-  function renderHits(data) {
-    state.displayedResults = data;
-    $("export").disabled = !data.hits.length;
+  function renderHits(data, append = false) {
+    $("export").disabled = !data.total || state.exporting;
     const box = $("results");
-    box.innerHTML = "";
-    if (!data.hits.length) {
+    if (!append) box.innerHTML = "";
+    if (!data.hits.length && !append) {
       box.innerHTML = `<div class="empty">No matches for “${escapeHtml(data.query)}”.</div>`;
       return;
     }
     data.hits.forEach((h) => {
+      if (state.seen.has(h.item_id)) return;
+      state.seen.add(h.item_id);
       const card = document.createElement("div");
       card.className = "hit";
       const score = h.score != null ? `<span class="score">score ${h.score.toFixed(3)}</span>` : "";
@@ -313,86 +320,120 @@
         <div class="meta">Stored template for this prompt version.</div>
         <div class="context">${escapeHtml(h.prompt_template || "Stored prompt unavailable for this result.")}</div></details>`;
       const context = h.chunk_text
-        ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query)}</div></details>`
+        ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query, data.mode)}</div></details>`
         : "";
       card.innerHTML = `
-        <div class="text">${highlight(h.extracted_text, data.query)}</div>
+        <div class="text">${highlight(h.extracted_text, data.query, data.mode)}</div>
         <div class="meta">${prompt}${model}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
         ${source}${extractionPrompt}${context}`;
       box.appendChild(card);
     });
   }
 
-  async function search() {
-    const q = $("q").value.trim();
-    if (!q) return;
-    $("go").disabled = true;
-    $("status").className = "status";
-    $("status").textContent = "Searching…";
-    $("results").innerHTML = "";
-    state.displayedResults = null;
-    $("export").disabled = true;
+  function updateStatus() {
+    const active = state.activeSearch;
+    $('status').className = 'status';
+    $('status').textContent = `Showing ${state.seen.size} of ${state.total} matches for “${active.query}” · ${active.mode} search`;
+    $('load-more').hidden = state.nextOffset === null;
+  }
 
-    const params = new URLSearchParams({ q });
-    state.selected.forEach((p) => params.append("prompt", p));
-    state.selectedModels.forEach((model) => params.append("model", model));
-    state.selectedPaths.forEach((path) => params.append("path", path));
-
-    let path;
-    if (state.mode === "semantic") {
-      params.set("k", $("k").value || 10);
-      const th = $("threshold").value;
-      if (th) params.set("score_threshold", th);
-      path = `/semantic?${params}`;
-    } else {
-      params.set("limit", $("k").value || 25);
-      path = `/keyword?${params}`;
-    }
-
+  async function loadPage(append) {
+    const version = state.version, active = state.activeSearch;
+    if (!active || state.loading || (append && state.nextOffset === null)) return;
+    state.loading = true;
+    $('load-more').disabled = true;
+    $('load-more').textContent = 'Loading...';
+    const params = new URLSearchParams(active.params);
+    params.set('offset', append ? state.nextOffset : 0);
+    let succeeded = false;
     try {
-      const data = await get(path);
-      $("status").className = "status";
-      $("status").textContent = `${data.count} result${data.count === 1 ? "" : "s"} · ${data.mode} search`;
-      renderHits(data);
-    } catch (e) {
-      $("status").className = "status bad";
-      $("status").textContent = `Search failed: ${e.message}`;
+      const data = await get(`/${active.mode}?${params}`, state.controller.signal);
+      if (version !== state.version) return;
+      if (data.snapshot != null) active.params.set('snapshot', data.snapshot);
+      state.total = data.total;
+      state.nextOffset = data.next_offset;
+      renderHits(data, append);
+      updateStatus();
+      succeeded = true;
+    } catch (error) {
+      if (version !== state.version || error.name === 'AbortError') return;
+      $('status').className = 'status bad';
+      $('status').textContent = `${append ? 'Could not load the next batch' : 'Search failed'}: ${error.message}`;
+      $('load-more').hidden = !append;
     } finally {
-      $("go").disabled = false;
+      if (version === state.version) {
+        state.loading = false;
+        $('go').disabled = false;
+        $('load-more').disabled = false;
+        $('load-more').textContent = 'Load more';
+        if (succeeded && state.nextOffset !== null && $('scroll-sentinel').getBoundingClientRect().top < innerHeight + 300) {
+          requestAnimationFrame(() => { if (version === state.version) loadPage(true); });
+        }
+      }
     }
   }
 
-  $("go").addEventListener("click", search);
-  $("q").addEventListener("keydown", (e) => { if (e.key === "Enter") search(); });
-
-  function csvCell(value) {
-    let text = value == null ? "" : String(value);
-    // Keep extracted text from being interpreted as a spreadsheet formula.
-    if (typeof value === "string" && (/^\s*[=+@-]/.test(text) || /^[\t\r\n]/.test(text))) text = "'" + text;
-    return '"' + text.replace(/"/g, '""') + '"';
+  async function search() {
+    const query = $('q').value.trim();
+    if (!query) return;
+    state.controller?.abort(); state.exportController?.abort();
+    state.controller = new AbortController(); state.exporting = false;
+    state.version += 1; state.loading = false; state.seen = new Set();
+    state.nextOffset = null; state.total = 0;
+    $('go').disabled = true;
+    $('status').className = 'status'; $('status').textContent = 'Searching...';
+    $('export-status').textContent = ''; $('results').replaceChildren();
+    $('export').disabled = true; $('load-more').hidden = true;
+    const params = new URLSearchParams({ q: query });
+    state.selected.forEach((p) => params.append('prompt', p));
+    state.selectedModels.forEach((m) => params.append('model', m));
+    state.selectedPaths.forEach((p) => params.append('path', p));
+    params.set(state.mode === 'semantic' ? 'k' : 'limit', $('k').value || 25);
+    if (state.mode === 'semantic' && $('threshold').value) params.set('score_threshold', $('threshold').value);
+    state.activeSearch = { query, mode: state.mode, params };
+    await loadPage(false);
   }
 
-  function resultsCsv(data) {
-    const columns = ["query", "mode", "item_id", "extracted_text", "score", "model_id",
-      "prompt_id", "prompt_name", "prompt_template", "paper_id", "paper_name",
-      "source_path", "chunk_id", "chunk_seq", "chunk_text"];
-    const rows = [columns.map(csvCell).join(",")];
-    data.hits.forEach((hit) => rows.push(columns.map((column) =>
-      csvCell(column === "query" ? data.query : column === "mode" ? data.mode : hit[column])).join(",")));
-    return "\uFEFF" + rows.join("\r\n") + "\r\n";
-  }
+  $('go').addEventListener('click', search);
+  $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+  $('load-more').addEventListener('click', () => loadPage(true));
+  const observer = new IntersectionObserver((entries) => {
+    if (entries.some((entry) => entry.isIntersecting)) loadPage(true);
+  }, { rootMargin: '300px' });
+  observer.observe($('scroll-sentinel'));
 
-  $("export").addEventListener("click", () => {
-    const data = state.displayedResults;
-    if (!data || !data.hits.length) return;
-    const url = URL.createObjectURL(new Blob([resultsCsv(data)], { type: "text/csv;charset=utf-8" }));
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `phases-v2-search-${new Date().toISOString().slice(0, 10)}.csv`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  $('export').addEventListener('click', async () => {
+    const active = state.activeSearch;
+    if (!active || !state.total || state.exporting) return;
+    state.exporting = true;
+    state.exportController = new AbortController();
+    $('export').disabled = true;
+    $('export-status').className = 'status';
+    $('export-status').textContent = `Preparing all matches for “${active.query}”...`;
+    const params = new URLSearchParams(active.params);
+    params.delete('k'); params.delete('limit'); params.delete('offset');
+    params.set('mode', active.mode);
+    try {
+      const endpoint = `${API()}/export?${params}`;
+      const response = await fetch(endpoint, { credentials: 'include', signal: state.exportController.signal });
+      if (!response.ok || !response.headers.get('content-type')?.includes('text/csv')) {
+        const error = await readJson(response, endpoint);
+        throw new Error(error.detail || 'Export failed.');
+      }
+      const blob = await response.blob();
+      if (active !== state.activeSearch) return;
+      const url = URL.createObjectURL(blob), link = document.createElement('a');
+      link.href = url; link.download = `phases-v2-search-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      $('export-status').textContent = 'CSV downloaded with all matching results.';
+    } catch (error) {
+      if (active !== state.activeSearch || error.name === 'AbortError') return;
+      $('export-status').className = 'status bad';
+      $('export-status').textContent = `Export failed: ${error.message}`;
+    } finally {
+      if (active === state.activeSearch) { state.exporting = false; $('export').disabled = !state.total; }
+    }
   });
 
   setMode("semantic");

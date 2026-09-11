@@ -50,6 +50,47 @@ class VectorStoreSemanticAdapter:
                     return value
         return ""
 
+    def search_all(self, query, score_threshold=None, models=None, paper_ids=None):
+        if paper_ids == []:
+            return []
+        if self._collection_name not in self._vector_store.list_collections():
+            return []
+        [vector] = self._embedder.embed([query])
+        query_vector = np.asarray(vector, dtype=np.float32)
+        selected_models = list(dict.fromkeys(models)) if models else [None]
+        selected_papers = (
+            list(dict.fromkeys(paper_ids)) if paper_ids is not None else [None]
+        )
+        matches = {}
+        for model, paper in product(selected_models, selected_papers):
+            filters = {
+                key: value
+                for key, value in (("model_id", model), ("paper_id", paper))
+                if value is not None
+            }
+            # The shared vector port has neither offsets nor a threshold count.
+            # Exhaust ranked matches without trusting indexed_vectors_count:
+            # Qdrant can also search points not yet in its HNSW index.
+            size = 512
+            while True:
+                results = self._vector_store.search_similar(
+                    collection_name=self._collection_name,
+                    query_vector=query_vector,
+                    k=size,
+                    filter=filters or None,
+                    score_threshold=score_threshold,
+                )
+                if len(results) < size:
+                    break
+                size *= 2
+            for result in results:
+                item_id = self._item_id(result)
+                if item_id:
+                    matches[item_id] = SemanticMatch(
+                        item_id, self._text(result), float(result.score)
+                    )
+        return sorted(matches.values(), key=lambda hit: (-hit.score, hit.item_id))
+
     def search(
         self,
         query: str,
@@ -85,8 +126,10 @@ class VectorStoreSemanticAdapter:
                         score_threshold=score_threshold,
                     )
                 )
-            results = sorted(results, key=lambda result: result.score, reverse=True)[:k]
-        except Exception as exc:  # noqa: BLE001 - collection missing, store down, etc.
+            results = sorted(
+                results, key=lambda result: (-result.score, self._item_id(result) or "")
+            )[:k]
+        except Exception as exc:  # noqa: BLE001 - legacy top-k API reports unavailable index as empty
             logger.error(f"Semantic search failed on '{self._collection_name}': {exc}")
             return []
 

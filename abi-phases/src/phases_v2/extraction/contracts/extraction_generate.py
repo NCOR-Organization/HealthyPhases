@@ -15,6 +15,7 @@ def main():
     contracts = (
         "phases_v2/extraction/contracts/extraction_output.proto",
         "phases_v2/app/contracts/pipeline_management.proto",
+        "phases_v2/app/contracts/search.proto",
     )
     with tempfile.TemporaryDirectory(prefix="phases-proto-") as temp:
         target = Path(temp) / "buf/validate/validate.proto"

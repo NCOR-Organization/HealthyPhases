@@ -69,9 +69,9 @@ class DatasetExtractedItemsAdapter:
     def _query(self, sql: str) -> list[dict[str, Any]]:
         try:
             return self._rows.query(sql)
-        except Exception as exc:  # noqa: BLE001 - store down, bad SQL, etc.
+        except Exception as exc:
             logger.error(f"Extracted-items query failed: {exc}")
-            return []
+            raise
 
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
         unique_ids = list(dict.fromkeys(i for i in item_ids if i))
@@ -88,6 +88,31 @@ class DatasetExtractedItemsAdapter:
             if row.get("item_id")
         }
 
+    def snapshot(self) -> int | None:
+        return self._rows.snapshot()
+
+    def at_snapshot(self, snapshot: int | None):
+        return DatasetExtractedItemsAdapter(self._rows.at_snapshot(snapshot))
+
+    def _keyword_where(self, tokens, prompts, models, paths) -> str:
+        if not tokens:
+            return "WHERE FALSE"
+        filters = " AND ".join(
+            f"LOWER(ei.text) LIKE {literal(f'%{token}%')}" for token in tokens
+        )
+        where = f"WHERE {filters}"
+        if prompts:
+            where += f" AND pr.name IN {in_list(prompts)}"
+        if models:
+            where += f" AND e.model_id IN {in_list(models)}"
+        if paths:
+            where += f" AND ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}"
+        return where
+
+    def keyword_count(self, tokens, prompts=None, models=None, paths=None) -> int:
+        where = self._keyword_where(tokens, prompts, models, paths)
+        return int(self._query(f"SELECT COUNT(*) AS total {_FROM} {where}")[0]["total"])
+
     def keyword_search(
         self,
         tokens: list[str],
@@ -95,27 +120,12 @@ class DatasetExtractedItemsAdapter:
         limit: int,
         models: list[str] | None = None,
         paths: list[str] | None = None,
+        offset: int = 0,
     ) -> list[tuple[str, str, ItemLocation]]:
-        if not tokens:
-            return []
-
-        filters = " AND ".join(
-            f"LOWER(ei.text) LIKE {literal(f'%{token}%')}" for token in tokens
-        )
-        where = f"WHERE {filters}"
-        if prompts:
-            where = f"{where} AND pr.name IN {in_list(prompts)}"
-        if models:
-            where = f"{where} AND e.model_id IN {in_list(models)}"
-        if paths:
-            paper_ids = self.paper_ids_for_paths(paths)
-            if not paper_ids:
-                return []
-            where = f"{where} AND ei.paper_id IN {in_list(paper_ids)}"
-
+        where = self._keyword_where(tokens, prompts, models, paths)
         sql = (
-            f"SELECT {_COLUMNS} {_FROM} {where} "  # nosec B608 - values escaped via sql.literal
-            f"ORDER BY p.file_name, c.seq LIMIT {int(limit)}"
+            f"SELECT {_COLUMNS} {_FROM} {where} "
+            f"ORDER BY p.file_name, c.seq, ei.item_id LIMIT {int(limit)} OFFSET {int(offset)}"
         )
         return [
             (row["item_id"], row.get("text") or "", _row_to_location(row))
