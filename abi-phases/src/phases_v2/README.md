@@ -128,14 +128,36 @@ model and prompt filters. Both search endpoints accept repeated `path` parameter
 Paths combine the paper's `storage_prefix` with the directory of its `storage_key`.
 The UI selects folders only, not individual papers. Unknown paths return no results.
 Semantic search resolves the selected folders to existing `paper_id` vector metadata,
-then combines top-k lookups per paper/model. This avoids re-embedding, at the cost of more
-vector-store calls for broad folders containing many papers.
+then combines ranked lookups per paper/model. The query is embedded once per request.
+To obtain an exact count with the shared vector port, the adapter expands each ranked
+lookup until all matches above the threshold have been read. This also includes points
+not yet counted as indexed by Qdrant. Broad semantic queries therefore cost more than
+a bounded top-k lookup; there is no silent cap on the reported total or CSV export.
 
 Each result includes `source_path` and the stored `prompt_template` associated with its
 `prompt_id`. The prompt viewer shows that historical template, keeping its chunk placeholder,
 alongside the separately available source context. It never substitutes the current code template.
 
-"Export displayed results (CSV)" downloads the current response without another search.
+The app displays "Showing N of M matches" and loads subsequent batches when the user
+scrolls to the bottom (with a manual **Load more** fallback). The batch-size control is
+limited to 100; total matches are not. Keyword results use deterministic paper/chunk/item
+ordering; semantic results use descending score with item ID as the tie-breaker.
+
+`GET /keyword` accepts `limit` and `offset`; `GET /semantic` accepts `k` and `offset`.
+Responses include `total` (also exposed as `count`), `page_count`, `has_more`, `next_offset`,
+and the dataset `snapshot`. Clients pass that snapshot to later pages and exports to
+keep keyword results and provenance consistent if ingestion adds records. Semantic scores
+are recomputed against the current vector index, which has no snapshot API; indexing
+changes can change semantic totals/order between requests. The existing CLI/top-k methods
+remain available for bounded searches.
+
+**Export all matches (CSV)** calls `GET /export?mode=keyword|semantic&q=...` using the
+last submitted query, filters, threshold, and dataset snapshot, independently of loaded
+pages or unsubmitted form edits. The server reads every matching row, spools large CSVs
+to a temporary file, and only begins the download after reads succeed, so a storage
+failure cannot masquerade as a successful partial export. New search requests cancel
+stale page responses and pending exports. Search request validation is defined in
+`app/contracts/search.proto` and generated with `make proto`.
 Columns include query, mode, item ID, extracted text, score, model, prompt ID/name/template,
 paper ID/name, source folder, and chunk ID/sequence/context. CSV uses UTF-8 with a BOM,
 quoted multiline fields, and escaped quotes. Formula-like text is prefixed with an apostrophe

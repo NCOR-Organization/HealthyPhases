@@ -13,10 +13,11 @@ from google.protobuf import (
 from phases_v2.app import contracts
 
 _POOL = descriptor_pool.DescriptorPool()
-for _file in descriptor_pb2.FileDescriptorSet.FromString(
-    files(contracts).joinpath("pipeline_management.pb").read_bytes()
-).file:
-    _POOL.Add(_file)
+for _descriptor in ("pipeline_management.pb", "search.pb"):
+    for _file in descriptor_pb2.FileDescriptorSet.FromString(
+        files(contracts).joinpath(_descriptor).read_bytes()
+    ).file:
+        _POOL.Add(_file)
 
 
 def validate_message(name: str, payload: dict) -> dict:

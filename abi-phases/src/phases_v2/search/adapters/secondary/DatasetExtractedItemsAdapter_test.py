@@ -207,3 +207,54 @@ def test_a_hostile_prompt_facet_cannot_break_keyword_search(adapter):
 
 def test_an_empty_item_id_list_is_a_no_op(adapter):
     assert adapter.resolve_locations([]) == {}
+
+
+def test_count_and_pagination_use_identical_filters_and_stable_ties(adapter):
+    adapter._rows.write_rows(
+        "extracted_items",
+        [
+            {
+                "item_id": f"bulk-{i:04d}",
+                "text": "bulkneedle evidence",
+                "extraction_id": "extraction-1",
+                "chunk_id": "chunk-1",
+                "paper_id": "paper-a",
+                "prompt_id": "prompt-effects-hash",
+                "seq": i,
+            }
+            for i in range(275)
+        ],
+    )
+    assert (
+        adapter.keyword_count(
+            ["bulkneedle"], ["solitude_effects"], ["openai/gpt-5-mini"]
+        )
+        == 275
+    )
+    assert adapter.keyword_count(["bulkneedle"], ["solitude_causes"]) == 0
+    ids = []
+    for offset in (0, 100, 200):
+        ids.extend(
+            row[0]
+            for row in adapter.keyword_search(
+                ["bulkneedle"],
+                ["solitude_effects"],
+                100,
+                models=["openai/gpt-5-mini"],
+                offset=offset,
+            )
+        )
+    assert ids == [f"bulk-{i:04d}" for i in range(275)]
+    assert adapter.keyword_count([]) == 0
+
+
+def test_read_view_pins_keyword_count_and_pages_while_new_items_arrive(adapter):
+    view = adapter.at_snapshot(adapter.snapshot())
+    before = view.keyword_count(["solitude"])
+    adapter._rows.write_rows(
+        "extracted_items",
+        [{"item_id": "later", "text": "solitude", "paper_id": "paper-a"}],
+    )
+    assert adapter.keyword_count(["solitude"]) == before + 1
+    assert view.keyword_count(["solitude"]) == before
+    assert len(view.keyword_search(["solitude"], None, 100)) == before

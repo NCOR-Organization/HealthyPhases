@@ -8,6 +8,7 @@ OpenAI. Ported from ``phases.app.domain.SearchService``.
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 
 from phases_v2.search.interfaces import IExtractedItemsPort, ISemanticIndexPort
 from phases_v2.search.models import SearchHit
@@ -120,6 +121,96 @@ class SearchService:
             )
             for item_id, text, location in rows
         ]
+
+    def read_view(self, snapshot: int | None = None):
+        version = self._items.snapshot() if snapshot is None else snapshot
+        return SearchService(self._index, self._items.at_snapshot(version)), version
+
+    def _semantic_hits(
+        self, query, score_threshold=None, prompts=None, models=None, paths=None
+    ):
+        if not query.strip():
+            return
+        paper_ids = self._items.paper_ids_for_paths(paths) if paths else None
+        matches = self._index.search_all(
+            query.strip(), score_threshold, models, paper_ids
+        )
+        seen = set()
+        for start in range(0, len(matches), 500):
+            batch = matches[start : start + 500]
+            locations = self._items.resolve_locations([m.item_id for m in batch])
+            for match in batch:
+                loc = locations.get(match.item_id)
+                if match.item_id in seen:
+                    continue
+                seen.add(match.item_id)
+                if paths and (loc is None or not matches_path(loc.source_path, paths)):
+                    continue
+                if models and (loc is None or loc.model_id not in models):
+                    continue
+                if prompts and (loc is None or loc.prompt_name not in prompts):
+                    continue
+                yield SearchHit.build(
+                    item_id=match.item_id,
+                    extracted_text=match.text,
+                    location=loc,
+                    score=match.score,
+                )
+
+    def page(
+        self,
+        mode: str,
+        query: str,
+        limit: int = 25,
+        offset: int = 0,
+        score_threshold=None,
+        prompts=None,
+        models=None,
+        paths=None,
+    ) -> tuple[list[SearchHit], int]:
+        if mode == "keyword":
+            tokens = tokenize(query)
+            total = self._items.keyword_count(tokens, prompts, models, paths)
+            rows = self._items.keyword_search(
+                tokens, prompts, limit, models, paths, offset
+            )
+            return [
+                SearchHit.build(item_id=i, extracted_text=t, location=l)
+                for i, t, l in rows
+            ], total
+        hits, total = [], 0
+        for hit in self._semantic_hits(query, score_threshold, prompts, models, paths):
+            if offset <= total < offset + limit:
+                hits.append(hit)
+            total += 1
+        return hits, total
+
+    def all_hits(
+        self,
+        mode: str,
+        query: str,
+        score_threshold=None,
+        prompts=None,
+        models=None,
+        paths=None,
+    ) -> Iterator[SearchHit]:
+        if mode == "semantic":
+            yield from self._semantic_hits(
+                query, score_threshold, prompts, models, paths
+            )
+            return
+        tokens, offset = tokenize(query), 0
+        while True:
+            rows = self._items.keyword_search(
+                tokens, prompts, 500, models, paths, offset
+            )
+            for item_id, text, location in rows:
+                yield SearchHit.build(
+                    item_id=item_id, extracted_text=text, location=location
+                )
+            if len(rows) < 500:
+                break
+            offset += len(rows)
 
     def list_prompts(self) -> list[str]:
         return self._items.list_prompts()
