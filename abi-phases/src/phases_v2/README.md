@@ -253,3 +253,56 @@ remain bounded. Failed calls remain individually retryable on the next run.
 Provider retry/timeout behavior is unchanged; lower the worker count if provider
 rate limits are encountered. This setting applies to newly started execution,
 not an already-running extraction process.
+
+
+## Authoring pipelines in the web app
+
+The Phases Pipeline app supports the following workflow:
+
+1. Create an input collection under the configured `papers_root`.
+2. Upload PDFs into that collection (25 MiB per file). Each file reports its own
+   outcome; uploads do not start extraction. Uploads use content-addressed paths,
+   so retries are idempotent and different PDFs with the same filename coexist.
+3. Create or duplicate a prompt, including `{chunk_text}` in the template. Select
+   an existing validated output format; `results` is the generic list of claims.
+   Saving changed text creates a new version. Changing only the output format
+   requires changing the name or template too, preserving existing prompt IDs.
+4. Choose locations, prompt versions, chunker, and model. Request a run immediately,
+   or save a named configuration and use **Run saved pipeline** later.
+5. Use **Refresh status** to follow requests. The app does not poll continuously.
+
+Saved configurations are immutable copies of their inputs; load one, edit the form,
+and save a new configuration to make a variant. They reference exact prompt versions
+but include whatever documents their locations contain when ingestion starts.
+Deleting prompts, documents, and configurations is not exposed by this UI.
+
+The `input_locations` dataset stores named prefixes, including empty collections.
+The `pipelines` dataset stores named configurations and their input JSON. Both are
+created at module initialization using the existing dataset service; no existing
+schema migration is required. Restart the ABI API and Dagster processes after upgrading.
+These catalogs share the existing module storage scope; they are not per-user workspaces.
+
+Full pipeline runs pass the IDs of successfully ingested or already-ingested selected
+papers through chunking and extraction. An empty collection remains an empty scope;
+it never falls back to the whole corpus. Standalone stage jobs retain their existing
+whole-corpus default. Graph and vector projections remain incremental shared projections.
+
+New authoring endpoints require the platform's existing ABI API key or registered
+Nexus session-token validation. The embedded UI sends the current Nexus session token;
+a direct API client supplies `Authorization: Bearer ...`. No new authentication scheme
+or inter-domain security policy is introduced. Uploads validate size, filename, path,
+and PDF header; full PDF rendering happens during ingestion.
+
+New endpoints under `/phases_v2/api`:
+
+- `POST /prompts`: save `{name, template, output_key}` as a prompt version.
+- `POST /locations`: create `{name}` beneath the configured papers root.
+- `POST /documents?location=...&filename=...`: upload raw PDF bytes.
+- `GET /pipelines` and `POST /pipelines`: list/save `{name, inputs}` configurations.
+- `POST /pipelines/{pipeline_id}/requests`: request the saved configuration.
+
+Management request shapes and validation are defined in
+`app/contracts/pipeline_management.proto`. `make proto` regenerates both checked-in
+Protobuf descriptors using the existing checksum-pinned Protovalidate source. Python
+loads the generated descriptors and runs Protovalidate before persistence. Format
+compatibility and storage-root containment are checked by the application service.

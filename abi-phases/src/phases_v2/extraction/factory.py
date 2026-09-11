@@ -23,7 +23,15 @@ from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
 
 
-def resolve_prompt(prompt_id: str) -> PromptTemplate:
+def resolve_prompt(prompt_id: str, rows=None) -> PromptTemplate:
+    if rows is not None:
+        from phases_v2.sql import literal
+
+        matches = rows.query(
+            f"SELECT name, template, output_key FROM prompts WHERE prompt_id = {literal(prompt_id)}"
+        )
+        if matches:
+            return PromptTemplate(**matches[0])
     for template in declared_prompts():
         if template.prompt_id == prompt_id:
             return template
@@ -59,7 +67,7 @@ def extract(
     ``resolve_model`` and ``resolve_prompt`` run before anything is written, so
     a run naming something undeclared fails without leaving rows behind.
     """
-    prompt = resolve_prompt(prompt_id)
+    prompt = resolve_prompt(prompt_id, DatasetRowStore(engine.services.dataset))
     resolve_model(model_id)
 
     return run_extraction(

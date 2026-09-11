@@ -16,8 +16,6 @@ does that, so a sensor that crashes mid-evaluation cannot strand a request in a
 state no run is working on.
 """
 
-from typing import Optional
-
 import dagster as dg
 from naas_abi_core.orchestrations.DagsterOrchestration import DagsterOrchestration
 
@@ -55,7 +53,7 @@ class RunConfig(dg.Config):
     prompt_ids: list[str] = []
     model_id: str = ""
     request_id: str = ""
-    max_chunks: Optional[int] = None
+    max_chunks: int | None = None
 
 
 def _chunker(chunker_id: str):
@@ -79,7 +77,11 @@ def ingest_papers_op(
         context.log.warning(f"Could not read ingestion location {location}: {error}")
     for paper, error in report.failed_papers.items():
         context.log.warning(f"Could not ingest paper {paper}: {error}")
-    return {"ingested": report.ingested, "skipped": report.skipped}
+    return {
+        "ingested": report.ingested,
+        "skipped": report.skipped,
+        "paper_ids": report.paper_ids,
+    }
 
 
 @dg.op
@@ -88,11 +90,16 @@ def chunk_papers_op(
 ) -> dict:
     from phases_v2.chunking.factory import chunk_corpus
 
-    report = chunk_corpus(_engine(), chunker=_chunker(config.chunker_id))
+    paper_ids = after.get("paper_ids")
+    if config.request_id and paper_ids is None:
+        raise ValueError("The request is missing its ingested document scope")
+    report = chunk_corpus(
+        _engine(), chunker=_chunker(config.chunker_id), paper_ids=paper_ids
+    )
     context.log.info(
         f"papers_chunked={report.papers_chunked} chunks={report.chunks_written}"
     )
-    return {"chunks_written": report.chunks_written}
+    return {"chunks_written": report.chunks_written, "paper_ids": paper_ids}
 
 
 @dg.op
@@ -110,6 +117,9 @@ def run_extraction_op(
     engine = _engine()
     workers = engine.modules["phases_v2"].configuration.extraction_workers
     context.log.info(f"Extraction worker pool size: {workers}")
+    paper_ids = after.get("paper_ids")
+    if config.request_id and paper_ids is None:
+        raise ValueError("The request is missing its ingested document scope")
     totals = {"succeeded": 0, "failed": 0, "skipped": 0}
     for prompt_id in config.prompt_ids:
         report = extract(
@@ -119,6 +129,7 @@ def run_extraction_op(
             prompt_id=prompt_id,
             chunker=_chunker(config.chunker_id),
             max_chunks=config.max_chunks,
+            paper_ids=paper_ids,
             run_id=(
                 extraction_run_id(config.request_id, prompt_id)
                 if config.request_id

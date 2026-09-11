@@ -31,4 +31,7 @@ naas-abi-marketplace = { path = ".abi/libs/naas-abi-marketplace",  editable = tr
 naas-abi-cli = { path = ".abi/libs/naas-abi-cli",  editable = true }
 
 [tool.setuptools.package-data]
+"phases_v2" = ["apps/*/*.html", "apps/*/manifest.json", "prompts/templates/*.txt", "ontologies/*.ttl", "README.md"]
 "phases_v2.extraction.contracts" = ["*.proto", "*.pb"]
+
+"phases_v2.app.contracts" = ["*.proto", "*.pb"]

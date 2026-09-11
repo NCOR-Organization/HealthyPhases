@@ -191,6 +191,23 @@ RUN_REQUESTS = _spec(
     primary_key=("request_id",),
 )
 
+INPUT_LOCATIONS = _spec(
+    "input_locations",
+    (("prefix", "string"), ("name", "string"), ("created_at", "timestamp")),
+    primary_key=("prefix",),
+)
+
+PIPELINES = _spec(
+    "pipelines",
+    (
+        ("pipeline_id", "string"),
+        ("name", "string"),
+        ("inputs", "json"),
+        ("created_at", "timestamp"),
+    ),
+    primary_key=("pipeline_id",),
+)
+
 DATASETS: tuple[DatasetSpec, ...] = (
     PAPERS,
     CHUNKERS,
@@ -202,4 +219,6 @@ DATASETS: tuple[DatasetSpec, ...] = (
     EXTRACTED_ITEMS,
     PROJECTIONS,
     RUN_REQUESTS,
+    INPUT_LOCATIONS,
+    PIPELINES,
 )
