@@ -78,4 +78,6 @@ def test_the_expected_datasets_are_declared():
         "extracted_items",
         "projections",
         "run_requests",
+        "input_locations",
+        "pipelines",
     }

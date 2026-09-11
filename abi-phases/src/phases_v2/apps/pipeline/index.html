@@ -1,5 +1,6 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phases Pipeline</title>
 <style>
   :root {
@@ -17,6 +18,8 @@
     margin: 0; padding: 2rem 1.25rem 4rem; background: var(--ground); color: var(--ink);
     font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   }
+  main > *, .grid > * { min-width: 0; }
+  td, .msg, pre { overflow-wrap: anywhere; }
   main { max-width: 60rem; margin: 0 auto; display: grid; gap: 1.5rem; }
   h1 { font-size: 1.5rem; margin: 0; }
   p.lede { color: var(--mute); margin: .3rem 0 0; max-width: 46rem; }
@@ -24,7 +27,9 @@
   h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin: 0 0 .9rem; }
   .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
   label { display: block; font-size: .8rem; color: var(--mute); margin-bottom: .3rem; }
-  select, input, button { font: inherit; padding: .5rem .6rem; border-radius: 4px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); width: 100%; }
+  select, input, button, textarea { font: inherit; padding: .5rem .6rem; border-radius: 4px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); width: 100%; }
+  textarea { min-height: 15rem; resize: vertical; font-family: ui-monospace, monospace; }
+  [role="status"] { white-space: pre-wrap; }
   select[multiple] { min-height: 6rem; }
   button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
   button:disabled { opacity: .55; cursor: not-allowed; }
@@ -34,6 +39,7 @@
   .msg.warn { color: var(--warn); }
   .msg.ok { color: var(--accent); }
   table { width: 100%; border-collapse: collapse; font-size: .86rem; }
+  .wrap table { min-width: 42rem; }
   th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
   th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); }
   .pill { font-size: .72rem; padding: .1rem .45rem; border-radius: 99px; border: 1px solid var(--rule); }
@@ -53,6 +59,31 @@
     <p class="lede">Pick what a run should cover. The request is recorded and the
       orchestrator picks it up, so you can submit one even while it is down.</p>
   </header>
+
+  <section>
+    <h2>Saved pipelines</h2>
+    <label for="saved-pipeline">Configuration</label>
+    <select id="saved-pipeline"><option value="">No saved pipelines</option></select>
+    <div class="row">
+      <button id="load-pipeline">Load configuration</button>
+      <button id="run-pipeline">Run saved pipeline</button>
+    </div>
+    <p id="pipeline-message" class="msg" role="status"></p>
+  </section>
+
+  <section>
+    <h2>Input collections</h2>
+    <label for="location-name">New collection name</label>
+    <input id="location-name" maxlength="100" placeholder="e.g. Sleep studies">
+    <div class="row"><button id="create-location">Create collection</button></div>
+    <p id="location-message" class="msg" role="status"></p>
+    <label for="upload-location">Upload destination</label>
+    <select id="upload-location"></select>
+    <label for="upload-files">PDF documents (up to 25 MiB each)</label>
+    <input id="upload-files" type="file" accept=".pdf,application/pdf" multiple>
+    <div class="row"><button id="upload">Upload documents</button></div>
+    <p id="upload-message" class="msg" role="status"></p>
+  </section>
 
   <section>
     <h2>New run</h2>
@@ -76,8 +107,12 @@
     </div>
     <div class="row">
       <button id="submit" style="width:auto">Request run</button>
-      <span id="message" class="msg"></span>
+      <span id="message" class="msg" role="status"></span>
     </div>
+    <label for="pipeline-name">Save these inputs as a reusable pipeline</label>
+    <input id="pipeline-name" maxlength="100" placeholder="Pipeline name">
+    <div class="row"><button id="save-pipeline">Save new configuration</button></div>
+    <p class="hint">Each saved configuration keeps the selected prompt versions. Uploads added to its locations are included when it next runs.</p>
     <p id="chunker-warning" class="msg warn"></p>
   </section>
 
@@ -93,7 +128,25 @@
   </section>
 
   <section>
+    <h2>Prompt library</h2>
+    <label for="edit-prompt">Start from a saved prompt version</label>
+    <select id="edit-prompt"></select>
+    <div class="row"><button id="new-prompt">New prompt</button><button id="duplicate-prompt">Duplicate prompt</button></div>
+    <label for="prompt-name">Prompt name</label>
+    <input id="prompt-name" maxlength="100">
+    <label for="prompt-format">Output format</label>
+    <select id="prompt-format"></select>
+    <pre id="format-example" class="hint" style="white-space:pre-wrap"></pre>
+    <label for="prompt-text">Template (include {chunk_text} where the document text belongs)</label>
+    <textarea id="prompt-text" maxlength="100000" spellcheck="false"></textarea>
+    <div class="row"><button id="save-prompt">Save prompt version</button></div>
+    <p class="hint">Edits create a new version. Earlier results and saved pipelines keep their original prompt.</p>
+    <p id="prompt-message" class="msg" role="status"></p>
+  </section>
+
+  <section>
     <h2>Requests</h2>
+    <button id="refresh-requests" style="width:auto">Refresh status</button>
     <div class="wrap">
       <table>
         <thead>
@@ -144,9 +197,43 @@
     }
   }
 
+  function authHeaders() {
+    try {
+      const token = JSON.parse(localStorage.getItem('nexus-auth') || '{}').state?.token;
+      return token ? { Authorization: `Bearer ${token}` } : {};
+    } catch (_unavailable) { return {}; }
+  }
+
+  function escapeHtml(value) {
+    const span = document.createElement('span');
+    span.textContent = String(value ?? '');
+    return span.innerHTML;
+  }
+
+  async function post(path, body, raw = false) {
+    const url = `${API()}${path}`;
+    const response = await fetch(url, {
+      method: 'POST', credentials: 'include',
+      headers: { ...authHeaders(), 'Content-Type': raw ? 'application/pdf' : 'application/json' },
+      body: raw ? body : JSON.stringify(body),
+    });
+    const payload = await readJson(response, url);
+    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : JSON.stringify(payload.detail || payload));
+    return payload;
+  }
+
+  async function action(buttonId, messageId, operation) {
+    const button = $(buttonId), message = $(messageId);
+    button.disabled = true;
+    message.className = 'msg'; message.textContent = 'Working...';
+    try { await operation(message); }
+    catch (error) { message.className = 'msg bad'; message.textContent = error.message || String(error); }
+    finally { button.disabled = false; }
+  }
+
   async function get(path) {
     const url = `${API()}${path}`;
-    const response = await fetch(url, { credentials: "include" });
+    const response = await fetch(url, { credentials: "include", headers: authHeaders() });
     const payload = await readJson(response, url);
     if (!response.ok) throw new Error(payload.detail || `${response.status} from ${url}`);
     return payload;
@@ -180,8 +267,12 @@
       get("/locations"), get("/chunkers"), get("/prompts"), get("/models"),
     ]);
     fill($("locations"), locations.locations, "prefix", (l) => l.name);
+    fill($("upload-location"), locations.locations, "prefix", (l) => l.name);
     fill($("chunker"), chunkers.chunkers, "chunker_id", (c) => `${c.name} v${c.version}`);
-    fill($("prompt"), prompts.prompts, "prompt_id", (p) => p.name);
+    promptLibrary = prompts.prompts;
+    fill($("prompt"), prompts.prompts, "prompt_id", promptLabel);
+    fill($("edit-prompt"), prompts.prompts, "prompt_id", promptLabel);
+    editPrompt();
     // Every prompt by default: extracting one dimension of a corpus at a time
     // is the exception, not the norm.
     for (const option of $("prompt").options) option.selected = true;
@@ -215,11 +306,11 @@
       const detail = await get(`/requests/${request.request_id}`);
       const row = document.createElement("tr");
       row.innerHTML = `
-        <td><code>${detail.request_id.slice(0, 8)}</code></td>
-        <td><span class="pill ${detail.status}">${detail.status}</span></td>
-        <td>${detail.prompt_id}</td>
-        <td>${detail.model_id}</td>
-        <td>${result(detail)}</td>`;
+        <td><code>${escapeHtml(detail.request_id.slice(0, 8))}</code></td>
+        <td><span class="pill ${escapeHtml(detail.status)}">${escapeHtml(detail.status)}</span></td>
+        <td>${escapeHtml((detail.prompt_ids || []).join(", "))}</td>
+        <td>${escapeHtml(detail.model_id)}</td>
+        <td>${escapeHtml(result(detail))}</td>`;
       body.append(row);
     }
   }
@@ -272,54 +363,120 @@
           ? '<span class="pill succeeded">ingested</span>'
           : '<span class="pill pending">new</span>';
       row.innerHTML =
-        `<td>${doc.name}</td><td class="muted">${doc.location}</td>` +
-        `<td class="muted">${doc.key}</td><td>${state}</td>`;
+        `<td>${escapeHtml(doc.name)}</td><td class="muted">${escapeHtml(doc.location)}</td>` +
+        `<td class="muted">${escapeHtml(doc.key)}</td><td>${state}</td>`;
       body.append(row);
     }
   }
 
-  async function submit() {
-    const message = $("message");
-    message.className = "msg";
-    message.textContent = "";
-
-    const body = {
-      locations: selected($("locations")),
-      chunker_id: $("chunker").value,
-      prompt_ids: selected($("prompt")),
-      model_id: $("model").value,
-    };
-
-    const url = `${API()}/requests`;
-    const response = await fetch(url, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    let payload;
-    try {
-      payload = await readJson(response, url);
-    } catch (error) {
-      message.className = "msg bad";
-      message.textContent = String(error.message || error);
-      return;
-    }
-
-    if (!response.ok) {
-      message.className = "msg bad";
-      message.textContent = payload.detail || "Could not record the request.";
-      return;
-    }
-    message.className = "msg ok";
-    message.textContent = `Requested. It will start when the orchestrator picks it up.`;
-    await loadRequests();
+  let promptLibrary = [], savedPipelines = [];
+  const promptLabel = (p) => `${p.name} (${p.prompt_id.slice(-12)})`;
+  const inputs = () => ({
+    locations: selected($("locations")), chunker_id: $('chunker').value,
+    prompt_ids: selected($("prompt")), model_id: $('model').value,
+  });
+  function selectValues(id, values) {
+    for (const option of $(id).options) option.selected = values.includes(option.value);
   }
+  function editPrompt() {
+    const prompt = promptLibrary.find((p) => p.prompt_id === $('edit-prompt').value);
+    if (!prompt) return;
+    $('prompt-name').value = prompt.name;
+    $('prompt-text').value = prompt.template;
+    $('prompt-format').value = prompt.output_key;
+    showFormat();
+  }
+  function showFormat() {
+    const key = $('prompt-format').value;
+    $('format-example').textContent = key === 'relations'
+      ? 'Structured process/disposition relations. Duplicate the probabilistic_processes prompt for its full format.'
+      : `Return up to 10 non-empty strings: ${JSON.stringify({ [key]: ['An extracted claim'] })}`;
+  }
+  async function refreshLocations(pick) {
+    const previous = pick ? [pick] : selected($('locations'));
+    const { locations } = await get('/locations');
+    fill($('locations'), locations, 'prefix', (l) => l.name);
+    selectValues('locations', previous);
+    fill($('upload-location'), locations, 'prefix', (l) => l.name);
+    if (pick) $('upload-location').value = pick;
+    await refreshDocuments();
+  }
+  async function refreshPipelines(pick) {
+    const { pipelines } = await get('/pipelines'); savedPipelines = pipelines;
+    fill($('saved-pipeline'), pipelines, 'pipeline_id', (p) => `${p.name} (${new Date(p.created_at).toLocaleString()})`);
+    if (pick) $('saved-pipeline').value = pick;
+    $('load-pipeline').disabled = $('run-pipeline').disabled = pipelines.length === 0;
+  }
+  async function submit() {
+    await action('submit', 'message', async (message) => {
+      await post('/requests', inputs());
+      message.textContent = 'Requested. The orchestrator will pick it up.';
+      await loadRequests();
+    });
+  }
+  $('create-location').addEventListener('click', () => action('create-location', 'location-message', async (message) => {
+    const location = await post('/locations', { name: $('location-name').value.trim() });
+    await refreshLocations(location.prefix); message.textContent = 'Collection created. You can upload PDFs now.';
+  }));
+  $('upload').addEventListener('click', () => action('upload', 'upload-message', async (message) => {
+    const files = [...$('upload-files').files], location = $('upload-location').value;
+    if (!files.length) throw new Error('Select at least one PDF.');
+    const outcomes = [];
+    for (const file of files) {
+      try {
+        if (file.size > 25 * 1024 * 1024) throw new Error('exceeds 25 MiB');
+        await post(`/documents?location=${encodeURIComponent(location)}&filename=${encodeURIComponent(file.name)}`, file, true);
+        outcomes.push(`${file.name}: uploaded`);
+      } catch (error) { outcomes.push(`${file.name}: failed - ${error.message}`); }
+      message.textContent = outcomes.join('\n');
+    }
+    await refreshLocations(location);
+  }));
+  $('save-prompt').addEventListener('click', () => action('save-prompt', 'prompt-message', async (message) => {
+    const prompt = await post('/prompts', { name: $('prompt-name').value.trim(), template: $('prompt-text').value, output_key: $('prompt-format').value });
+    const old = selected($('prompt'));
+    promptLibrary = (await get('/prompts')).prompts;
+    fill($('prompt'), promptLibrary, 'prompt_id', promptLabel);
+    selectValues('prompt', [...old, prompt.prompt_id]);
+    fill($('edit-prompt'), promptLibrary, 'prompt_id', promptLabel);
+    $('edit-prompt').value = prompt.prompt_id;
+    message.textContent = 'Version saved and selected for the new run.';
+  }));
+  $('edit-prompt').addEventListener('change', editPrompt);
+  $('prompt-format').addEventListener('change', showFormat);
+  $('new-prompt').addEventListener('click', () => {
+    $('prompt-name').value = ''; $('prompt-text').value = 'Extract claims from the following document text:\n\n{chunk_text}';
+    $('prompt-format').value = 'results'; showFormat(); $('prompt-name').focus();
+  });
+  $('duplicate-prompt').addEventListener('click', () => {
+    $('prompt-name').value += ' copy'; $('prompt-name').focus();
+  });
+  $('save-pipeline').addEventListener('click', () => action('save-pipeline', 'pipeline-message', async (message) => {
+    const pipeline = await post('/pipelines', { name: $('pipeline-name').value.trim(), inputs: inputs() });
+    await refreshPipelines(pipeline.pipeline_id); message.textContent = 'Configuration saved.';
+  }));
+  $('load-pipeline').addEventListener('click', () => action('load-pipeline', 'pipeline-message', async (message) => {
+    const pipeline = savedPipelines.find((p) => p.pipeline_id === $('saved-pipeline').value);
+    if (!pipeline) throw new Error('Select a saved pipeline.');
+    await refreshLocations();
+    selectValues('locations', pipeline.inputs.locations); selectValues('prompt', pipeline.inputs.prompt_ids);
+    $('chunker').value = pipeline.inputs.chunker_id; $('model').value = pipeline.inputs.model_id;
+    $('pipeline-name').value = pipeline.name;
+    await refreshDocuments(); await refreshWarning(); message.textContent = 'Configuration loaded into New run.';
+  }));
+  $('run-pipeline').addEventListener('click', () => action('run-pipeline', 'pipeline-message', async (message) => {
+    await post(`/pipelines/${encodeURIComponent($('saved-pipeline').value)}/requests`, {});
+    message.textContent = 'Saved pipeline requested.'; await loadRequests();
+  }));
+  $('refresh-requests').addEventListener('click', () => action('refresh-requests', 'message', async (message) => {
+    await loadRequests(); message.textContent = 'Status refreshed.';
+  }));
+  fill($('prompt-format'), ['results', 'what', 'causes', 'how', 'when', 'where', 'effects', 'conditional_statement', 'relations'].map((value) => ({ value })), 'value', (x) => x.value);
 
   $("submit").addEventListener("click", submit);
   $("chunker").addEventListener("change", refreshWarning);
   $("locations").addEventListener("change", refreshDocuments);
-  loadChoices().then(loadRequests).catch((error) => {
+  loadChoices().then(async () => { await refreshDocuments(); await refreshPipelines(); await loadRequests(); }).catch((error) => {
     $("message").className = "msg bad";
     $("message").textContent = String(error);
   });

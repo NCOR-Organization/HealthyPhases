@@ -1,13 +1,20 @@
 {
     "name": "Phases Pipeline",
-    "description": "Choose which storage locations, chunker, prompt and model a run should use, request it, and follow what it did. Requests are picked up by the orchestrator, so one can be submitted while it is down.",
+    "description": "Manage prompt versions, create input collections, upload PDFs, save pipeline configurations, and request and follow runs.",
     "category": "domain",
     "url": "html:index.html",
     "icon_emoji": "🧪",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "HealthyPhases",
     "license": "MIT",
-    "keywords": ["pipeline", "ingestion", "extraction", "papers", "phases", "dagster"],
+    "keywords": [
+        "pipeline",
+        "ingestion",
+        "extraction",
+        "papers",
+        "phases",
+        "dagster"
+    ],
     "tier": "community",
     "maintainer": "HealthyPhases",
     "pricing": {

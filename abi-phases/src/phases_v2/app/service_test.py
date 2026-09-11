@@ -3,8 +3,9 @@
 import pytest
 
 from phases_v2.app.service import PipelineAppService
-from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.chunking.chunkers import WINDOW_512_128
+from phases_v2.models.catalog import DECLARED_MODELS
+from phases_v2.prompts.templates import declared_prompts
 from phases_v2.requests.fakes import FakeRequestStore
 from phases_v2.requests.interfaces import PENDING
 
@@ -47,9 +48,7 @@ def test_the_offered_prompts_models_and_chunkers_are_the_declared_ones():
 
     assert service.prompts()
     assert service.models()
-    assert {c["chunker_id"] for c in service.chunkers()} == {
-        WINDOW_512_128.chunker_id
-    }
+    assert {c["chunker_id"] for c in service.chunkers()} == {WINDOW_512_128.chunker_id}
     assert all("prompt_id" in p for p in service.prompts())
     assert all("model_id" in m for m in service.models())
 
@@ -82,9 +81,7 @@ def test_a_root_that_does_not_exist_yet_still_shows_itself():
 
 
 def test_the_root_is_configurable():
-    service = _service(
-        object_storage=_Storage(["corpora/a"]), papers_root="corpora"
-    )
+    service = _service(object_storage=_Storage(["corpora/a"]), papers_root="corpora")
 
     assert [loc["prefix"] for loc in service.locations()] == ["corpora", "corpora/a"]
 
@@ -103,10 +100,10 @@ def test_submitting_records_a_pending_request():
     service = _service(request_store=store)
 
     request = service.submit_run(
-        locations=["papers"],
-        chunker_id="w",
-        prompt_ids=["p"],
-        model_id="m",
+        locations=["phases_v2"],
+        chunker_id=WINDOW_512_128.chunker_id,
+        prompt_ids=[declared_prompts()[0].prompt_id],
+        model_id=DECLARED_MODELS[0].model_id,
         requested_by="maxime",
     )
 
@@ -127,9 +124,7 @@ def test_submitting_with_no_location_is_refused():
     service = _service()
 
     with pytest.raises(ValueError, match="locations"):
-        service.submit_run(
-            locations=[], chunker_id="w", prompt_ids=["p"], model_id="m"
-        )
+        service.submit_run(locations=[], chunker_id="w", prompt_ids=["p"], model_id="m")
 
 
 def test_a_completed_request_sums_the_counts_across_its_prompts():
@@ -138,13 +133,20 @@ def test_a_completed_request_sums_the_counts_across_its_prompts():
     store = FakeRequestStore()
     service = _service(
         request_store=store,
-        rows=_Rows({"extraction_runs": [
-            {"succeeded": 7, "failed": 1, "skipped": 2},
-            {"succeeded": 3, "failed": 0, "skipped": 5},
-        ]}),
+        rows=_Rows(
+            {
+                "extraction_runs": [
+                    {"succeeded": 7, "failed": 1, "skipped": 2},
+                    {"succeeded": 3, "failed": 0, "skipped": 5},
+                ]
+            }
+        ),
     )
     request = service.submit_run(
-        locations=["papers"], chunker_id="w", prompt_ids=["p1", "p2"], model_id="m"
+        locations=["phases_v2"],
+        chunker_id=WINDOW_512_128.chunker_id,
+        prompt_ids=[p.prompt_id for p in declared_prompts()[:2]],
+        model_id=DECLARED_MODELS[0].model_id,
     )
 
     counts = service.request(request.request_id)["counts"]
@@ -159,24 +161,31 @@ def test_a_request_with_no_run_yet_reports_no_counts():
     store = FakeRequestStore()
     service = _service(request_store=store, rows=_Rows())
     request = service.submit_run(
-        locations=["papers"], chunker_id="w", prompt_ids=["p"], model_id="m"
+        locations=["phases_v2"],
+        chunker_id=WINDOW_512_128.chunker_id,
+        prompt_ids=[declared_prompts()[0].prompt_id],
+        model_id=DECLARED_MODELS[0].model_id,
     )
 
     assert service.request(request.request_id)["counts"] is None
 
 
 def test_choosing_a_different_chunker_warns_that_everything_re_runs():
-    service = _service(rows=_Rows({"DISTINCT chunker_id": [{"chunker_id": "window_1_aaa"}]}))
+    service = _service(
+        rows=_Rows({"DISTINCT chunker_id": [{"chunker_id": "window_1_aaa"}]})
+    )
 
     warning = service.chunker_warning("window_1_bbb")
 
     assert warning is not None
     assert "window_1_aaa" in warning
-    assert "outstanding" in warning
+    assert "selected documents" in warning
 
 
 def test_choosing_the_chunker_already_in_use_warns_about_nothing():
-    service = _service(rows=_Rows({"DISTINCT chunker_id": [{"chunker_id": "window_1_aaa"}]}))
+    service = _service(
+        rows=_Rows({"DISTINCT chunker_id": [{"chunker_id": "window_1_aaa"}]})
+    )
 
     assert service.chunker_warning("window_1_aaa") is None
 
@@ -224,7 +233,17 @@ def test_availability_does_not_remove_the_model_from_the_catalog():
 
 
 def _with_docs(tree, ingested=()):
-    rows = _Rows({"file_name": [{"file_name": n} for n in ingested]})
+    rows = _Rows(
+        {
+            "FROM papers": [
+                {"paper_id": n, "storage_prefix": prefix, "storage_key": key}
+                for prefix, keys in tree.items()
+                for key in keys
+                for n in ingested
+                if key.rsplit("/", 1)[-1] == n
+            ]
+        }
+    )
     return _service(object_storage=_Storage(tree=tree), rows=rows)
 
 
@@ -314,7 +333,13 @@ def test_already_ingested_counts_only_documents_that_could_be_ingested():
     service = PipelineAppService(
         request_store=FakeRequestStore(),
         object_storage=_Storage(tree={"mixed": ["a.pdf", "notes.json"]}),
-        rows=_Rows({"file_name": [{"file_name": "a.pdf"}]}),
+        rows=_Rows(
+            {
+                "FROM papers": [
+                    {"paper_id": "a", "storage_prefix": "mixed", "storage_key": "a.pdf"}
+                ]
+            }
+        ),
         renderer=_PdfOnly(),
     )
 

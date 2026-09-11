@@ -1,0 +1,1 @@
+"""Versioned pipeline management contracts."""

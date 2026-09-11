@@ -60,6 +60,7 @@ def ingest(
             continue
         if known.get(paper_id):
             seen.add(paper_id)
+            report.paper_ids.append(paper_id)
             report.skipped += 1
             continue
         seen.add(paper_id)
@@ -83,6 +84,7 @@ def ingest(
         text_key = f"{paper_id}.md"
         source.put_object(text_prefix, text_key, text.encode("utf-8"))
 
+        report.paper_ids.append(paper_id)
         records.append(
             PaperRecord(
                 paper_id=paper_id,

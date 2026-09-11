@@ -266,3 +266,48 @@ def test_no_stage_is_left_without_an_upstream_dependency():
     with_upstream = {node.name for node, inputs in graph.dependencies.items() if inputs}
 
     assert nodes - with_upstream == {"claim_request_op"}
+
+
+def test_requested_pipeline_carries_empty_scope_without_falling_back_to_corpus(
+    monkeypatch,
+):
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        chunk_papers_op,
+        run_extraction_op,
+    )
+
+    module = import_module("phases_v2.orchestrations.PhasesV2Orchestration")
+    engine = SimpleNamespace(
+        modules={
+            "phases_v2": SimpleNamespace(
+                configuration=SimpleNamespace(extraction_workers=1)
+            )
+        }
+    )
+    monkeypatch.setattr(module, "_engine", lambda: engine)
+    chunk = Mock(return_value=SimpleNamespace(papers_chunked=0, chunks_written=0))
+    extract = Mock(return_value=SimpleNamespace(succeeded=0, failed=0, skipped=0))
+    monkeypatch.setattr("phases_v2.chunking.factory.chunk_corpus", chunk)
+    monkeypatch.setattr("phases_v2.extraction.factory.extract", extract)
+    config = RunConfig(request_id="requested", prompt_ids=["custom"])
+    with dg.build_op_context() as context:
+        chunked = chunk_papers_op(context, config, after={"paper_ids": []})
+        run_extraction_op(context, config, after=chunked)
+    assert chunk.call_args.kwargs["paper_ids"] == []
+    assert extract.call_args.kwargs["paper_ids"] == []
+
+
+def test_requested_pipeline_refuses_missing_document_scope(monkeypatch):
+    import pytest
+
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        chunk_papers_op,
+    )
+
+    chunk = Mock()
+    monkeypatch.setattr("phases_v2.chunking.factory.chunk_corpus", chunk)
+    with dg.build_op_context() as context, pytest.raises(ValueError, match="scope"):
+        chunk_papers_op(context, RunConfig(request_id="requested"), after={})
+    chunk.assert_not_called()

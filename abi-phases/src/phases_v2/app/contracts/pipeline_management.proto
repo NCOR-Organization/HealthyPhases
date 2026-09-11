@@ -1,0 +1,27 @@
+syntax = "proto3";
+package phases_v2.app.v1;
+import "buf/validate/validate.proto";
+
+message SavePrompt {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 100, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]*$"}];
+  string template = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100000, contains: "{chunk_text}"}];
+  string output_key = 3 [(buf.validate.field).string = {in: ["results", "what", "causes", "how", "when", "where", "effects", "conditional_statement", "relations"]}];
+}
+message CreateLocation {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 100, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]*$"}];
+}
+message PipelineInputs {
+  repeated string locations = 1 [(buf.validate.field).repeated = {min_items: 1, max_items: 100, unique: true, items: {string: {min_len: 1, max_len: 512}}}];
+  string chunker_id = 2 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  repeated string prompt_ids = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 100, unique: true, items: {string: {min_len: 1, max_len: 200}}}];
+  string model_id = 4 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  optional string requested_by = 5 [(buf.validate.field).string.max_len = 200];
+}
+message SavePipeline {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 100, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]*$"}];
+  PipelineInputs inputs = 2 [(buf.validate.field).required = true];
+}
+message UploadDocument {
+  string location = 1 [(buf.validate.field).string = {min_len: 1, max_len: 512}];
+  string filename = 2 [(buf.validate.field).string = {min_len: 5, max_len: 200}];
+}

@@ -6,6 +6,8 @@ from fastapi.testclient import TestClient
 
 from phases_v2.app.adapters.primary.PipelineAPI import PREFIX, register
 from phases_v2.app.service import PipelineAppService
+from phases_v2.chunking.chunkers import WINDOW_512_128
+from phases_v2.prompts.templates import declared_prompts
 from phases_v2.requests.fakes import FakeRequestStore
 
 
@@ -13,7 +15,9 @@ class _Rows:
     def query(self, sql):
         if "extraction_runs" in sql:
             return [{"succeeded": 3, "failed": 0, "skipped": 1}]
-        return [{"chunker_id": "window_1_aaa"}]
+        if "chunks" in sql:
+            return [{"chunker_id": "window_1_aaa"}]
+        return []
 
 
 class _Storage:
@@ -22,20 +26,21 @@ class _Storage:
 
 
 @pytest.fixture
-def client():
+def client(monkeypatch):
+    monkeypatch.setenv("ABI_API_KEY", "test-pipeline-key")
     app = FastAPI()
     service = PipelineAppService(
         request_store=FakeRequestStore(), object_storage=_Storage(), rows=_Rows()
     )
     register(app, service)
-    return TestClient(app)
+    return TestClient(app, headers={"Authorization": "Bearer test-pipeline-key"})
 
 
 def _valid_body():
     return {
-        "locations": ["papers"],
-        "chunker_id": "window_1_aaa",
-        "prompt_ids": ["claims_abc"],
+        "locations": ["phases_v2"],
+        "chunker_id": WINDOW_512_128.chunker_id,
+        "prompt_ids": [declared_prompts()[0].prompt_id],
         "model_id": "openai/gpt-4.1-mini",
     }
 
