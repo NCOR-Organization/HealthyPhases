@@ -51,7 +51,7 @@ modules:
           role_baseline:
             owner: [maps, chat, files, agents, skills, apps, marketplace, search, ontology, graph, datasets, settings, code, slides]
             admin: [chat, files, agents, search, ontology, graph, settings]
-            member: [chat, files]
+            member: [chat, files, apps, ontology, graph, datasets]
             viewer: [chat, files]
           workspace_overrides: {}
         magic_link_allow_signup: false
