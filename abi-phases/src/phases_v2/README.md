@@ -328,3 +328,20 @@ Management request shapes and validation are defined in
 Protobuf descriptors using the existing checksum-pinned Protovalidate source. Python
 loads the generated descriptors and runs Protovalidate before persistence. Format
 compatibility and storage-root containment are checked by the application service.
+
+### Reverse-search result reuse
+
+Reverse search caches semantic rankings and keyword totals by dataset snapshot,
+query, threshold, and filters. Pages and full CSV exports reuse that computation;
+only displayed semantic results load full source provenance (exports resolve in
+batches). Filter checks read IDs without chunk text or prompt templates.
+
+The process-local cache holds at most 32 entries and an estimated 64 MiB of keys
+and results, with a five-minute TTL. Concurrent identical requests share one
+computation. Failures are not cached; oversized results work but are not retained.
+A new dataset snapshot gets a separate entry. Vector-only updates become visible
+after expiry; the vector port still offers no snapshot. Separate worker processes
+have separate caches. These defaults introduce no persistence or dependencies.
+
+The first semantic request still enumerates vector matches to compute the exact
+threshold count. Subsequent pages avoid repeating that work while cached.

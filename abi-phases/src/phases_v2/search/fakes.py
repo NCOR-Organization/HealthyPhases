@@ -66,6 +66,15 @@ class FakeExtractedItems:
     def keyword_count(self, tokens, prompts=None, models=None, paths=None):
         return len(self.keyword_search(tokens, prompts, len(self.items), models, paths))
 
+    def matching_item_ids(self, prompts=None, models=None, paths=None):
+        return {
+            i.item_id
+            for i in self.items
+            if not prompts or i.location.prompt_name in prompts
+            if not models or i.location.model_id in models
+            if not paths or matches_path(i.location.source_path, paths)
+        }
+
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
         by_id = {i.item_id: i.location for i in self.items}
         return {i: by_id[i] for i in item_ids if i in by_id}

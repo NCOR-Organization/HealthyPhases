@@ -73,6 +73,23 @@ class DatasetExtractedItemsAdapter:
             logger.error(f"Extracted-items query failed: {exc}")
             raise
 
+    def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
+        where = []
+        if prompts:
+            where.append(f"pr.name IN {in_list(prompts)}")
+        if models:
+            where.append(f"e.model_id IN {in_list(models)}")
+        if paths:
+            where.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
+        sql = "SELECT ei.item_id FROM extracted_items ei "
+        if prompts:
+            sql += "LEFT JOIN prompts pr ON pr.prompt_id = ei.prompt_id "
+        if models:
+            sql += "LEFT JOIN extractions e ON e.extraction_id = ei.extraction_id "
+        if where:
+            sql += "WHERE " + " AND ".join(where)
+        return {row["item_id"] for row in self._query(sql)}
+
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
         unique_ids = list(dict.fromkeys(i for i in item_ids if i))
         if not unique_ids:

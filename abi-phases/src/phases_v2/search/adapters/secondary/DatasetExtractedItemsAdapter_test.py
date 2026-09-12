@@ -258,3 +258,12 @@ def test_read_view_pins_keyword_count_and_pages_while_new_items_arrive(adapter):
     assert adapter.keyword_count(["solitude"]) == before + 1
     assert view.keyword_count(["solitude"]) == before
     assert len(view.keyword_search(["solitude"], None, 100)) == before
+
+
+def test_matching_ids_combine_filters_without_source_text(adapter):
+    assert adapter.matching_item_ids(prompts=["solitude_effects"]) == {"item-effects"}
+    assert (
+        adapter.matching_item_ids(prompts=["solitude_effects"], models=["missing"])
+        == set()
+    )
+    assert adapter.matching_item_ids(paths=["missing/path"]) == set()

@@ -59,6 +59,10 @@ class IExtractedItemsPort(Protocol):
         paths: list[str] | None = None,
     ) -> int: ...
 
+    def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
+        """IDs satisfying provenance filters, without loading source text."""
+        ...
+
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
         """Map each ``item_id`` to its paper + chunk provenance."""
         ...
