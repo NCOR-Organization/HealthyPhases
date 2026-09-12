@@ -13,6 +13,7 @@ from collections.abc import Iterator
 from phases_v2.search.interfaces import IExtractedItemsPort, ISemanticIndexPort
 from phases_v2.search.models import SearchHit
 from phases_v2.search.paths import matches_path
+from phases_v2.search.result_cache import SearchResultCache
 
 # Semantic search over-fetches before optional prompt filtering so a tight
 # facet doesn't starve the result set.
@@ -36,9 +37,13 @@ class SearchService:
         self,
         semantic_index: ISemanticIndexPort,
         extracted_items: IExtractedItemsPort,
+        cache: SearchResultCache | None = None,
+        snapshot: int | None = None,
     ):
         self._index = semantic_index
         self._items = extracted_items
+        self._cache = cache if cache is not None else SearchResultCache()
+        self._snapshot = snapshot
 
     def semantic_search(
         self,
@@ -124,36 +129,63 @@ class SearchService:
 
     def read_view(self, snapshot: int | None = None):
         version = self._items.snapshot() if snapshot is None else snapshot
-        return SearchService(self._index, self._items.at_snapshot(version)), version
+        return SearchService(
+            self._index, self._items.at_snapshot(version), self._cache, version
+        ), version
 
-    def _semantic_hits(
+    def _key(self, mode, query, threshold, prompts, models, paths):
+        return (
+            mode,
+            self._snapshot,
+            query.strip(),
+            threshold,
+            tuple(sorted(set(prompts or []))),
+            tuple(sorted(set(models or []))),
+            tuple(sorted(set(paths or []))),
+        )
+
+    def _semantic_matches(
         self, query, score_threshold=None, prompts=None, models=None, paths=None
     ):
-        if not query.strip():
-            return
-        paper_ids = self._items.paper_ids_for_paths(paths) if paths else None
-        matches = self._index.search_all(
-            query.strip(), score_threshold, models, paper_ids
+        def compute():
+            if not query.strip():
+                return ()
+            allowed = (
+                self._items.matching_item_ids(prompts, models, paths)
+                if prompts or models or paths
+                else None
+            )
+            if allowed == set():
+                return ()
+            paper_ids = self._items.paper_ids_for_paths(paths) if paths else None
+            matches = self._index.search_all(
+                query.strip(), score_threshold, models, paper_ids
+            )
+            seen = set()
+            result = []
+            for match in matches:
+                if match.item_id in seen or (
+                    allowed is not None and match.item_id not in allowed
+                ):
+                    continue
+                seen.add(match.item_id)
+                result.append(match)
+            return tuple(result)
+
+        return self._cache.get_or_compute(
+            self._key("semantic", query, score_threshold, prompts, models, paths),
+            compute,
         )
-        seen = set()
+
+    def _located_hits(self, matches):
         for start in range(0, len(matches), 500):
             batch = matches[start : start + 500]
             locations = self._items.resolve_locations([m.item_id for m in batch])
             for match in batch:
-                loc = locations.get(match.item_id)
-                if match.item_id in seen:
-                    continue
-                seen.add(match.item_id)
-                if paths and (loc is None or not matches_path(loc.source_path, paths)):
-                    continue
-                if models and (loc is None or loc.model_id not in models):
-                    continue
-                if prompts and (loc is None or loc.prompt_name not in prompts):
-                    continue
                 yield SearchHit.build(
                     item_id=match.item_id,
                     extracted_text=match.text,
-                    location=loc,
+                    location=locations.get(match.item_id),
                     score=match.score,
                 )
 
@@ -170,7 +202,10 @@ class SearchService:
     ) -> tuple[list[SearchHit], int]:
         if mode == "keyword":
             tokens = tokenize(query)
-            total = self._items.keyword_count(tokens, prompts, models, paths)
+            total = self._cache.get_or_compute(
+                self._key("keyword", query, None, prompts, models, paths),
+                lambda: self._items.keyword_count(tokens, prompts, models, paths),
+            )
             rows = self._items.keyword_search(
                 tokens, prompts, limit, models, paths, offset
             )
@@ -178,12 +213,8 @@ class SearchService:
                 SearchHit.build(item_id=i, extracted_text=t, location=l)
                 for i, t, l in rows
             ], total
-        hits, total = [], 0
-        for hit in self._semantic_hits(query, score_threshold, prompts, models, paths):
-            if offset <= total < offset + limit:
-                hits.append(hit)
-            total += 1
-        return hits, total
+        matches = self._semantic_matches(query, score_threshold, prompts, models, paths)
+        return list(self._located_hits(matches[offset : offset + limit])), len(matches)
 
     def all_hits(
         self,
@@ -195,8 +226,8 @@ class SearchService:
         paths=None,
     ) -> Iterator[SearchHit]:
         if mode == "semantic":
-            yield from self._semantic_hits(
-                query, score_threshold, prompts, models, paths
+            yield from self._located_hits(
+                self._semantic_matches(query, score_threshold, prompts, models, paths)
             )
             return
         tokens, offset = tokenize(query), 0
