@@ -26,15 +26,15 @@ def project_to_graph(engine, sink: TripleSink | None = None) -> ProjectionReport
 
     return project_graph(
         reader=DatasetExtractionReader(pinned),
-        sink=sink if sink is not None else TripleStoreSink(engine.services.triple_store),
+        sink=sink
+        if sink is not None
+        else TripleStoreSink(engine.services.triple_store),
         # The ledger records the present, so it is not pinned.
         ledger=DatasetProjectionLedger(live),
     )
 
 
-def project_to_vectors(
-    engine, sink=None, embedder=None
-) -> ProjectionReport:
+def project_to_vectors(engine, sink=None, embedder=None) -> ProjectionReport:
     """Embed outstanding chunks and items, reading at one pinned snapshot."""
     from phases_v2.projection.adapters.secondary.VectorStoreSink import VectorStoreSink
     from phases_v2.projection.embedding_factory import embedder_for
@@ -46,6 +46,27 @@ def project_to_vectors(
     return project_vectors(
         reader=DatasetExtractionReader(pinned),
         embedder=embedder if embedder is not None else embedder_for(engine),
-        sink=sink if sink is not None else VectorStoreSink(engine.services.vector_store),
+        sink=sink
+        if sink is not None
+        else VectorStoreSink(engine.services.vector_store),
         ledger=DatasetProjectionLedger(live),
+    )
+
+
+def refresh_vector_metadata(engine) -> int:
+    from naas_abi_core.services.vector_store.adapters.QdrantAdapter import QdrantAdapter
+
+    from phases_v2.projection.adapters.secondary.QdrantMetadataSink import (
+        QdrantMetadataSink,
+    )
+    from phases_v2.projection.metadata_refresh import refresh_metadata
+
+    store = engine.services.vector_store
+    if not isinstance(store.adapter, QdrantAdapter):
+        raise TypeError("Vector metadata refresh requires Qdrant")
+    store.initialize()
+    live = DatasetRowStore(engine.services.dataset)
+    return refresh_metadata(
+        DatasetExtractionReader(live.at_snapshot(live.snapshot())),
+        QdrantMetadataSink(store.adapter.client),
     )

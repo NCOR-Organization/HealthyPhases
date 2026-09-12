@@ -23,6 +23,7 @@ from phases_v2.projection.interfaces import (
     VectorDoc,
     VectorSink,
 )
+from phases_v2.projection.metadata import search_metadata
 
 CHUNKS_COLLECTION = "phases_v2_chunks"
 ITEMS_COLLECTION = "phases_v2_extracted_items"
@@ -67,6 +68,8 @@ def project_vectors(
     )
 
     items = reader.items_for(list(extractions))
+    papers = {p["paper_id"]: p for p in reader.papers()}
+    prompts = {p["prompt_id"]: p for p in reader.prompts()}
     return _project(
         target=VECTOR_ITEMS,
         collection=ITEMS_COLLECTION,
@@ -74,18 +77,12 @@ def project_vectors(
             VectorDoc(
                 id=item["item_id"],
                 text=item["text"],
-                metadata={
-                    "item_id": item["item_id"],
-                    "extraction_id": item["extraction_id"],
-                    "chunk_id": item["chunk_id"],
-                    "paper_id": item["paper_id"],
-                    "prompt_id": item["prompt_id"],
-                    # A search hit must say which model produced the claim.
-                    "model_id": extractions.get(item["extraction_id"], {}).get(
-                        "model_id"
-                    ),
-                    "seq": item.get("seq"),
-                },
+                metadata=search_metadata(
+                    item,
+                    extractions.get(item["extraction_id"], {}),
+                    papers.get(item["paper_id"], {}),
+                    prompts.get(item["prompt_id"], {}),
+                ),
             )
             for item in items
         ],

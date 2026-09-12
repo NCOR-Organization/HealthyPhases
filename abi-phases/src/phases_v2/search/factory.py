@@ -27,11 +27,26 @@ def search_service(
     semantic_index: ISemanticIndexPort | None = None,
     extracted_items: IExtractedItemsPort | None = None,
 ) -> SearchService:
+    native = None
+    embedding = None
+    if semantic_index is None:
+        from naas_abi_core.services.vector_store.adapters.QdrantAdapter import (
+            QdrantAdapter,
+        )
+
+        from phases_v2.search.adapters.secondary.QdrantSemanticAdapter import (
+            QdrantSemanticAdapter,
+        )
+
+        embedding = embedder_for(engine, configuration=configuration)
+        store = engine.services.vector_store
+        if isinstance(getattr(store, "adapter", None), QdrantAdapter):
+            store.initialize()
+            native = QdrantSemanticAdapter(store.adapter.client, embedding)
     return SearchService(
+        native_index=native,
         semantic_index=semantic_index
-        or VectorStoreSemanticAdapter(
-            engine.services.vector_store, embedder_for(engine, configuration=configuration)
-        ),
+        or VectorStoreSemanticAdapter(engine.services.vector_store, embedding),
         extracted_items=extracted_items
         or DatasetExtractedItemsAdapter(DatasetRowStore(engine.services.dataset)),
     )

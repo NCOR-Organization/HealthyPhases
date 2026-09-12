@@ -19,8 +19,13 @@ class DatasetExtractionReader:
     def __init__(self, rows: RowStore):
         self._rows = rows
 
+    def prompts(self):
+        return self._rows.query("SELECT prompt_id, name FROM prompts")
+
     def papers(self) -> list[dict[str, Any]]:
-        return self._rows.query("SELECT paper_id, file_name FROM papers")
+        return self._rows.query(
+            "SELECT paper_id, file_name, storage_prefix, storage_key FROM papers"
+        )
 
     def chunks(self) -> list[dict[str, Any]]:
         return self._rows.query(

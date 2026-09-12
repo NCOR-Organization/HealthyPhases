@@ -353,6 +353,20 @@ def run_failure_sensor(context: dg.RunFailureSensorContext):
     )
 
 
+@dg.op
+def refresh_vector_metadata_op(context: dg.OpExecutionContext):
+    from phases_v2.projection.factory import refresh_vector_metadata
+
+    updated = refresh_vector_metadata(_engine())
+    context.log.info(f"Updated search metadata on {updated} existing vectors")
+    context.add_output_metadata({"vectors_updated": updated})
+
+
+@dg.job(name="phases_v2_refresh_vector_metadata")
+def refresh_vector_metadata_job():
+    refresh_vector_metadata_op()
+
+
 class PhasesV2Orchestration(DagsterOrchestration):
     @classmethod
     def New(cls) -> "PhasesV2Orchestration":
@@ -364,6 +378,7 @@ class PhasesV2Orchestration(DagsterOrchestration):
                     run_extraction_job,
                     project_graph_job,
                     project_vectors_job,
+                    refresh_vector_metadata_job,
                     full_pipeline_job,
                 ],
                 sensors=[run_request_sensor, run_failure_sensor],

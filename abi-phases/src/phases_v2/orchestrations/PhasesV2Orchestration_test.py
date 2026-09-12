@@ -100,6 +100,7 @@ def test_the_definitions_expose_every_stage_and_the_pipeline():
         "phases_v2_run_extraction",
         "phases_v2_project_graph",
         "phases_v2_project_vectors",
+        "phases_v2_refresh_vector_metadata",
         "phases_v2_full_pipeline",
     }
 
