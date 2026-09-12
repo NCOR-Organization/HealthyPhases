@@ -99,3 +99,21 @@ class IExtractedItemsPort(Protocol):
     def paper_ids_for_paths(self, paths: list[str]) -> list[str]:
         """Resolve folders, including descendants, to IDs for vector filtering."""
         ...
+
+
+class INativeSemanticIndexPort(Protocol):
+    def ready(self) -> bool:
+        """Whether every point has the filter metadata required for native paging."""
+        ...
+
+    def page(
+        self,
+        query: str,
+        limit: int,
+        offset: int,
+        score_threshold=None,
+        prompts=None,
+        models=None,
+        paths=None,
+        snapshot=None,
+    ) -> tuple[list[SemanticMatch], int]: ...

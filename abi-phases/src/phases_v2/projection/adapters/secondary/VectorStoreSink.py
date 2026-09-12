@@ -24,6 +24,17 @@ class VectorStoreSink:
 
     def ensure_collection(self, name: str, dimension: int) -> None:
         self._vector_store.ensure_collection(name, dimension)
+        if name == "phases_v2_extracted_items":
+            from naas_abi_core.services.vector_store.adapters.QdrantAdapter import (
+                QdrantAdapter,
+            )
+
+            from phases_v2.projection.adapters.secondary.QdrantMetadataSink import (
+                QdrantMetadataSink,
+            )
+
+            if isinstance(self._vector_store.adapter, QdrantAdapter):
+                QdrantMetadataSink(self._vector_store.adapter.client).ensure_indexes()
 
     def store(self, name, docs, vectors) -> None:
         if not docs:

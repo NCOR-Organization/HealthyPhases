@@ -210,3 +210,18 @@ def test_missing_vectors_do_not_mark_documents_as_projected():
     with pytest.raises(ValueError, match="different number"):
         _project(_reader(), ledger=ledger, embedder=BrokenEmbedder())
     assert ledger.projected_keys(VECTOR_CHUNKS) == set()
+
+
+def test_new_vectors_include_native_search_facets():
+    reader = _reader(1)
+    reader._papers[0].update(storage_prefix="papers", storage_key="stress/sub/doc.pdf")
+    reader._prompts = [{"prompt_id": "pr", "name": "effects"}]
+    _, sink, _, _ = _project(reader)
+    doc, _ = sink.collections[ITEMS_COLLECTION]["i0"]
+    assert doc.metadata["search_metadata_version"] == 1
+    assert doc.metadata["prompt_name"] == "effects"
+    assert doc.metadata["source_ancestors"] == [
+        "papers",
+        "papers/stress",
+        "papers/stress/sub",
+    ]

@@ -10,7 +10,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterator
 
-from phases_v2.search.interfaces import IExtractedItemsPort, ISemanticIndexPort
+from phases_v2.search.interfaces import (
+    IExtractedItemsPort,
+    INativeSemanticIndexPort,
+    ISemanticIndexPort,
+)
 from phases_v2.search.models import SearchHit
 from phases_v2.search.paths import matches_path
 from phases_v2.search.result_cache import SearchResultCache
@@ -39,11 +43,13 @@ class SearchService:
         extracted_items: IExtractedItemsPort,
         cache: SearchResultCache | None = None,
         snapshot: int | None = None,
+        native_index: INativeSemanticIndexPort | None = None,
     ):
         self._index = semantic_index
         self._items = extracted_items
         self._cache = cache if cache is not None else SearchResultCache()
         self._snapshot = snapshot
+        self._native_index = native_index
 
     def semantic_search(
         self,
@@ -130,7 +136,11 @@ class SearchService:
     def read_view(self, snapshot: int | None = None):
         version = self._items.snapshot() if snapshot is None else snapshot
         return SearchService(
-            self._index, self._items.at_snapshot(version), self._cache, version
+            self._index,
+            self._items.at_snapshot(version),
+            self._cache,
+            version,
+            self._native_index,
         ), version
 
     def _key(self, mode, query, threshold, prompts, models, paths):
@@ -213,6 +223,18 @@ class SearchService:
                 SearchHit.build(item_id=i, extracted_text=t, location=l)
                 for i, t, l in rows
             ], total
+        if self._native_index is not None and self._native_index.ready():
+            matches, total = self._native_index.page(
+                query,
+                limit,
+                offset,
+                score_threshold,
+                prompts,
+                models,
+                paths,
+                snapshot=self._snapshot,
+            )
+            return list(self._located_hits(matches)), total
         matches = self._semantic_matches(query, score_threshold, prompts, models, paths)
         return list(self._located_hits(matches[offset : offset + limit])), len(matches)
 
@@ -225,6 +247,31 @@ class SearchService:
         models=None,
         paths=None,
     ) -> Iterator[SearchHit]:
+        if (
+            mode == "semantic"
+            and self._native_index is not None
+            and self._native_index.ready()
+        ):
+            offset = 0
+            while True:
+                matches, total = self._native_index.page(
+                    query,
+                    500,
+                    offset,
+                    score_threshold,
+                    prompts,
+                    models,
+                    paths,
+                    snapshot=self._snapshot,
+                )
+                yield from self._located_hits(matches)
+                offset += len(matches)
+                if offset >= total:
+                    return
+                if not matches:
+                    raise RuntimeError(
+                        "Vector results changed during export; please retry"
+                    )
         if mode == "semantic":
             yield from self._located_hits(
                 self._semantic_matches(query, score_threshold, prompts, models, paths)

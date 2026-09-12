@@ -141,14 +141,14 @@ alongside the separately available source context. It never substitutes the curr
 The app displays "Showing N of M matches" and loads subsequent batches when the user
 scrolls to the bottom (with a manual **Load more** fallback). The batch-size control is
 limited to 100; total matches are not. Keyword results use deterministic paper/chunk/item
-ordering; semantic results use descending score with item ID as the tie-breaker.
+ordering; native Qdrant semantic pages use exact vector scoring and Qdrant point-ID tie ordering.
 
 `GET /keyword` accepts `limit` and `offset`; `GET /semantic` accepts `k` and `offset`.
 Responses include `total` (also exposed as `count`), `page_count`, `has_more`, `next_offset`,
 and the dataset `snapshot`. Clients pass that snapshot to later pages and exports to
-keep keyword results and provenance consistent if ingestion adds records. Semantic scores
-are recomputed against the current vector index, which has no snapshot API; indexing
-changes can change semantic totals/order between requests. The existing CLI/top-k methods
+keep keyword results and provenance consistent if ingestion adds records. Semantic filtering and ranking use the current vector index, which has no snapshot API; indexing
+or metadata changes can change semantic totals/order between requests. The snapshot pins
+source details, not Qdrant metadata. The existing CLI/top-k methods
 remain available for bounded searches.
 
 **Export all matches (CSV)** calls `GET /export?mode=keyword|semantic&q=...` using the
@@ -329,19 +329,40 @@ Protobuf descriptors using the existing checksum-pinned Protovalidate source. Py
 loads the generated descriptors and runs Protovalidate before persistence. Format
 compatibility and storage-root containment are checked by the application service.
 
-### Reverse-search result reuse
+### Native Qdrant filtering and migration
 
-Reverse search caches semantic rankings and keyword totals by dataset snapshot,
-query, threshold, and filters. Pages and full CSV exports reuse that computation;
-only displayed semantic results load full source provenance (exports resolve in
-batches). Filter checks read IDs without chunk text or prompt templates.
+New extracted-item vectors include `prompt_name`, `model_id`, `paper_id`,
+`source_path`, every `source_ancestors` folder (including the folder itself), and
+`search_metadata_version=1`, alongside existing item/chunk/extraction/prompt IDs.
+Keyword payload indexes support the filter fields; the metadata version has an
+integer index. OR selections within a facet combine with AND across facets.
+Folder matching respects path-component boundaries.
 
-The process-local cache holds at most 32 entries and an estimated 64 MiB of keys
-and results, with a five-minute TTL. Concurrent identical requests share one
-computation. Failures are not cached; oversized results work but are not retained.
-A new dataset snapshot gets a separate entry. Vector-only updates become visible
-after expiry; the vector port still offers no snapshot. Separate worker processes
-have separate caches. These defaults introduce no persistence or dependencies.
+With complete versioned metadata, default semantic searches use a native exact
+Qdrant count plus a paged exact-scoring query. Only that page's payload and source
+provenance are loaded. Query embeddings and metadata counts are reused. A score
+threshold cannot be counted by the metadata count API: those searches enumerate
+only IDs/scores in 1,024-point batches, applying the threshold and all filters in
+Qdrant, then load payloads for the requested page. Full CSV exports use 500-result
+pages and still return all matches.
 
-The first semantic request still enumerates vector matches to compute the exact
-threshold count. Subsequent pages avoid repeating that work while cached.
+Run `phases_v2_refresh_vector_metadata` in Dagster after deployment to update
+existing payloads and create indexes without changing point IDs, vectors, or text.
+The job reads a dataset snapshot, updates existing points in batches, and fails
+explicitly if a point cannot be matched to a dataset item. It is idempotent and
+can be rerun after correcting paper paths or prompt annotations. New projections
+write the metadata directly. Re-run this job after editing annotations on rows
+whose vectors were already projected; the embedding ledger alone does not refresh
+old payloads.
+
+Until all points carry the current metadata version, the API uses the legacy
+search path (dataset filtering and exhaustive ranking). Readiness is rechecked
+every 30 seconds; do not mark migration complete based only on a running job.
+Non-Qdrant backends retain that path. No new persistence or dependencies are added.
+
+Caches are process-local, capped at 32 entries / an estimated 64 MiB each, with a
+five-minute TTL; identical concurrent computations are coalesced and failures are
+not retained. Entries include the dataset snapshot and applicable filters.
+Qdrant itself has no snapshot here, so concurrent indexing/payload changes can
+shift results during paging/export. Exact scoring avoids approximate-search
+variations between page sizes, but does not freeze concurrent mutations.
