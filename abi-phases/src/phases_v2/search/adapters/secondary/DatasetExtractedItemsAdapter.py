@@ -18,6 +18,7 @@ from naas_abi_core.services.object_storage.ObjectStoragePort import Exceptions
 from phases_v2.ports import RowStore
 from phases_v2.search.models import ItemLocation
 from phases_v2.search.paths import matches_path, parent_paths, source_folder
+from phases_v2.search.search_keywords import exact_pattern, is_exact
 from phases_v2.sql import in_list, literal
 
 # Shared FROM/JOIN so provenance columns line up the same way for both queries
@@ -157,9 +158,14 @@ class DatasetExtractedItemsAdapter:
     def _keyword_where(self, tokens, prompts, models, paths) -> str:
         if not tokens:
             return "WHERE FALSE"
-        filters = " AND ".join(
-            f"LOWER(ei.text) LIKE {literal(f'%{token}%')}" for token in tokens
-        )
+        clauses = []
+        for token in tokens:
+            if is_exact(token):
+                pattern = exact_pattern(token, word_chars=r"\p{L}\p{N}_")
+                clauses.append(f"regexp_matches(LOWER(ei.text), {literal(pattern)})")
+            else:
+                clauses.append(f"LOWER(ei.text) LIKE {literal(f'%{token}%')}")
+        filters = " AND ".join(clauses)
         where = f"WHERE {filters}"
         if prompts:
             where += f" AND pr.name IN {in_list(prompts)}"

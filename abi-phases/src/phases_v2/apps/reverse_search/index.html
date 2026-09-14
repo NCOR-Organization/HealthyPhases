@@ -132,7 +132,7 @@
         Semantic<small>meaning / vector search</small>
       </div>
       <div class="tab" data-mode="keyword" id="tab-keyword">
-        Keyword<small>exact word presence</small>
+        Keyword<small>words / quoted phrases</small>
       </div>
     </div>
 
@@ -141,7 +141,8 @@
       <button class="go" id="go">Search</button>
     </div>
 
-    <div class="controls">
+    <p id="keyword-help" class="lede" hidden>Use quotes for an exact word or phrase, e.g. "like" or "being alone".</p>
+  <div class="controls">
       <label id="kwrap">Batch size
         <input type="number" id="k" value="10" min="1" max="100">
       </label>
@@ -223,13 +224,14 @@
 
   function setMode(mode) {
     state.mode = mode;
+    $("keyword-help").hidden = mode !== "keyword";
     $("tab-semantic").classList.toggle("active", mode === "semantic");
     $("tab-keyword").classList.toggle("active", mode === "keyword");
     $("thwrap").style.display = mode === "semantic" ? "" : "none";
     $("kwrap").querySelector("input").value = mode === "semantic" ? 10 : 25;
     $("q").placeholder = mode === "semantic"
       ? "e.g. solitude reduces stress in older adults"
-      : "e.g. loneliness cortisol";
+      : 'e.g. "being alone" stress';
   }
 
   document.querySelectorAll(".tab").forEach((t) =>
@@ -324,16 +326,27 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
+    function keywordTerms(query) {
+      const terms = [];
+      for (const match of query.toLowerCase().replace(/[\u201c\u201d]/g, '"').matchAll(/"([^"]*)"|([\p{L}\p{N}_]+)/gu)) {
+        const text = (match[1] === undefined ? match[2] : match[1]).trim();
+        if (text) terms.push({ text, exact: match[1] !== undefined });
+      }
+      return terms;
+    }
+
     function highlight(text, q, mode) {
-      if (mode !== "keyword" || !text) return escapeHtml(text);
-      const tokens = [...new Set(q.toLowerCase().match(/\w+/g) || [])];
-      if (!tokens.length) return escapeHtml(text);
-      // Match before escaping so search words cannot alter HTML entities or tags.
-      const re = new RegExp(`(${tokens.sort((a, b) => b.length - a.length).join('|')})`, 'gi');
+      if (mode !== 'keyword' || !text) return escapeHtml(text);
+      const terms = keywordTerms(q).sort((a, b) => b.text.length - a.text.length);
+      if (!terms.length) return escapeHtml(text);
+      const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const patterns = terms.map((term) => term.exact
+        ? `(?<![\\p{L}\\p{N}_])${term.text.split(/\s+/).map(escapeRegex).join('\\s+')}(?![\\p{L}\\p{N}_])`
+        : escapeRegex(term.text));
+      const re = new RegExp(`(${patterns.join('|')})`, 'giu');
       return text.split(re).map((part, i) => i % 2
         ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part)).join('');
     }
-
 
     function parsePayload(text) {
       try { return JSON.parse(text); } catch { return undefined; }

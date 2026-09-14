@@ -7,7 +7,6 @@ OpenAI. Ported from ``phases.app.domain.SearchService``.
 
 from __future__ import annotations
 
-import re
 from collections.abc import Iterator
 
 from phases_v2.search.interfaces import (
@@ -18,22 +17,12 @@ from phases_v2.search.interfaces import (
 from phases_v2.search.models import SearchHit
 from phases_v2.search.paths import matches_path
 from phases_v2.search.result_cache import SearchResultCache
+from phases_v2.search.search_keywords import tokenize
 
 # Semantic search over-fetches before optional prompt filtering so a tight
 # facet doesn't starve the result set.
 _SEMANTIC_OVERFETCH = 4
 _MAX_K = 100
-
-
-def tokenize(query: str) -> list[str]:
-    """Split a keyword query into word tokens (kept lowercase, deduped)."""
-    seen: set[str] = set()
-    tokens: list[str] = []
-    for raw in re.findall(r"\w+", query.lower()):
-        if raw and raw not in seen:
-            seen.add(raw)
-            tokens.append(raw)
-    return tokens
 
 
 class SearchService:
@@ -223,8 +212,8 @@ class SearchService:
                 tokens, prompts, limit, models, paths, offset
             )
             return [
-                SearchHit.build(item_id=i, extracted_text=t, location=l)
-                for i, t, l in rows
+                SearchHit.build(item_id=item_id, extracted_text=text, location=location)
+                for item_id, text, location in rows
             ], total
         if self._native_index is not None and self._native_index.ready():
             matches, total = self._native_index.page(

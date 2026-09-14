@@ -84,7 +84,9 @@ class IExtractedItemsPort(Protocol):
 
         Returns ``(item_id, text, location)`` tuples for items whose text
         contains *every* token (case-insensitive), optionally restricted to
-        the given prompt ``prompts`` (by name).
+        the given prompt ``prompts`` (by name). Tokens wrapped in double quotes
+        require an exact word or phrase with word boundaries; intervening
+        whitespace may vary. Bare tokens keep substring matching.
         """
         ...
 

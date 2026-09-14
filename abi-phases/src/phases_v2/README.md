@@ -391,3 +391,11 @@ Search responses convert these literal payloads to JSON on read so existing
 matches can render as graphs without re-extraction or a corpus migration.
 New structured items are stored as JSON. Compatibility parsing is bounded,
 uses literal-only parsing, and leaves malformed or unsupported text unchanged.
+
+Keyword queries support double-quoted exact words and phrases: `"like"` excludes
+`likely` and `dislike`; `"being alone" stress` requires that phrase plus `stress`.
+Matching is case-insensitive, quoted words use word boundaries, and spaces or
+line breaks between phrase words are equivalent. Straight and smart double
+quotes work. Unquoted terms retain substring matching, all terms are required,
+and an unclosed quote falls back to ordinary word matching. These rules apply
+to result counts, pagination, highlighting, and complete CSV exports.
