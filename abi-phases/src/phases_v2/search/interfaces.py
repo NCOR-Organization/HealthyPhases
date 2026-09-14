@@ -47,6 +47,10 @@ class ISemanticIndexPort(Protocol):
 class IExtractedItemsPort(Protocol):
     """Read access to the extracted-item corpus."""
 
+    def download_paper(self, item_id: str) -> tuple[str, bytes]:
+        """Original PDF filename and bytes; FileNotFoundError if unavailable."""
+        ...
+
     def snapshot(self) -> int | None: ...
 
     def at_snapshot(self, snapshot: int | None) -> IExtractedItemsPort: ...

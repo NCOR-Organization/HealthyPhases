@@ -9,9 +9,11 @@ behind what was actually extracted.
 
 from __future__ import annotations
 
+from pathlib import PurePosixPath
 from typing import Any
 
 from naas_abi_core import logger
+from naas_abi_core.services.object_storage.ObjectStoragePort import Exceptions
 
 from phases_v2.ports import RowStore
 from phases_v2.search.models import ItemLocation
@@ -63,8 +65,12 @@ def _row_to_location(row: dict[str, Any]) -> ItemLocation:
 
 
 class DatasetExtractedItemsAdapter:
-    def __init__(self, rows: RowStore):
+    def __init__(
+        self, rows: RowStore, object_storage=None, papers_root: str = "phases_v2"
+    ):
         self._rows = rows
+        self._storage = object_storage
+        self._papers_root = papers_root.strip("/")
 
     def _query(self, sql: str) -> list[dict[str, Any]]:
         try:
@@ -72,6 +78,41 @@ class DatasetExtractedItemsAdapter:
         except Exception as exc:
             logger.error(f"Extracted-items query failed: {exc}")
             raise
+
+    def download_paper(self, item_id: str) -> tuple[str, bytes]:
+        if self._storage is None:
+            raise FileNotFoundError("Source PDF is unavailable.")
+        rows = self._query(
+            "SELECT p.storage_prefix, p.storage_key, p.file_name "
+            "FROM extracted_items ei JOIN papers p ON p.paper_id = ei.paper_id "
+            f"WHERE ei.item_id = {literal(item_id)} LIMIT 1"
+        )
+        if not rows:
+            raise FileNotFoundError("Source PDF is unavailable.")
+        row = rows[0]
+        prefix, key = row.get("storage_prefix") or "", row.get("storage_key") or ""
+        root = self._papers_root
+        # Never let a corrupted corpus row address another module or a local path.
+        parts = (prefix + "/" + key).split("/")
+        if (
+            not root
+            or not key
+            or prefix.startswith("/")
+            or key.startswith("/")
+            or "\\" in prefix + key
+            or "\x00" in prefix + key
+            or any(part in {".", ".."} for part in parts)
+            or not (prefix == root or prefix.startswith(root + "/"))
+            or PurePosixPath(key).suffix.lower() != ".pdf"
+        ):
+            raise FileNotFoundError("Source PDF is unavailable.")
+        try:
+            content = self._storage.get_object(prefix, key)
+        except Exceptions.ObjectNotFound as missing:
+            raise FileNotFoundError("Source PDF is unavailable.") from missing
+        if not content.startswith(b"%PDF-"):
+            raise FileNotFoundError("Source PDF is unavailable.")
+        return PurePosixPath(key).name, content
 
     def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
         where = []
@@ -109,7 +150,9 @@ class DatasetExtractedItemsAdapter:
         return self._rows.snapshot()
 
     def at_snapshot(self, snapshot: int | None):
-        return DatasetExtractedItemsAdapter(self._rows.at_snapshot(snapshot))
+        return DatasetExtractedItemsAdapter(
+            self._rows.at_snapshot(snapshot), self._storage, self._papers_root
+        )
 
     def _keyword_where(self, tokens, prompts, models, paths) -> str:
         if not tokens:

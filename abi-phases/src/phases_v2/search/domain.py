@@ -51,6 +51,9 @@ class SearchService:
         self._snapshot = snapshot
         self._native_index = native_index
 
+    def download_paper(self, item_id: str) -> tuple[str, bytes]:
+        return self._items.download_paper(item_id)
+
     def semantic_search(
         self,
         query: str,
