@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from phases_v2.search.models import ItemLocation, SemanticMatch
+from phases_v2.search.models import ItemLocation, SemanticMatch, SearchHit
 
 
 class ISemanticIndexPort(Protocol):
@@ -46,6 +46,21 @@ class ISemanticIndexPort(Protocol):
 
 class IExtractedItemsPort(Protocol):
     """Read access to the extracted-item corpus."""
+
+    def effects_page(
+        self,
+        target: str,
+        direction: str,
+        subject: str,
+        participant: str,
+        limit: int,
+        offset: int,
+        prompts=None,
+        models=None,
+        paths=None,
+    ) -> tuple[list[SearchHit], int]:
+        """Query typed relation fields and enrich matches with source provenance."""
+        ...
 
     def download_paper(self, item_id: str) -> tuple[str, bytes]:
         """Original PDF filename and bytes; FileNotFoundError if unavailable."""

@@ -399,3 +399,34 @@ line breaks between phrase words are equivalent. Straight and smart double
 quotes work. Unquoted terms retain substring matching, all terms are required,
 and an unclosed quote falls back to ordinary word matching. These rules apply
 to result counts, pagination, highlighting, and complete CSV exports.
+
+### Structured probability-modulating relations
+
+The `probabilistic_relations` dataset is a typed, rebuildable projection of
+successful extractions whose prompt output key is `relations`. It includes
+subject process, participant, target process, direction, evidence, and all source
+IDs. `relation_id` is stable per extracted item and relation index. Its row
+contract is `projection/contracts/probabilistic.proto`.
+
+The Effects search tab queries these fields directly. Put `stress` in Target
+process and choose Increases to find relationships increasing stress, regardless
+of which other fields mention stress. Subject and participant filters, existing
+source/model/prompt filters, pagination, and CSV export are supported. Blank
+filters browse all projected relationships. Targets use text matching (including
+quoted exact phrases), not ontology entity normalization.
+
+`phases_v2_backfill_probabilistic_relations` is a standalone Dagster job for this
+projection. The full pipeline and standalone extraction job also run it after
+extraction. To backfill without model calls from the ABI project directory:
+
+```sh
+uv run abi run script src/phases_v2/projection/probabilistic_backfill.py -- --dry-run
+uv run abi run script src/phases_v2/projection/probabilistic_backfill.py
+```
+
+Each run pins one snapshot and pages through outstanding items in batches of 500.
+Derived rows are upserted before the projection ledger is recorded, so retries
+cannot create duplicate relation IDs. Invalid payloads are reported (counts and
+up to 20 item IDs/errors), left untouched, and retried by later runs. The backfill
+never rewrites source extractions or calls an LLM. API startup only creates the
+empty dataset; it does not run a potentially large backfill during startup.

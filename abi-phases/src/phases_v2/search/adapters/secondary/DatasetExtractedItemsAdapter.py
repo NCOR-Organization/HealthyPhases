@@ -9,6 +9,8 @@ behind what was actually extracted.
 
 from __future__ import annotations
 
+import json
+from dataclasses import replace
 from pathlib import PurePosixPath
 from typing import Any
 
@@ -16,9 +18,9 @@ from naas_abi_core import logger
 from naas_abi_core.services.object_storage.ObjectStoragePort import Exceptions
 
 from phases_v2.ports import RowStore
-from phases_v2.search.models import ItemLocation
+from phases_v2.search.models import ItemLocation, SearchHit
 from phases_v2.search.paths import matches_path, parent_paths, source_folder
-from phases_v2.search.search_keywords import exact_pattern, is_exact
+from phases_v2.search.search_keywords import exact_pattern, is_exact, tokenize
 from phases_v2.sql import in_list, literal
 
 # Shared FROM/JOIN so provenance columns line up the same way for both queries
@@ -114,6 +116,73 @@ class DatasetExtractedItemsAdapter:
         if not content.startswith(b"%PDF-"):
             raise FileNotFoundError("Source PDF is unavailable.")
         return PurePosixPath(key).name, content
+
+    def effects_page(
+        self,
+        target,
+        direction,
+        subject,
+        participant,
+        limit,
+        offset,
+        prompts=None,
+        models=None,
+        paths=None,
+    ) -> tuple[list[SearchHit], int]:
+        filters = []
+        if direction:
+            filters.append(f"r.direction = {literal(direction)}")
+        for column, query in (
+            ("target_process", target),
+            ("subject_process", subject),
+            ("subject_participant", participant),
+        ):
+            for token in tokenize(query):
+                if is_exact(token):
+                    pattern = exact_pattern(token, word_chars=r"\p{L}\p{N}_")
+                    filters.append(
+                        f"regexp_matches(LOWER(r.{column}), {literal(pattern)})"
+                    )
+                else:
+                    filters.append(f"contains(LOWER(r.{column}), {literal(token)})")
+        if prompts:
+            filters.append(f"pr.name IN {in_list(prompts)}")
+        if models:
+            filters.append(f"e.model_id IN {in_list(models)}")
+        if paths:
+            filters.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
+        source = _FROM + " JOIN probabilistic_relations r ON r.item_id = ei.item_id "
+        where = " WHERE " + " AND ".join(filters) if filters else ""
+        total = int(
+            self._query(f"SELECT COUNT(*) AS total {source} {where}")[0]["total"]
+        )
+        fields = (
+            "subject_process",
+            "subject_participant",
+            "target_process",
+            "direction",
+            "evidence_text",
+        )
+        columns = ", ".join(f"r.{field}" for field in fields)
+        rows = self._query(
+            f"SELECT {_COLUMNS}, r.relation_id, {columns} {source} {where} "
+            f"ORDER BY p.file_name, c.seq, r.relation_id LIMIT {int(limit)} OFFSET {int(offset)}"
+        )
+        hits = []
+        for row in rows:
+            relation = {field: row[field] for field in fields}
+            hits.append(
+                replace(
+                    SearchHit.build(
+                        item_id=row["item_id"],
+                        extracted_text=json.dumps(relation, ensure_ascii=False),
+                        location=_row_to_location(row),
+                    ),
+                    relation_id=row["relation_id"],
+                    **relation,
+                )
+            )
+        return hits, total
 
     def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
         where = []

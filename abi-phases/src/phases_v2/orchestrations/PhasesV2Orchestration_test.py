@@ -99,6 +99,7 @@ def test_the_definitions_expose_every_stage_and_the_pipeline():
         "phases_v2_chunk_papers",
         "phases_v2_run_extraction",
         "phases_v2_project_graph",
+        "phases_v2_backfill_probabilistic_relations",
         "phases_v2_project_vectors",
         "phases_v2_refresh_vector_metadata",
         "phases_v2_full_pipeline",
@@ -255,7 +256,8 @@ def test_the_pipeline_stages_run_in_order_not_in_parallel():
     assert upstream("ingest_papers_op") == {"claim_request_op"}
     assert upstream("chunk_papers_op") == {"ingest_papers_op"}
     assert upstream("run_extraction_op") == {"chunk_papers_op"}
-    assert upstream("project_graph_op") == {"run_extraction_op"}
+    assert upstream("project_relations_op") == {"run_extraction_op"}
+    assert upstream("project_graph_op") == {"project_relations_op"}
     assert upstream("project_vectors_op") == {"project_graph_op"}
     assert upstream("complete_request_op") == {"project_vectors_op"}
 

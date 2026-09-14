@@ -201,7 +201,22 @@ class SearchService:
         prompts=None,
         models=None,
         paths=None,
+        direction="",
+        subject="",
+        participant="",
     ) -> tuple[list[SearchHit], int]:
+        if mode == "effects":
+            return self._items.effects_page(
+                query,
+                direction,
+                subject,
+                participant,
+                limit,
+                offset,
+                prompts,
+                models,
+                paths,
+            )
         if mode == "keyword":
             tokens = tokenize(query)
             total = self._cache.get_or_compute(
@@ -238,7 +253,32 @@ class SearchService:
         prompts=None,
         models=None,
         paths=None,
+        direction="",
+        subject="",
+        participant="",
     ) -> Iterator[SearchHit]:
+        if mode == "effects":
+            offset = 0
+            while True:
+                hits, total = self._items.effects_page(
+                    query,
+                    direction,
+                    subject,
+                    participant,
+                    500,
+                    offset,
+                    prompts,
+                    models,
+                    paths,
+                )
+                yield from hits
+                offset += len(hits)
+                if offset >= total:
+                    return
+                if not hits:
+                    raise RuntimeError(
+                        "Effects results changed during export; please retry"
+                    )
         if (
             mode == "semantic"
             and self._native_index is not None

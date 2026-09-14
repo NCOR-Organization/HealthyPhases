@@ -158,6 +158,27 @@ EXTRACTED_ITEMS = _spec(
     partitions=("prompt_id",),
 )
 
+PROBABILISTIC_RELATIONS = _spec(
+    "probabilistic_relations",
+    (
+        ("relation_id", "string"),
+        ("item_id", "string"),
+        ("relation_index", "integer"),
+        ("extraction_id", "string"),
+        ("chunk_id", "string"),
+        ("paper_id", "string"),
+        ("prompt_id", "string"),
+        ("model_id", "string"),
+        ("subject_process", "string"),
+        ("subject_participant", "string"),
+        ("target_process", "string"),
+        ("direction", "string"),
+        ("evidence_text", "string"),
+    ),
+    primary_key=("relation_id",),
+    partitions=("direction",),
+)
+
 PROJECTIONS = _spec(
     "projections",
     (
@@ -217,6 +238,7 @@ DATASETS: tuple[DatasetSpec, ...] = (
     EXTRACTION_RUNS,
     EXTRACTIONS,
     EXTRACTED_ITEMS,
+    PROBABILISTIC_RELATIONS,
     PROJECTIONS,
     RUN_REQUESTS,
     INPUT_LOCATIONS,
