@@ -109,3 +109,23 @@ test('failed downloads explain availability and restore the button', async () =>
   assert.equal(button.textContent, 'Download paper');
   assert.match(status.textContent, /Source PDF is unavailable/);
 });
+
+test('quoted words highlight whole words and quoted phrases remain together', () => {
+  const { context } = app();
+  assert.equal(context.highlight('like likely dislike LIKE élike', '"like"', 'keyword'),
+    '<mark>like</mark> likely dislike <mark>LIKE</mark> élike');
+  assert.equal(context.highlight('being alone; being happily alone; being\nalone stress', '"being alone" stress', 'keyword'),
+    '<mark>being alone</mark>; being happily alone; <mark>being\nalone</mark> <mark>stress</mark>');
+  assert.equal(context.highlight('100% 1000', '"100%"', 'keyword'), '<mark>100%</mark> 1000');
+  assert.equal(context.highlight('around (x+y) around xxy', '"around (x+y)"', 'keyword'), '<mark>around (x+y)</mark> around xxy');
+  assert.equal(context.highlight('around surround', '\u201caround\u201d', 'keyword'), '<mark>around</mark> surround');
+  assert.equal(context.highlight('likely', 'like', 'keyword'), '<mark>like</mark>ly');
+});
+
+test('keyword quote hint is only visible in keyword mode', () => {
+  const { context, document } = app();
+  context.setMode('keyword');
+  assert.equal(document.getElementById('keyword-help').hidden, false);
+  context.setMode('semantic');
+  assert.equal(document.getElementById('keyword-help').hidden, true);
+});

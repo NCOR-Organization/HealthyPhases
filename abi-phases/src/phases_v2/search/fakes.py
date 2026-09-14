@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 
 from phases_v2.search.models import ItemLocation, SemanticMatch
 from phases_v2.search.paths import matches_path, parent_paths
+from phases_v2.search.search_keywords import matches_term
 
 
 @dataclass
@@ -101,7 +102,7 @@ class FakeExtractedItems:
             if models and item.location.model_id not in models:
                 continue
             text = item.text.lower()
-            if not all(tok in text for tok in tokens):
+            if not all(matches_term(text, tok) for tok in tokens):
                 continue
             if wanted is not None and item.location.prompt_name not in wanted:
                 continue
