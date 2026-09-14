@@ -32,7 +32,12 @@ RELATION = dict(
     subject_participant="person with unmet solitude preference",
     target_process="experiencing stress and depression",
     direction="increases",
-    evidence_text="Less time alone than desired was associated with increased stress.",
+    evidence_text=(
+        "peer pairing may constitute a particularly effective intervention strategy "
+        "for socially wary and anxious children because a sociable peer may serve "
+        "as a role model, provide positive reinforcement, decrease anxiety, increase "
+        "confidence, and enhance generalization"
+    ),
 )
 
 
@@ -139,7 +144,7 @@ def test_backfill_is_bounded_repeatable_and_preserves_provenance(corpus):
         rows.at_snapshot(rows.snapshot()), rows, validate_relation, batch_size=2
     )
     assert (report.examined, report.projected, report.invalid) == (6, 6, 1)
-    assert "i4" in report.errors
+    assert "direction" in report.errors["i4"]
     relations = rows.query(
         "SELECT * FROM probabilistic_relations ORDER BY item_id, relation_index"
     )
@@ -150,6 +155,8 @@ def test_backfill_is_bounded_repeatable_and_preserves_provenance(corpus):
         for r in relations
     )
     assert relations[0]["target_process"] == RELATION["target_process"]
+    assert len(RELATION["evidence_text"]) > 200
+    assert relations[0]["evidence_text"] == RELATION["evidence_text"]
     assert len(rows.query("SELECT * FROM extracted_items")) == 8
     rerun = project_to_relations(engine)
     assert (rerun.projected, rerun.invalid) == (0, 1)
@@ -249,7 +256,7 @@ def test_effects_filters_target_fields_paginate_and_export(corpus):
     [
         {"direction": "uncertain"},
         {"subject_participant": ""},
-        {"evidence_text": "x" * 201},
+        {"evidence_text": ""},
     ],
 )
 def test_backfill_rows_execute_protovalidate_rules(changes):

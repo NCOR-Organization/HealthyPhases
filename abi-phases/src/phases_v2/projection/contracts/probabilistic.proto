@@ -15,5 +15,5 @@ message ProbabilisticRelation {
   string subject_participant = 10 [(buf.validate.field).string.min_len = 1];
   string target_process = 11 [(buf.validate.field).string.min_len = 1];
   string direction = 12 [(buf.validate.field).string = {in: ["increases", "decreases", "no-effect"]}];
-  string evidence_text = 13 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  string evidence_text = 13 [(buf.validate.field).string.min_len = 1];
 }

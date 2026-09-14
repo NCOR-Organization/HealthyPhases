@@ -406,7 +406,8 @@ The `probabilistic_relations` dataset is a typed, rebuildable projection of
 successful extractions whose prompt output key is `relations`. It includes
 subject process, participant, target process, direction, evidence, and all source
 IDs. `relation_id` is stable per extracted item and relation index. Its row
-contract is `projection/contracts/probabilistic.proto`.
+contract is `projection/contracts/probabilistic.proto`. Saved evidence is retained
+in full, including legacy excerpts longer than the extraction prompt requested.
 
 The Effects search tab queries these fields directly. Put `stress` in Target
 process and choose Increases to find relationships increasing stress, regardless

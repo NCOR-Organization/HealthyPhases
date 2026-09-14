@@ -26,5 +26,7 @@ def validate_relation(row: dict) -> None:
     try:
         message = json_format.ParseDict(row, _MESSAGE())
         protovalidate.validate(message)
-    except (json_format.ParseError, protovalidate.ValidationError) as error:
+    except protovalidate.ValidationError as error:
+        raise ValueError(str(error.to_proto()).strip()) from error
+    except json_format.ParseError as error:
         raise ValueError(str(error)) from error
