@@ -60,7 +60,12 @@ def parse_items(raw: str, output_key: str) -> tuple[object, list[str]]:
     items = parsed[output_key]
     if not isinstance(items, list):
         raise UnusableResponse(f"{output_key!r} was not a list")
-    return parsed, [str(item) for item in items]
+    return parsed, [
+        json.dumps(item, ensure_ascii=False)
+        if isinstance(item, (dict, list))
+        else str(item)
+        for item in items
+    ]
 
 
 def run_extraction(
