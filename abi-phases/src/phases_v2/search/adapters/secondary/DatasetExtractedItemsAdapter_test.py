@@ -267,3 +267,16 @@ def test_matching_ids_combine_filters_without_source_text(adapter):
         == set()
     )
     assert adapter.matching_item_ids(paths=["missing/path"]) == set()
+
+
+@pytest.mark.parametrize("prompts", [None, ["solitude_effects"], ["missing"]])
+@pytest.mark.parametrize("models", [None, ["openai/gpt-5-mini"], ["missing"]])
+def test_keyword_count_matches_page_with_each_filter_combination(
+    adapter, prompts, models
+):
+    page = adapter.keyword_search(
+        ["solitude"], prompts=prompts, models=models, limit=100
+    )
+    assert adapter.keyword_count(["solitude"], prompts=prompts, models=models) == len(
+        page
+    )

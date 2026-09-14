@@ -128,7 +128,14 @@ class DatasetExtractedItemsAdapter:
 
     def keyword_count(self, tokens, prompts=None, models=None, paths=None) -> int:
         where = self._keyword_where(tokens, prompts, models, paths)
-        return int(self._query(f"SELECT COUNT(*) AS total {_FROM} {where}")[0]["total"])
+        source = "FROM extracted_items ei"
+        if prompts:
+            source += " LEFT JOIN prompts pr ON pr.prompt_id = ei.prompt_id"
+        if models:
+            source += " LEFT JOIN extractions e ON e.extraction_id = ei.extraction_id"
+        return int(
+            self._query(f"SELECT COUNT(*) AS total {source} {where}")[0]["total"]
+        )
 
     def keyword_search(
         self,
