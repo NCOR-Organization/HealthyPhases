@@ -13,6 +13,7 @@ function app() {
     classList: { toggle() {} }, addEventListener() {},
     querySelector() { return element(); },
     appendChild(child) { this.children.push(child); },
+    replaceChildren() { this.children = []; },
   });
   const elements = new Map();
   const document = {
@@ -128,4 +129,37 @@ test('keyword quote hint is only visible in keyword mode', () => {
   assert.equal(document.getElementById('keyword-help').hidden, false);
   context.setMode('semantic');
   assert.equal(document.getElementById('keyword-help').hidden, true);
+});
+
+
+test('Effects search allows browsing all targets and submits field filters', async () => {
+  const { context, document } = app();
+  context.setMode('effects');
+  assert.equal(document.getElementById('effects-controls').hidden, false);
+  assert.equal(document.getElementById('target-label').hidden, false);
+  document.getElementById('effect-direction').value = 'increases';
+  document.getElementById('effect-subject').value = 'solitude';
+  document.getElementById('effect-participant').value = 'adults';
+  let requested;
+  context.fetch = async (url) => {
+    requested = new URL(url, 'http://localhost');
+    return { ok: true, text: async () => JSON.stringify({ query: '', mode: 'effects', hits: [], total: 0, next_offset: null }) };
+  };
+  await context.search();
+  assert.match(requested.pathname, /effects$/);
+  assert.equal(requested.searchParams.get('q'), '');
+  assert.equal(requested.searchParams.get('direction'), 'increases');
+  assert.equal(requested.searchParams.get('subject'), 'solitude');
+  assert.equal(requested.searchParams.get('participant'), 'adults');
+  assert.match(document.getElementById('status').textContent, /Showing 0 of 0/);
+  context.setMode('keyword');
+  assert.equal(document.getElementById('effects-controls').hidden, true);
+});
+
+test('distinct relations from one extraction remain visible across pages', () => {
+  const { context, document } = app();
+  const hit = { item_id: 'same-item', extracted_text: JSON.stringify(relation) };
+  context.renderHits({ query: '', mode: 'effects', hits: [{ ...hit, relation_id: 'r1' }] });
+  context.renderHits({ query: '', mode: 'effects', hits: [{ ...hit, relation_id: 'r1' }, { ...hit, relation_id: 'r2' }] }, true);
+  assert.equal(document.getElementById('results').children.length, 2);
 });

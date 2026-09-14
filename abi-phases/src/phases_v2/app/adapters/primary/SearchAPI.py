@@ -35,16 +35,25 @@ CSV_COLUMNS = [
     "chunk_id",
     "chunk_seq",
     "chunk_text",
+    "relation_id",
+    "subject_process",
+    "subject_participant",
+    "target_process",
+    "direction",
+    "evidence_text",
 ]
 
 
 def search_filters(
-    q: str,
+    q: str = "",
     score_threshold: float | None = None,
     prompt: Annotated[list[str] | None, Query()] = None,
     model: Annotated[list[str] | None, Query()] = None,
     path: Annotated[list[str] | None, Query()] = None,
     snapshot: int | None = None,
+    direction: str = "",
+    subject: str = "",
+    participant: str = "",
 ):
     return {
         "query": q,
@@ -53,6 +62,9 @@ def search_filters(
         "models": model or [],
         "paths": path or [],
         "snapshot": snapshot,
+        "direction": direction,
+        "subject": subject,
+        "participant": participant,
     }
 
 
@@ -157,6 +169,12 @@ def build_router(service: SearchService) -> APIRouter:
         filters: dict = Depends(search_filters),
     ):
         return page("keyword", limit, offset, filters)
+
+    @router.get("/effects")
+    def effects_search(
+        limit: int = 25, offset: int = 0, filters: dict = Depends(search_filters)
+    ):
+        return page("effects", limit, offset, filters)
 
     @router.get("/export")
     def export_csv(mode: str, filters: dict = Depends(search_filters)):

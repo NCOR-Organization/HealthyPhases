@@ -53,6 +53,13 @@ class SearchHit:
     source_path: str | None = None
     prompt_template: str | None = None
 
+    relation_id: str | None = None
+    subject_process: str | None = None
+    subject_participant: str | None = None
+    target_process: str | None = None
+    direction: str | None = None
+    evidence_text: str | None = None
+
     @classmethod
     def build(
         cls,

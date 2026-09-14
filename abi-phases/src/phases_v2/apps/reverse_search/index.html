@@ -117,6 +117,9 @@
     .relation-edge.decreases { color: #93c5fd; }
     .download-status { color: #fdba74; }
   }
+  #effects-controls input, #effects-controls select { max-width: 100%; padding: .4rem .5rem; background: var(--ground); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; }
+  #effects-controls label { flex-wrap: wrap; }
+  #target-label { font-size: .8rem; color: var(--mute); }
 </style>
 
 <main>
@@ -134,13 +137,25 @@
       <div class="tab" data-mode="keyword" id="tab-keyword">
         Keyword<small>words / quoted phrases</small>
       </div>
+      <div class="tab" data-mode="effects" id="tab-effects">
+        Effects<small>direction / source / target</small>
+      </div>
     </div>
 
+    <label id="target-label" for="q" hidden>Target process (optional)</label>
     <div class="searchbar">
       <input type="text" id="q" placeholder="e.g. solitude reduces stress in older adults" autofocus>
       <button class="go" id="go">Search</button>
     </div>
 
+    <div id="effects-controls" hidden>
+      <p class="lede">Filter the extracted relationship itself. Leave fields blank to browse all effects.</p>
+      <div class="controls">
+        <label>Direction <select id="effect-direction"><option value="">Any direction</option><option value="increases">Increases</option><option value="decreases">Decreases</option><option value="no-effect">Neutral (no effect)</option></select></label>
+        <label>From / subject <input id="effect-subject" type="text" placeholder="e.g. meditation"></label>
+        <label>Participant <input id="effect-participant" type="text" placeholder="e.g. older adults"></label>
+      </div>
+    </div>
     <p id="keyword-help" class="lede" hidden>Use quotes for an exact word or phrase, e.g. "like" or "being alone".</p>
   <div class="controls">
       <label id="kwrap">Batch size
@@ -225,11 +240,14 @@
   function setMode(mode) {
     state.mode = mode;
     $("keyword-help").hidden = mode !== "keyword";
+    $("effects-controls").hidden = mode !== "effects";
+    $("target-label").hidden = mode !== "effects";
+    $("tab-effects").classList.toggle("active", mode === "effects");
     $("tab-semantic").classList.toggle("active", mode === "semantic");
     $("tab-keyword").classList.toggle("active", mode === "keyword");
     $("thwrap").style.display = mode === "semantic" ? "" : "none";
     $("kwrap").querySelector("input").value = mode === "semantic" ? 10 : 25;
-    $("q").placeholder = mode === "semantic"
+    $("q").placeholder = mode === "effects" ? "e.g. stress" : mode === "semantic"
       ? "e.g. solitude reduces stress in older adults"
       : 'e.g. "being alone" stress';
   }
@@ -428,8 +446,9 @@
       return;
     }
     data.hits.forEach((h) => {
-      if (state.seen.has(h.item_id)) return;
-      state.seen.add(h.item_id);
+      const resultId = h.relation_id || h.item_id;
+      if (state.seen.has(resultId)) return;
+      state.seen.add(resultId);
       const card = document.createElement("div");
       card.className = "hit";
       const score = h.score != null ? `<span class="score">score ${h.score.toFixed(3)}</span>` : "";
@@ -505,7 +524,7 @@
 
   async function search() {
     const query = $('q').value.trim();
-    if (!query) return;
+    if (!query && state.mode !== "effects") return;
     state.controller?.abort(); state.exportController?.abort();
     state.controller = new AbortController(); state.exporting = false;
     state.version += 1; state.loading = false; state.seen = new Set();
@@ -515,17 +534,23 @@
     $('export-status').textContent = ''; $('results').replaceChildren();
     $('export').disabled = true; $('load-more').hidden = true;
     const params = new URLSearchParams({ q: query });
+    if (state.mode === 'effects') {
+      params.set('direction', $('effect-direction').value);
+      params.set('subject', $('effect-subject').value.trim());
+      params.set('participant', $('effect-participant').value.trim());
+    }
     state.selected.forEach((p) => params.append('prompt', p));
     state.selectedModels.forEach((m) => params.append('model', m));
     state.selectedPaths.forEach((p) => params.append('path', p));
     params.set(state.mode === 'semantic' ? 'k' : 'limit', $('k').value || 25);
     if (state.mode === 'semantic' && $('threshold').value) params.set('score_threshold', $('threshold').value);
-    state.activeSearch = { query, mode: state.mode, params };
+    state.activeSearch = { query: query || 'all targets', mode: state.mode, params };
     await loadPage(false);
   }
 
   $('go').addEventListener('click', search);
   $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+  ['effect-subject', 'effect-participant'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') search(); }));
   $('load-more').addEventListener('click', () => loadPage(true));
   const observer = new IntersectionObserver((entries) => {
     if (entries.some((entry) => entry.isIntersecting)) loadPage(true);

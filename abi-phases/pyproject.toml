@@ -35,3 +35,5 @@ naas-abi-cli = { path = ".abi/libs/naas-abi-cli",  editable = true }
 "phases_v2.extraction.contracts" = ["*.proto", "*.pb"]
 
 "phases_v2.app.contracts" = ["*.proto", "*.pb"]
+
+"phases_v2.projection.contracts" = ["*.proto", "*.pb"]

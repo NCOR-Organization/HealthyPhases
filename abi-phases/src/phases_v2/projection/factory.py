@@ -70,3 +70,15 @@ def refresh_vector_metadata(engine) -> int:
         DatasetExtractionReader(live.at_snapshot(live.snapshot())),
         QdrantMetadataSink(store.adapter.client),
     )
+
+
+def project_to_relations(engine, *, dry_run: bool = False):
+    from phases_v2.projection.adapters.secondary.ProbabilisticContractValidator import (
+        validate_relation,
+    )
+    from phases_v2.projection.probabilistic import project_relations
+
+    live = DatasetRowStore(engine.services.dataset)
+    return project_relations(
+        live.at_snapshot(live.snapshot()), live, validate_relation, dry_run=dry_run
+    )

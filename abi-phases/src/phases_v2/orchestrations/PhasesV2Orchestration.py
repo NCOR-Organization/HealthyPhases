@@ -149,6 +149,16 @@ def run_extraction_op(
 
 
 @dg.op
+def project_relations_op(context: dg.OpExecutionContext, after: dict) -> dict:
+    from dataclasses import asdict
+    from phases_v2.projection.factory import project_to_relations
+
+    report = project_to_relations(_engine())
+    context.log.info(f"Structured relations: {asdict(report)}")
+    return asdict(report)
+
+
+@dg.op
 def project_graph_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_graph
 
@@ -172,6 +182,11 @@ def start_op() -> dict:
     return {}
 
 
+@dg.job(name="phases_v2_backfill_probabilistic_relations")
+def backfill_relations_job():
+    project_relations_op(after=start_op())
+
+
 @dg.job(name="phases_v2_ingest_papers")
 def ingest_papers_job():
     ingest_papers_op(after=start_op())
@@ -190,7 +205,7 @@ def chunk_papers_job():
     tags={"dagster/concurrency_key": "phases_v2_extraction"},
 )
 def run_extraction_job():
-    run_extraction_op(after=start_op())
+    project_relations_op(after=run_extraction_op(after=start_op()))
 
 
 @dg.job(name="phases_v2_project_graph")
@@ -244,7 +259,8 @@ def full_pipeline_job():
     ingested = ingest_papers_op(after=claimed)
     chunked = chunk_papers_op(after=ingested)
     extracted = run_extraction_op(after=chunked)
-    projected = project_graph_op(after=extracted)
+    relations = project_relations_op(after=extracted)
+    projected = project_graph_op(after=relations)
     embedded = project_vectors_op(after=projected)
     complete_request_op(after=embedded)
 
@@ -377,6 +393,7 @@ class PhasesV2Orchestration(DagsterOrchestration):
                     chunk_papers_job,
                     run_extraction_job,
                     project_graph_job,
+                    backfill_relations_job,
                     project_vectors_job,
                     refresh_vector_metadata_job,
                     full_pipeline_job,

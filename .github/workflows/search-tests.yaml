@@ -3,6 +3,10 @@ on:
   pull_request:
     paths:
       - 'abi-phases/src/phases_v2/search/**'
+      - 'abi-phases/src/phases_v2/projection/**'
+      - 'abi-phases/src/phases_v2/datasets/**'
+      - 'abi-phases/src/phases_v2/orchestrations/**'
+      - 'abi-phases/src/phases_v2/structured_text.py'
       - 'abi-phases/src/phases_v2/extraction/domain*'
       - 'abi-phases/src/phases_v2/apps/reverse_search/**'
       - 'abi-phases/src/phases_v2/app/adapters/primary/SearchAPI*'
