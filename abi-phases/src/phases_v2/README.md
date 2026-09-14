@@ -385,3 +385,9 @@ intended for search users. Current semantic/keyword matching is unchanged; a
 dedicated directional-effect query remains future work.
 
 Run the focused backend and frontend checks with `make test-search`.
+
+Older structured extractions were stored using Python dictionary/list text.
+Search responses convert these literal payloads to JSON on read so existing
+matches can render as graphs without re-extraction or a corpus migration.
+New structured items are stored as JSON. Compatibility parsing is bounded,
+uses literal-only parsing, and leaves malformed or unsupported text unchanged.

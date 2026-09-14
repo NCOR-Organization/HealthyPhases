@@ -347,3 +347,22 @@ def test_module_worker_configuration_defaults_and_validation():
     for value in [0, -1, True, 1.5]:
         with pytest.raises(ValidationError):
             config(extraction_workers=value)
+
+
+def test_structured_items_are_stored_as_json_not_python_dictionary_repr():
+    from phases_v2.extraction.domain import parse_items
+
+    relation = {
+        "subject_process": "spending less time alone than desired",
+        "subject_participant": "person with unmet solitude preference",
+        "target_process": "experiencing stress and depression",
+        "direction": "increases",
+        "evidence_text": "A person's preference was unmet.",
+    }
+    raw = json.dumps({"relations": [relation]})
+    response, items = parse_items(raw, "relations")
+    assert response == {"relations": [relation]}
+    assert json.loads(items[0]) == relation
+    assert parse_items('{"results": ["ordinary claim"]}', "results")[1] == [
+        "ordinary claim"
+    ]

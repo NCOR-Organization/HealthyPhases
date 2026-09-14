@@ -6,7 +6,7 @@ test:
 	uv run pytest src/phases_v2
 
 test-search:
-	uv run --with pytest pytest src/phases_v2/search src/phases_v2/app/adapters/primary/SearchAPI_test.py
+	uv run --with pytest pytest src/phases_v2/search src/phases_v2/app/adapters/primary/SearchAPI_test.py src/phases_v2/extraction/domain_test.py
 	node --test src/phases_v2/apps/reverse_search/tests/reverse_search_test.cjs
 
 lint:

@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from phases_v2.search.search_payloads import canonical_payload_text
+
 
 @dataclass(frozen=True)
 class ItemLocation:
@@ -63,7 +65,7 @@ class SearchHit:
         loc = location or ItemLocation()
         return cls(
             item_id=item_id,
-            extracted_text=extracted_text,
+            extracted_text=canonical_payload_text(extracted_text),
             score=score,
             prompt_id=loc.prompt_id,
             prompt_name=loc.prompt_name,
