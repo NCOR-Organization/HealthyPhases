@@ -48,5 +48,9 @@ def search_service(
         semantic_index=semantic_index
         or VectorStoreSemanticAdapter(engine.services.vector_store, embedding),
         extracted_items=extracted_items
-        or DatasetExtractedItemsAdapter(DatasetRowStore(engine.services.dataset)),
+        or DatasetExtractedItemsAdapter(
+            DatasetRowStore(engine.services.dataset),
+            object_storage=getattr(engine.services, "object_storage", None),
+            papers_root=configuration.papers_root if configuration else "phases_v2",
+        ),
     )

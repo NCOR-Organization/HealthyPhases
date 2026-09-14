@@ -78,6 +78,45 @@
   #paths { width: 100%; margin-top: .4rem; background: var(--ground); color: var(--ink); border: 1px solid var(--rule); border-radius: 6px; }
   #export:disabled { opacity: .5; cursor: default; }
   .source-path { overflow-wrap: anywhere; }
+    .relations { display: grid; gap: 16px; }
+    .relation { margin: 0; padding: 14px; border: 1px solid var(--rule); border-radius: 10px; background: var(--ground); }
+    .relation figcaption { font-size: 12px; font-weight: 700; color: var(--mute); margin-bottom: 12px; }
+    .relation-flow { display: grid; grid-template-columns: minmax(0, 1fr) minmax(130px, .7fr) minmax(0, 1fr); align-items: center; gap: 12px; }
+    .graph-node { min-width: 0; padding: 12px; border: 1px solid var(--rule); border-radius: 9px; background: var(--surface); }
+    .node-role { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--mute); }
+    .node-type { display: block; color: var(--mute); font-size: 12px; margin: 2px 0 6px; }
+    .node-text { font-size: 14px; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .relation-edge { text-align: center; color: var(--mute); font-size: 12px; }
+    .relation-edge strong { display: block; font-size: 14px; }
+    .relation-edge.increases { color: #9a3412; }
+    .relation-edge.decreases { color: #1d4ed8; }
+    .edge-arrow { display: block; position: relative; height: 2px; background: currentColor; margin: 12px 4px; }
+    .edge-arrow::after { content: ''; position: absolute; right: -1px; top: -4px; border-left: 8px solid currentColor; border-top: 5px solid transparent; border-bottom: 5px solid transparent; }
+    .participant-branch { width: calc((100% - 24px) / 2.7); margin-bottom: 12px; }
+    .participant-branch .graph-node { border-style: dashed; }
+    .participant-link { display: block; text-align: center; font-size: 12px; color: var(--mute); padding-top: 6px; }
+    .participant-link::after { content: '\2193'; display: block; font-size: 20px; line-height: 1; }
+    .evidence { margin: 14px 0 0; padding: 10px 12px; border-left: 3px solid var(--rule); font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+    .evidence-label { display: block; color: var(--mute); font-size: 11px; font-weight: 700; margin-bottom: 4px; }
+    .json-payload { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 300px; overflow: auto; font: 13px/1.6 ui-monospace, monospace; }
+    .download { border: 1px solid var(--rule); border-radius: 7px; background: var(--surface); padding: 5px 9px; color: var(--accent); font: inherit; cursor: pointer; }
+    .download:disabled { cursor: default; color: var(--mute); }
+    .download-status { color: #9a3412; font-size: 12px; }
+    @media (max-width: 600px) {
+      .wrap { padding: 0 12px; }
+      .searchbar input[type=text] { min-width: 0; }
+      .relation-flow { grid-template-columns: minmax(0, 1fr); }
+      .participant-branch { width: 100%; }
+      .relation-edge { padding: 4px 0; }
+      .edge-arrow { width: 2px; height: 24px; margin: 8px auto 0; }
+      .edge-arrow::after { right: -4px; top: auto; bottom: -1px; border-top: 8px solid currentColor; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; }
+    }
+
+  @media (prefers-color-scheme: dark) {
+    .relation-edge.increases { color: #fdba74; }
+    .relation-edge.decreases { color: #93c5fd; }
+    .download-status { color: #fdba74; }
+  }
 </style>
 
 <main>
@@ -285,16 +324,87 @@
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
   }
 
-  function highlight(text, q, mode) {
-    if (mode !== "keyword" || !text) return escapeHtml(text);
-    const tokens = (q.toLowerCase().match(/\w+/g) || []);
-    let out = escapeHtml(text);
-    [...new Set(tokens)].forEach((tok) => {
-      const re = new RegExp(`(${tok.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
-      out = out.replace(re, "<mark>$1</mark>");
-    });
-    return out;
-  }
+    function highlight(text, q, mode) {
+      if (mode !== "keyword" || !text) return escapeHtml(text);
+      const tokens = [...new Set(q.toLowerCase().match(/\w+/g) || [])];
+      if (!tokens.length) return escapeHtml(text);
+      // Match before escaping so search words cannot alter HTML entities or tags.
+      const re = new RegExp(`(${tokens.sort((a, b) => b.length - a.length).join('|')})`, 'gi');
+      return text.split(re).map((part, i) => i % 2
+        ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part)).join('');
+    }
+
+
+    function parsePayload(text) {
+      try { return JSON.parse(text); } catch { return undefined; }
+    }
+
+    function probabilisticRelations(payload) {
+      const relations = Array.isArray(payload) ? payload
+        : payload && Array.isArray(payload.relations) ? payload.relations : [payload];
+      const valid = (r) => r && typeof r === 'object'
+        && ['subject_process', 'subject_participant', 'target_process'].every(
+          (key) => typeof r[key] === 'string' && r[key].trim())
+        && ['increases', 'decreases', 'no-effect'].includes(r.direction)
+        && (r.evidence_text == null || typeof r.evidence_text === 'string');
+      return relations.length && relations.every(valid) ? relations : [];
+    }
+
+    function renderRelation(r, query, index, total, mode) {
+      const node = (role, type, text) => `<div class="graph-node">
+        <span class="node-role">${role}</span><span class="node-type">${type}</span>
+        <div class="node-text">${highlight(text, query, mode)}</div></div>`;
+      const direction = { increases: 'Increases', decreases: 'Decreases', 'no-effect': 'Neutral (no effect)' }[r.direction];
+      return `<figure class="relation">
+        <figcaption>Probability-modulating claim${total > 1 ? ` ${index + 1} of ${total}` : ''}</figcaption>
+        <div class="participant-branch">
+          ${node('Participant / disposition bearer', 'Independent continuant', r.subject_participant)}
+          <span class="participant-link">participates in</span>
+        </div>
+        <div class="relation-flow">
+          ${node('From / subject', 'Process', r.subject_process)}
+          <div class="relation-edge ${r.direction}"><strong>${direction}</strong>
+            ${r.direction === 'no-effect' ? 'on the probability of' : 'the probability of'}
+            <span class="edge-arrow" aria-hidden="true"></span></div>
+          ${node('To / target', 'Process', r.target_process)}
+        </div>
+        ${r.evidence_text ? `<blockquote class="evidence"><span class="evidence-label">Evidence from the paper</span>${highlight(r.evidence_text, query, mode)}</blockquote>` : ''}
+      </figure>`;
+    }
+
+    function renderExtraction(text, query, mode) {
+      const payload = parsePayload(text);
+      const relations = probabilisticRelations(payload);
+      if (relations.length) return `<div class="relations">${relations.map(
+        (r, i) => renderRelation(r, query, i, relations.length, mode)).join('')}</div>`;
+      if (payload !== undefined) return `<pre class="json-payload">${highlight(JSON.stringify(payload, null, 2), query, mode)}</pre>`;
+      return `<div class="text">${highlight(text, query, mode)}</div>`;
+    }
+
+    async function downloadPaper(hit, button, status) {
+      button.disabled = true;
+      button.textContent = 'Downloading...';
+      status.textContent = '';
+      try {
+        const params = new URLSearchParams({ item_id: hit.item_id });
+        const res = await fetch(`${API()}/paper?${params}`, { credentials: "include" });
+        if (!res.ok) throw new Error(res.status === 404
+          ? 'Source PDF is unavailable.' : `Download failed (${res.status}). Please try again.`);
+        const url = URL.createObjectURL(await res.blob());
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = hit.paper_name || 'paper.pdf';
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        status.textContent = error.message;
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Download paper';
+      }
+    }
 
   function renderHits(data, append = false) {
     $("export").disabled = !data.total || state.exporting;
@@ -320,12 +430,19 @@
         <div class="meta">Stored template for this prompt version.</div>
         <div class="context">${escapeHtml(h.prompt_template || "Stored prompt unavailable for this result.")}</div></details>`;
       const context = h.chunk_text
-        ? `<details><summary>Show source context</summary><div class="context">${highlight(h.chunk_text, data.query, data.mode)}</div></details>`
-        : "";
+        ? `<details><summary>Show source chunk</summary><div class="context">${highlight(h.chunk_text, data.query, data.mode)}</div></details>`
+        : '<details><summary>Source chunk</summary><div class="context">Source chunk is unavailable for this match.</div></details>';
+      const raw = probabilisticRelations(parsePayload(h.extracted_text)).length
+        ? `<details><summary>Show original JSON</summary><div class="context">${escapeHtml(h.extracted_text)}</div></details>` : '';
+      const download = h.paper_id
+        ? '<button class="download" type="button">Download paper</button><span class="download-status" role="status"></span>' : '';
       card.innerHTML = `
-        <div class="text">${highlight(h.extracted_text, data.query, data.mode)}</div>
-        <div class="meta">${prompt}${model}${paper}${where ? `<span>· ${where}</span>` : ""}${score}</div>
-        ${source}${extractionPrompt}${context}`;
+        ${renderExtraction(h.extracted_text, data.query, data.mode)}
+        <div class="meta">${prompt}${model}${paper}${where ? `<span>· ${where}</span>` : ""}${score}${download}</div>
+        ${source}${context}${extractionPrompt}${raw}`;
+      const downloadButton = card.querySelector('.download');
+      if (downloadButton) downloadButton.addEventListener('click', () =>
+        downloadPaper(h, downloadButton, card.querySelector('.download-status')));
       box.appendChild(card);
     });
   }

@@ -55,6 +55,9 @@ class FakeSemanticIndex:
 class FakeExtractedItems:
     items: list[FakeItem] = field(default_factory=list)
 
+    def download_paper(self, item_id):
+        raise FileNotFoundError(item_id)
+
     def snapshot(self):
         return None
 

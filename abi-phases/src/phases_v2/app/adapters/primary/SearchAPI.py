@@ -9,9 +9,10 @@ import re
 from dataclasses import asdict
 from tempfile import SpooledTemporaryFile
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response, StreamingResponse
 from starlette.background import BackgroundTask
 
 from phases_v2.app.contracts.pipeline_validation import validate_message
@@ -117,6 +118,29 @@ def build_router(service: SearchService) -> APIRouter:
             "next_offset": following if following < total else None,
             "hits": [asdict(hit) for hit in hits],
         }
+
+    @router.get("/paper")
+    def download_paper(item_id: str):
+        try:
+            validate_message("PaperDownloadRequest", {"item_id": item_id})
+        except ValueError as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
+        try:
+            filename, content = service.download_paper(item_id)
+        except FileNotFoundError as error:
+            raise HTTPException(
+                status_code=404, detail="Source PDF is unavailable."
+            ) from error
+        except Exception as error:
+            raise unavailable(error) from error
+        return Response(
+            content,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f"attachment; filename*=UTF-8''{quote(filename, safe='')}",
+                "Cache-Control": "private, no-store",
+            },
+        )
 
     @router.get("/semantic")
     def semantic_search(

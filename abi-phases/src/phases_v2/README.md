@@ -366,3 +366,22 @@ not retained. Entries include the dataset snapshot and applicable filters.
 Qdrant itself has no snapshot here, so concurrent indexing/payload changes can
 shift results during paging/export. Exact scoring avoids approximate-search
 variations between page sizes, but does not freeze concurrent mutations.
+
+### Probabilistic search results and paper downloads
+
+Reverse search detects probability-modulating JSON claims (single relations,
+lists, or `relations` envelopes) and displays their participant, subject process,
+and target process as typed nodes. Edges explicitly label increases, decreases,
+or neutral (no effect) on the target's probability. Evidence and the original
+JSON remain available; unknown or incomplete payloads retain their text.
+Source chunks appear before the stored extraction prompt.
+
+`GET /phases_v2/api/search/paper?item_id=...` downloads the original PDF resolved
+from that item's paper record. The service reads the recorded object-storage
+prefix/key and restricts it to the configured `papers_root`; it accepts no caller
+file paths or external URLs. Missing PDFs show an inline error. Downloads use the
+same access controls as search, so the configured corpus must contain only papers
+intended for search users. Current semantic/keyword matching is unchanged; a
+dedicated directional-effect query remains future work.
+
+Run the focused backend and frontend checks with `make test-search`.
