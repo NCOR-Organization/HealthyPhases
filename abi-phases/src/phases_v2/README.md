@@ -431,3 +431,42 @@ cannot create duplicate relation IDs. Invalid payloads are reported (counts and
 up to 20 item IDs/errors), left untouched, and retried by later runs. The backfill
 never rewrites source extractions or calls an LLM. API startup only creates the
 empty dataset; it does not run a potentially large backfill during startup.
+
+## Pipeline workspace
+
+The Phases Pipeline app has four pages in its left navigation:
+
+- **New run**: select a saved collection or storage locations, preview documents,
+  save the selected locations as a collection, choose prompt versions, and queue a run.
+  Existing saved pipeline configurations can still be saved, loaded, and run here.
+- **Input collections**: create, rename, edit, and archive named groups of locations.
+  The contents preview includes each location's subfolders. Archiving a collection
+  leaves its source documents and queued requests intact. Create storage locations
+  and upload PDFs from this page as well.
+- **Prompt library**: browse full prompt text, create prompts, and save edits as
+  new versions. Prompt text must contain `{chunk_text}` and use one of the supported
+  extraction output schemas. Old versions remain selectable and resolvable by workers.
+- **Order requests**: filter the latest 100 requests by status and inspect timestamps,
+  source locations, all selected prompts, execution IDs, counts, and errors.
+  Monitoring refreshes every 10 seconds while the page is visible.
+
+Collections are stored in the new `input_collections` dataset through the existing
+row-store adapter. Restart the ABI API and Dagster processes after updating: normal
+module startup creates the missing dataset. No existing dataset needs to be dropped or recreated. Collection edits use
+last-write-wins semantics; a queued request stores a copy of its selected locations.
+Prompts continue using the existing `prompts` dataset and content-based identities.
+Changing an output schema requires a changed name or text to preserve that identity.
+
+Location selection scopes ingestion, chunking, and extraction to the selected
+documents, preserving the current orchestrator behavior.
+
+Collection mutation commands are defined in
+`app/contracts/app_resources.proto` and validated server-side with Protovalidate.
+The checked-in descriptor is packaged with the module. `make proto` regenerates it
+using the existing extraction descriptor's pinned validation dependency. Resource
+endpoints inherit the ABI API's existing access controls; no separate role model
+is introduced.
+
+Run backend and browser-logic regressions with `make test` (or run
+`uv run pytest src/phases_v2/app` and
+`node --test src/phases_v2/apps/pipeline/pipeline_test.cjs` individually).

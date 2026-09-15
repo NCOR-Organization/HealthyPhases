@@ -205,6 +205,30 @@ def test_resolving_a_declared_prompt_returns_it():
     assert resolve_prompt(PROMPT.prompt_id) == PROMPT
 
 
+def test_a_prompt_saved_in_the_app_is_executed_and_recorded(engine):
+    from phases_v2.app.pipeline_management import PipelineManagement
+
+    rows = DatasetRowStore(engine.services.dataset)
+    saved = PipelineManagement(rows, None, "phases_v2").save_prompt(
+        {
+            "name": "Custom research prompt",
+            "template": "Extract research claims: {chunk_text}",
+            "output_key": PROMPT.output_key,
+        }
+    )
+    report = extract(
+        engine,
+        model_id=MODEL_ID,
+        prompt_id=saved["prompt_id"],
+        model=FakeModel(json.dumps({PROMPT.output_key: ["a research claim"]})),
+    )
+
+    assert report.succeeded == 4
+    assert _query(engine, "SELECT DISTINCT prompt_id FROM extractions") == [
+        {"prompt_id": saved["prompt_id"]}
+    ]
+
+
 def test_items_carry_the_prompt_so_they_share_the_extraction_partition(engine):
     _run(engine)
 

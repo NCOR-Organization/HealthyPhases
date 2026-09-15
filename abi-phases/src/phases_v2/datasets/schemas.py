@@ -229,7 +229,19 @@ PIPELINES = _spec(
     primary_key=("pipeline_id",),
 )
 
+INPUT_COLLECTIONS = _spec(
+    "input_collections",
+    (
+        ("collection_id", "string"),
+        ("name", "string"),
+        ("locations", "json"),
+        ("archived", "boolean"),
+    ),
+    primary_key=("collection_id",),
+)
+
 DATASETS: tuple[DatasetSpec, ...] = (
+    INPUT_COLLECTIONS,
     PAPERS,
     CHUNKERS,
     CHUNKS,

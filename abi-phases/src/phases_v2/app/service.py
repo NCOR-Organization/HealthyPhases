@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from phases_v2.app.pipeline_management import PipelineManagement
+from phases_v2.app.app_resources import AppResources
 from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.requests.domain import submit
@@ -44,6 +45,7 @@ class PipelineAppService:
         #: shared with every other module, so scanning it would offer their
         #: data as a paper source.
         self._papers_root = papers_root.strip("/")
+        self.resources = AppResources(rows, self._papers_root)
         self.management = PipelineManagement(
             rows, object_storage, self._papers_root, is_model_available
         )
@@ -119,6 +121,9 @@ class PipelineAppService:
             return {
                 "documents": [],
                 "total": 0,
+                "ingestable": 0,
+                "unsupported": 0,
+                "failed_locations": [],
                 "already_ingested": 0,
                 "truncated": False,
             }
