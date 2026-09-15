@@ -5,10 +5,10 @@ from langchain_core.tools import tool
 from phases import ABIModule
 
 # from phases.models.google_gemini_2_0_flash import model as gemini_model
-from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import PubMedAgent
+from pubmed.agents.PubMedAgent import PubMedAgent
 
 # from naas_abi_marketplace.domains.inbox.agents.InboxAgent import InboxAgent
-# from naas_abi_marketplace.applications.pubmed.agents.PubMedAgent import create_agent as pubmed_create_agent
+# from pubmed.agents.PubMedAgent import create_agent as pubmed_create_agent
 import rdflib
 
 from phases.utils import embed_text
@@ -118,7 +118,7 @@ memory:
     def new():
         module: ABIModule = ABIModule.get_instance()
         pubmed_agents = module.engine.modules[
-            "naas_abi_marketplace.applications.pubmed"
+            "pubmed"
         ].agents
         pubmed_agent = [agent for agent in pubmed_agents if agent is PubMedAgent]
         assert len(pubmed_agent) == 1, (

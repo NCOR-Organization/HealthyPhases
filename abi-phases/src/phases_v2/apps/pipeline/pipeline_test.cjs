@@ -107,3 +107,23 @@ test('a non-JSON API response gives an actionable error without exposing its HTM
     assert.match(error.message, /Expected JSON/); assert.doesNotMatch(error.message, /secret diagnostic/); return true;
   });
 });
+
+test('PubMed manual requests submit the query and pipeline choices without a storage rescan', async () => {
+  const { context, $ } = app(); let sent;
+  $('input-source').value = 'pubmed'; $('pubmed-query').value = 'query-id';
+  $('prompt').selectedOptions = [{ value: 'prompt' }]; $('model').value = 'model'; $('chunker').value = 'chunker';
+  context.fetch = async (url, options) => { sent = { url, body: JSON.parse(options.body) }; return response({ request_id: 'new-request' }); };
+  await context.submit();
+  assert.equal(sent.url, '/phases_v2/api/sources/pubmed/requests');
+  assert.deepEqual(sent.body, {query_id: 'query-id', prompt_ids: ['prompt'], model_id: 'model', chunker_id: 'chunker'});
+});
+
+test('PubMed preview shows only published artifacts and escapes paper titles', async () => {
+  const { context, $ } = app();
+  $('input-source').value = 'pubmed'; $('pubmed-query').value = 'query-id';
+  context.fetch = async () => response({ artifacts: [{title:'<img onerror=x>',storage_prefix:'pubmed/papers',storage_key:'paper.pdf'}] });
+  await context.refreshDocuments();
+  assert.equal($('documents').children.length, 1);
+  assert.match($('documents').children[0].innerHTML, /&lt;img/);
+  assert.match($('documents-summary').textContent, /1 published artifact/);
+});

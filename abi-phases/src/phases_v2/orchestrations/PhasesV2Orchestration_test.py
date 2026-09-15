@@ -11,6 +11,7 @@ from types import ModuleType, SimpleNamespace
 from unittest.mock import Mock
 
 import dagster as dg
+import pytest
 
 from phases_v2.orchestrations.PhasesV2Orchestration import (
     PhasesV2Orchestration,
@@ -72,7 +73,7 @@ def test_prompts_and_sensor_ticks_share_the_bootstrapped_engine(monkeypatch):
         assert isinstance(run_request_sensor(context), dg.SkipReason)
         assert isinstance(run_request_sensor(context), dg.SkipReason)
 
-    assert totals == {"succeeded": 2, "failed": 0, "skipped": 0}
+    assert totals == {"succeeded": 2, "failed": 0, "skipped": 0, "paper_ids": None}
     assert [call.args[0] for call in extract.call_args_list] == [
         entrypoint.engine,
         entrypoint.engine,
@@ -260,3 +261,58 @@ def test_no_stage_is_left_without_an_upstream_dependency():
     with_upstream = {node.name for node, inputs in graph.dependencies.items() if inputs}
 
     assert nodes - with_upstream == {"claim_request_op"}
+
+
+def test_pipeline_carries_selected_paper_ids_to_each_stage(monkeypatch):
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        chunk_papers_op,
+        project_graph_op,
+        project_vectors_op,
+        run_extraction_op,
+    )
+
+    monkeypatch.setattr(
+        "phases_v2.orchestrations.PhasesV2Orchestration._engine", lambda: object()
+    )
+    chunk = Mock(return_value=SimpleNamespace(papers_chunked=1, chunks_written=1))
+    extract = Mock(return_value=SimpleNamespace(succeeded=1, failed=0, skipped=0))
+    graph = Mock(return_value=SimpleNamespace(projected=1))
+    vectors = Mock(return_value=SimpleNamespace(projected=1))
+    monkeypatch.setattr("phases_v2.chunking.factory.chunk_corpus", chunk)
+    monkeypatch.setattr("phases_v2.extraction.factory.extract", extract)
+    monkeypatch.setattr("phases_v2.projection.factory.project_to_graph", graph)
+    monkeypatch.setattr("phases_v2.projection.factory.project_to_vectors", vectors)
+    config = RunConfig(prompt_ids=["prompt"])
+    with dg.build_op_context() as context:
+        after = chunk_papers_op(context, config, after={"paper_ids": ["selected"]})
+        after = run_extraction_op(context, config, after=after)
+        after = project_graph_op(context, after=after)
+        project_vectors_op(context, after=after)
+    for operation in (chunk, extract, graph, vectors):
+        assert operation.call_args.kwargs["paper_ids"] == ["selected"]
+
+
+def test_missing_pubmed_manifest_cannot_fall_back_to_a_storage_scan(monkeypatch):
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        ingest_papers_op,
+    )
+
+    engine = SimpleNamespace(services=SimpleNamespace(dataset=object()))
+    monkeypatch.setattr(
+        "phases_v2.orchestrations.PhasesV2Orchestration._engine", lambda: engine
+    )
+    monkeypatch.setattr(
+        "phases_v2.sources.phases_v2_sources.manifest_for", lambda *args: None
+    )
+    ingest = Mock()
+    monkeypatch.setattr("phases_v2.papers.factory.ingest_papers", ingest)
+    with (
+        dg.build_op_context() as context,
+        pytest.raises(dg.Failure, match="manifest is missing"),
+    ):
+        ingest_papers_op(
+            context, RunConfig(request_id="request", locations=["dataset:pubmed:query"])
+        )
+    ingest.assert_not_called()

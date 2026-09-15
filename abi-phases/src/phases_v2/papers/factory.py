@@ -16,11 +16,19 @@ from phases_v2.papers.domain import ingest
 from phases_v2.papers.interfaces import IngestReport
 
 
-def ingest_papers(engine, locations: list[str]) -> IngestReport:
+def ingest_papers(engine, locations: list[str], artifacts=None) -> IngestReport:
     """Ingest every paper beneath ``locations`` using the engine's services."""
+    from phases_v2.sources.adapters.secondary.phases_v2_artifact_source import (
+        ManifestSource,
+    )
+
     return ingest(
         locations,
-        source=ObjectStorageSource(engine.services.object_storage),
+        source=(
+            ManifestSource(engine.services.object_storage, artifacts)
+            if artifacts is not None
+            else ObjectStorageSource(engine.services.object_storage)
+        ),
         renderer=PdfTextRenderer(),
         papers=DatasetPaperStore(DatasetRowStore(engine.services.dataset)),
     )

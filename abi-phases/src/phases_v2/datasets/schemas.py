@@ -202,7 +202,14 @@ INPUT_COLLECTIONS = _spec(
     primary_key=("collection_id",),
 )
 
+SOURCE_MANIFESTS = _spec(
+    "source_manifests",
+    (("request_id", "string"), ("source_query_id", "string"), ("artifacts", "json")),
+    primary_key=("request_id",),
+)
+
 DATASETS: tuple[DatasetSpec, ...] = (
+    SOURCE_MANIFESTS,
     INPUT_COLLECTIONS,
     PAPERS,
     CHUNKERS,

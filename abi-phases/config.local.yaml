@@ -130,7 +130,7 @@ modules:
       # shared with every other module.
       papers_root: "phases_v2"
 
-  - module: naas_abi_marketplace.applications.pubmed
+  - module: pubmed
     enabled: true
 
 default_agent: 'abi_phases.phases ELOAgent'

@@ -71,7 +71,31 @@ def ingest_papers_op(
 ) -> dict:
     from phases_v2.papers.factory import ingest_papers
 
-    report = ingest_papers(_engine(), config.locations)
+    engine = _engine()
+    artifacts = None
+    if config.request_id:
+        from phases_v2.datasets.row_store import DatasetRowStore
+        from phases_v2.sources.phases_v2_sources import manifest_for
+
+        artifacts = manifest_for(
+            DatasetRowStore(engine.services.dataset), config.request_id
+        )
+    is_dataset_source = any(
+        location.startswith("dataset:pubmed:") for location in config.locations
+    )
+    if is_dataset_source and artifacts is None:
+        raise dg.Failure(
+            "The submitted PubMed source manifest is missing; refusing a storage scan"
+        )
+    report = (
+        ingest_papers(
+            engine,
+            sorted({a["storage_prefix"] for a in artifacts}),
+            artifacts=artifacts,
+        )
+        if artifacts is not None
+        else ingest_papers(engine, config.locations)
+    )
     context.log.info(
         f"ingested={report.ingested} skipped={report.skipped} failed={report.failed}"
     )
@@ -79,7 +103,15 @@ def ingest_papers_op(
         context.log.warning(f"Could not read ingestion location {location}: {error}")
     for paper, error in report.failed_papers.items():
         context.log.warning(f"Could not ingest paper {paper}: {error}")
-    return {"ingested": report.ingested, "skipped": report.skipped}
+    if report.failed:
+        raise dg.Failure(
+            f"Paper ingestion failed: {report.failed_locations} {report.failed_papers}"
+        )
+    return {
+        "ingested": report.ingested,
+        "skipped": report.skipped,
+        "paper_ids": report.paper_ids,
+    }
 
 
 @dg.op
@@ -88,11 +120,16 @@ def chunk_papers_op(
 ) -> dict:
     from phases_v2.chunking.factory import chunk_corpus
 
-    report = chunk_corpus(_engine(), chunker=_chunker(config.chunker_id))
+    report = chunk_corpus(
+        _engine(), chunker=_chunker(config.chunker_id), paper_ids=after.get("paper_ids")
+    )
     context.log.info(
         f"papers_chunked={report.papers_chunked} chunks={report.chunks_written}"
     )
-    return {"chunks_written": report.chunks_written}
+    return {
+        "chunks_written": report.chunks_written,
+        "paper_ids": after.get("paper_ids"),
+    }
 
 
 @dg.op
@@ -115,6 +152,7 @@ def run_extraction_op(
             prompt_id=prompt_id,
             chunker=_chunker(config.chunker_id),
             max_chunks=config.max_chunks,
+            paper_ids=after.get("paper_ids"),
             run_id=(
                 extraction_run_id(config.request_id, prompt_id)
                 if config.request_id
@@ -130,23 +168,23 @@ def run_extraction_op(
         totals["skipped"] += report.skipped
 
     context.log.info(f"{len(config.prompt_ids)} prompt(s): {totals}")
-    return totals
+    return {**totals, "paper_ids": after.get("paper_ids")}
 
 
 @dg.op
 def project_graph_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_graph
 
-    report = project_to_graph(_engine())
+    report = project_to_graph(_engine(), paper_ids=after.get("paper_ids"))
     context.log.info(f"projected={report.projected}")
-    return {"projected": report.projected}
+    return {"projected": report.projected, "paper_ids": after.get("paper_ids")}
 
 
 @dg.op
 def project_vectors_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_vectors
 
-    report = project_to_vectors(_engine())
+    report = project_to_vectors(_engine(), paper_ids=after.get("paper_ids"))
     context.log.info(f"embedded={report.projected}")
     return {"embedded": report.projected}
 

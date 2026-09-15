@@ -44,6 +44,7 @@ class PaperRecord:
 class IngestReport:
     """What a run did, in enough detail to explain itself afterwards."""
 
+    paper_ids: list[str] = field(default_factory=list)
     discovered: int = 0
     ingested: int = 0
     skipped: int = 0

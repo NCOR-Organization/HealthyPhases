@@ -237,3 +237,28 @@ is introduced.
 Run backend and browser-logic regressions with `make test` (or run
 `uv run pytest src/phases_v2/app` and
 `node --test src/phases_v2/apps/pipeline/pipeline_test.cjs` individually).
+
+
+## Published PubMed sources
+
+The pipeline app offers **Object storage** and **PubMed dataset** sources.
+Choose a saved PubMed query to preview its successfully published PDF artifacts,
+then select chunker, prompt versions and model and click **Request run**.
+The source is the public contract version 1 in the `pubmed` dataset namespace;
+Phase v2 has no Python dependency on the publisher implementation.
+
+The `source_manifests` dataset stores the exact object keys and SHA-256 checksums
+for each PubMed request before its `run_requests` row becomes pending. Query
+membership changing later cannot expand an existing request. The `sources/`
+package owns publication discovery, manifest recording and checksum verification.
+All stages in a full run are scoped to its selected papers, including already
+ingested papers that still have outstanding extraction work. Missing or altered
+artifacts fail the run; they cannot cause a fallback to a broad prefix scan.
+
+Publication does not schedule a Phase v2 run. Scheduled pipelines and automatic
+new-paper ingestion are a later phase. Existing object-storage collections remain
+available, with their own configured root; PubMed access is through its explicit
+published dataset, not by relaxing the collection root restriction.
+
+PubMed requests carry a `dataset:pubmed:<query_id>` source marker. If their
+manifest is missing, the job fails instead of treating the source as a prefix.

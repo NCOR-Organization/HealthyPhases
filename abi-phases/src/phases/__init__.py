@@ -34,7 +34,7 @@ class ABIModule(BaseModule[PhasesConfiguration]):
     Configuration = PhasesConfiguration
     dependencies: ModuleDependencies = ModuleDependencies(
         modules=[
-            "naas_abi_marketplace.applications.pubmed",
+            "pubmed",
             "naas_abi_marketplace.ai.chatgpt",
         ],
         services=[ObjectStorageService, VectorStoreService, TripleStoreService],

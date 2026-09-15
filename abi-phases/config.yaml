@@ -104,7 +104,7 @@ modules:
     enabled: true
     config: {}
 
-  - module: naas_abi_marketplace.applications.pubmed
+  - module: pubmed
     enabled: true
 
 default_agent: 'abi_phases.phases ELOAgent'

@@ -35,6 +35,7 @@ def submit(
     prompt_ids: list[str],
     model_id: str,
     requested_by: str | None = None,
+    request_id: str | None = None,
 ) -> RunRequest:
     """Record a pending request. Returns it, including its ``request_id``.
 
@@ -55,7 +56,7 @@ def submit(
             raise ValueError(f"a run needs a {name}")
 
     request = RunRequest(
-        request_id=str(uuid.uuid4()),
+        request_id=request_id or str(uuid.uuid4()),
         status=PENDING,
         locations=list(locations),
         chunker_id=chunker_id,

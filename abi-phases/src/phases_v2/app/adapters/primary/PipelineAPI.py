@@ -13,8 +13,8 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
-from phases_v2.app.service import PipelineAppService
 from phases_v2.app.app_resources import ResourceNotFound
+from phases_v2.app.service import PipelineAppService
 from phases_v2.requests.interfaces import RequestNotFound
 
 PREFIX = "/phases_v2/api"
@@ -38,6 +38,19 @@ def build_router(service: PipelineAppService) -> APIRouter:
             raise HTTPException(status_code=404, detail=str(missing)) from missing
         except ValueError as invalid:
             raise HTTPException(status_code=422, detail=str(invalid)) from invalid
+
+    @router.get("/sources/pubmed")
+    def pubmed_queries():
+        return service.pubmed_queries()
+
+    @router.get("/sources/pubmed/{query_id}")
+    def pubmed_artifacts(query_id: str):
+        return {"artifacts": service.pubmed_artifacts(query_id)}
+
+    @router.post("/sources/pubmed/requests", status_code=201)
+    def submit_pubmed(body: dict = Body(...)):
+        request = resource_call(service.submit_pubmed, body)
+        return {"request_id": request.request_id, "status": request.status}
 
     @router.get("/collections")
     def collections():

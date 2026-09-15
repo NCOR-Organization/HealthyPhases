@@ -19,9 +19,9 @@ from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
 from phases_v2.extraction.domain import run_extraction
 from phases_v2.extraction.interfaces import ExtractionModel, ExtractionReport
 from phases_v2.models.catalog import resolve as resolve_model
+from phases_v2.ports import RowStore
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
-from phases_v2.ports import RowStore
 
 
 def resolve_prompt(prompt_id: str, rows: RowStore | None = None) -> PromptTemplate:

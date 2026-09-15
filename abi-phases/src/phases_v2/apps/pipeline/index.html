@@ -101,6 +101,8 @@
       <section class="card">
         <h2>1. Choose your inputs</h2>
         <div class="grid">
+          <div><label for="input-source">Paper source</label><select id="input-source"><option value="storage">Object storage</option><option value="pubmed">PubMed dataset</option></select><p class="hint">PubMed sources contain successfully published papers.</p></div>
+          <div id="pubmed-picker" hidden><label for="pubmed-query">Published PubMed query</label><select id="pubmed-query"><option value="">Choose a query</option></select><button id="refresh-pubmed" type="button">Refresh queries</button><p id="pubmed-message" class="msg" role="status"></p></div>
           <div><label for="run-collection">Input collection</label><select id="run-collection"><option value="">Choose locations directly</option></select><p class="hint">A collection is a saved group of storage locations.</p><a href="#collections" id="manage-collection">Manage collections</a></div>
           <div><label for="locations">Storage locations</label><select id="locations" multiple></select><p class="hint">Use Ctrl or Command to select multiple locations.</p></div>
         </div>
@@ -117,7 +119,7 @@
         <div class="grid"><div><label for="prompt">Prompts <span class="hint">(all selected initially)</span></label><select id="prompt" multiple></select><p class="hint"><a href="#prompts">Browse or edit the prompt library</a></p></div>
           <div class="stack"><div><label for="model">Model</label><select id="model"></select></div><div><label for="chunker">Chunker</label><select id="chunker"></select></div></div></div>
         <p id="chunker-warning" class="msg warn" role="status"></p>
-        <p class="note">Selected locations control which documents are ingested. Extraction then processes outstanding chunks across the existing corpus with your selected prompts and model.</p>
+        <p class="note">Each run processes papers from its selected source with your chosen prompts and model. PubMed runs preserve the available artifact selection when submitted.</p>
         <div class="row actions"><button id="submit" class="primary" disabled>Request run</button><span class="hint">Queued requests start when the orchestrator is available.</span></div>
         <p id="message" class="msg" role="status"></p><a id="view-request" href="#requests" hidden>View order request</a>
       </section>
@@ -300,7 +302,34 @@
       }
     } catch (error) { if (state.previewVersions[bodyId] === version) message(summaryId, error.message, 'bad'); }
   }
-  function refreshDocuments() { return preview(selected($('locations')), 'documents', 'documents-summary'); }
+  async function refreshDocuments() {
+    if ($('input-source').value !== 'pubmed') return preview(selected($('locations')), 'documents', 'documents-summary');
+    const version = (state.previewVersions.documents || 0) + 1; state.previewVersions.documents = version;
+    $('documents').replaceChildren(); const queryId = $('pubmed-query').value;
+    if (!queryId) { message('documents-summary', 'Choose a published PubMed query.'); return; }
+    try {
+      const data = await get(`/sources/pubmed/${encodeURIComponent(queryId)}`);
+      if (state.previewVersions.documents !== version) return;
+      for (const artifact of data.artifacts) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${esc(artifact.title)}</td><td>${esc(artifact.storage_prefix)}</td><td>${esc(artifact.storage_key)}</td><td>Published</td>`;
+        $('documents').append(tr);
+      }
+      message('documents-summary', `${data.artifacts.length} published artifact(s). The run will preserve the current selection at submission.`);
+    } catch (error) { if (state.previewVersions.documents === version) message('documents-summary', error.message, 'bad'); }
+  }
+  async function loadPubmed() {
+    try {
+      const data = await get('/sources/pubmed');
+      fill($('pubmed-query'), [{query_id: '', query: 'Choose a query'}, ...data.queries], 'query_id', (q) => q.query);
+      message('pubmed-message', data.available ? 'Choose a query and preview its published papers.' : 'No PubMed dataset is published in this deployment.');
+    } catch (error) { message('pubmed-message', error.message, 'bad'); }
+  }
+  function sourceChanged() {
+    const pubmed = $('input-source').value === 'pubmed'; $('pubmed-picker').hidden = !pubmed;
+    for (const id of ['locations', 'run-collection', 'quick-save', 'quick-collection-name']) $(id).disabled = pubmed;
+    if (pubmed) loadPubmed(); refreshDocuments();
+  }
   function refreshCollectionDocuments() { return preview(selected($('collection-locations')), 'collection-documents', 'collection-documents-summary'); }
   async function refreshWarning() {
     const version = ++state.warningVersion; message('chunker-warning');
@@ -343,8 +372,10 @@
   async function submit() {
     $('view-request').hidden = true;
     const body = { locations: selected($('locations')), chunker_id: $('chunker').value, prompt_ids: selected($("prompt")), model_id: $('model').value };
-    if (!body.locations.length || !body.prompt_ids.length || !body.chunker_id || !body.model_id) throw new Error('Choose at least one location, one prompt, a chunker, and an available model.');
-    const request = await api('/requests', 'POST', body); state.requestId = request.request_id;
+    const isPubmed = $('input-source').value === 'pubmed';
+    if ((isPubmed ? !$('pubmed-query').value : !body.locations.length) || !body.prompt_ids.length || !body.chunker_id || !body.model_id) throw new Error('Choose at least one location, one prompt, a chunker, and an available model.');
+    const payload = isPubmed ? { query_id: $('pubmed-query').value, chunker_id: body.chunker_id, prompt_ids: body.prompt_ids, model_id: body.model_id } : body;
+    const request = await api(isPubmed ? '/sources/pubmed/requests' : '/requests', 'POST', payload); state.requestId = request.request_id;
     message('message', `Request ${request.request_id.slice(0, 8)} queued. It will start when the orchestrator picks it up.`, 'ok'); $('view-request').hidden = false;
   }
   async function loadChoices() {
@@ -362,6 +393,9 @@
     refreshWarning(); route();
   }
 
+  $('input-source').addEventListener('change', sourceChanged);
+  $('pubmed-query').addEventListener('change', refreshDocuments);
+  $('refresh-pubmed').addEventListener('click', loadPubmed);
   window.addEventListener('hashchange', route);
   $('locations').addEventListener("change", refreshDocuments);
   $('locations').addEventListener('change', () => { $('run-collection').value = ''; });

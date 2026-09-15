@@ -5,7 +5,6 @@ mechanisms can run over the same corpus without either replacing the other.
 """
 
 from phases_v2 import identity
-from phases_v2.chunking.chunkers import WINDOW_512_128
 from phases_v2.chunking.domain import chunk_papers
 from phases_v2.chunking.fakes import FakeChunkStore, FakeTextSource
 from phases_v2.chunking.interfaces import PaperText

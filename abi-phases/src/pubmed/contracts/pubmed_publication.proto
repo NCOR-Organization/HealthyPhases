@@ -1,0 +1,68 @@
+syntax = "proto3";
+package pubmed.v1;
+import "buf/validate/validate.proto";
+import "google/protobuf/struct.proto";
+
+message Search {
+  string query = 1 [(buf.validate.field).string = {min_len: 1, max_len: 2000, pattern: "\\S"}];
+  string start_date = 2 [(buf.validate.field).string = {pattern: "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}];
+  string end_date = 3 [(buf.validate.field).string = {pattern: "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"}];
+  string sort = 4 [(buf.validate.field).string = {in: ["relevance", "pub_date"]}];
+  int32 max_results = 5 [(buf.validate.field).int32 = {gte: 1, lte: 1000}];
+}
+message Submit {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+  repeated string pmids = 2 [(buf.validate.field).repeated = {max_items: 1000, unique: true, items: {string: {pattern: "^[0-9]+$"}}}];
+}
+message QueryRecord {
+  string query_id = 1;
+  string query = 2;
+  string start_date = 3;
+  string end_date = 4;
+  string sort = 5;
+  int32 max_results = 6;
+  int32 total = 7;
+  string created_at = 8;
+  int32 contract_version = 9;
+}
+message PaperRecord {
+  string pmid = 1;
+  string pmcid = 2;
+  string doi = 3;
+  string title = 4;
+  string journal = 5;
+  string publication_date = 6;
+  repeated string authors = 7;
+}
+message MembershipRecord {
+  string query_id = 1;
+  string pmid = 2;
+}
+message ArtifactRecord {
+  string artifact_id = 1 [(buf.validate.field).string.min_len = 1];
+  string pmid = 2;
+  string pmcid = 3 [(buf.validate.field).string.min_len = 1];
+  string version = 4 [(buf.validate.field).string.min_len = 1];
+  string status = 5 [(buf.validate.field).string.const = "ready"];
+  string storage_prefix = 6 [(buf.validate.field).string.min_len = 1];
+  string storage_key = 7 [(buf.validate.field).string.min_len = 1];
+  string content_sha256 = 8 [(buf.validate.field).string.pattern = "^[a-f0-9]{64}$"];
+  int64 size_bytes = 9 [(buf.validate.field).int64.gt = 0];
+  string mime_type = 10;
+  string source_url = 11 [(buf.validate.field).string.min_len = 1];
+  string license = 12;
+  string published_at = 13;
+  int32 contract_version = 14 [(buf.validate.field).int32.const = 1];
+}
+message RequestRecord {
+  string request_id = 1;
+  string query_id = 2;
+  repeated string pmids = 3;
+  string status = 4;
+  string requested_at = 5;
+  string started_at = 6;
+  string finished_at = 7;
+  string run_id = 8;
+  string error = 9;
+  google.protobuf.Struct outcomes = 10;
+}

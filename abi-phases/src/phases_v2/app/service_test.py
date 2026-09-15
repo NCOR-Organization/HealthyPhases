@@ -3,8 +3,8 @@
 import pytest
 
 from phases_v2.app.service import PipelineAppService
-from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.chunking.chunkers import WINDOW_512_128
+from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.requests.fakes import FakeRequestStore
 from phases_v2.requests.interfaces import PENDING
 

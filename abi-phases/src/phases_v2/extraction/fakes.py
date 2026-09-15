@@ -5,12 +5,12 @@ from __future__ import annotations
 import json
 
 from phases_v2.extraction.interfaces import (
+    SUCCEEDED,
     ChunkRef,
     ExtractedItemRecord,
     ExtractionRecord,
     ModelFailed,
     RunRecord,
-    SUCCEEDED,
 )
 
 

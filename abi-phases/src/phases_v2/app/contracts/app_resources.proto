@@ -15,3 +15,21 @@ message SavePrompt {
   string template = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100000, contains: "{chunk_text}"}];
   string output_key = 3 [(buf.validate.field).string.min_len = 1];
 }
+
+message SubmitPubmedRun {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+  string chunker_id = 2 [(buf.validate.field).string.min_len = 1];
+  repeated string prompt_ids = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 100, unique: true, items: {string: {min_len: 1}}}];
+  string model_id = 4 [(buf.validate.field).string.min_len = 1];
+}
+message SourceArtifact {
+  string artifact_id = 1 [(buf.validate.field).string.min_len = 1];
+  string storage_prefix = 2 [(buf.validate.field).string.min_len = 1];
+  string storage_key = 3 [(buf.validate.field).string.min_len = 1];
+  string content_sha256 = 4 [(buf.validate.field).string.pattern = "^[a-f0-9]{64}$"];
+}
+message SourceManifest {
+  string request_id = 1 [(buf.validate.field).string.uuid = true];
+  string source_query_id = 2 [(buf.validate.field).string.uuid = true];
+  repeated SourceArtifact artifacts = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 1000}];
+}

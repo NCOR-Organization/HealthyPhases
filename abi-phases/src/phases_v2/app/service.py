@@ -26,7 +26,9 @@ class PipelineAppService:
         is_model_available=None,
         renderer=None,
         papers_root: str = "phases_v2",
+        pubmed_catalog=None,
     ):
+        self._pubmed = pubmed_catalog
         self._requests = request_store
         self._storage = object_storage
         self._rows = rows
@@ -44,6 +46,21 @@ class PipelineAppService:
         #: data as a paper source.
         self._papers_root = papers_root.strip("/")
         self.resources = AppResources(rows, self._papers_root)
+
+    def pubmed_queries(self):
+        if self._pubmed is None:
+            return {"available": False, "queries": []}
+        return self._pubmed.queries()
+
+    def pubmed_artifacts(self, query_id):
+        return self._pubmed.artifacts(query_id) if self._pubmed else []
+
+    def submit_pubmed(self, payload):
+        if self._pubmed is None or self._rows is None:
+            raise ValueError("PubMed publication dataset is unavailable")
+        from phases_v2.sources.phases_v2_sources import submit_pubmed
+
+        return submit_pubmed(self._rows, self._requests, self._pubmed, payload)
 
     # -- what a user chooses from ---------------------------------------
 
