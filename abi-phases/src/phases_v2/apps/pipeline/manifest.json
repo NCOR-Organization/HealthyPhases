@@ -3,7 +3,7 @@
     "description": "Manage input collections and prompt versions, upload PDFs, preview documents, queue saved pipeline configurations, and monitor order requests in a dedicated workspace.",
     "category": "domain",
     "url": "html:index.html",
-    "icon_emoji": "\ud83e\uddea",
+    "icon_emoji": "🧪",
     "version": "0.2.0",
     "author": "HealthyPhases",
     "license": "MIT",

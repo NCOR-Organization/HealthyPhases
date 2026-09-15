@@ -1,0 +1,34 @@
+name: Pipeline tests
+on:
+  pull_request:
+    paths:
+      - 'abi-phases/src/phases_v2/app/**'
+      - 'abi-phases/src/phases_v2/apps/pipeline/**'
+      - 'abi-phases/src/phases_v2/datasets/**'
+      - 'abi-phases/src/phases_v2/extraction/factory*'
+      - 'abi-phases/Makefile'
+      - '.github/workflows/pipeline-tests.yaml'
+permissions:
+  contents: read
+jobs:
+  pipeline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout ABI dependency
+        run: git submodule update --init abi-phases/.abi
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        working-directory: abi-phases
+        run: uv sync --frozen
+      - name: Test pipeline resources, API, extraction, and navigation
+        working-directory: abi-phases
+        run: |
+          uv run --with pytest pytest src/phases_v2/app src/phases_v2/apps/pipeline src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
+          node --test src/phases_v2/apps/pipeline/pipeline_test.cjs

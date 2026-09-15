@@ -432,17 +432,17 @@ up to 20 item IDs/errors), left untouched, and retried by later runs. The backfi
 never rewrites source extractions or calls an LLM. API startup only creates the
 empty dataset; it does not run a potentially large backfill during startup.
 
-
-
 ## Pipeline workspace
 
 The Phases Pipeline app has four pages in its left navigation:
 
 - **New run**: select a saved collection or storage locations, preview documents,
   save the selected locations as a collection, choose prompt versions, and queue a run.
+  Existing saved pipeline configurations can still be saved, loaded, and run here.
 - **Input collections**: create, rename, edit, and archive named groups of locations.
   The contents preview includes each location's subfolders. Archiving a collection
-  leaves its source documents and queued requests intact.
+  leaves its source documents and queued requests intact. Create storage locations
+  and upload PDFs from this page as well.
 - **Prompt library**: browse full prompt text, create prompts, and save edits as
   new versions. Prompt text must contain `{chunk_text}` and use one of the supported
   extraction output schemas. Old versions remain selectable and resolvable by workers.
@@ -452,8 +452,7 @@ The Phases Pipeline app has four pages in its left navigation:
 
 Collections are stored in the new `input_collections` dataset through the existing
 row-store adapter. Restart the ABI API and Dagster processes after updating: normal
-module startup creates the missing dataset, and workers load the updated prompt
-resolver. No existing dataset needs to be dropped or recreated. Collection edits use
+module startup creates the missing dataset. No existing dataset needs to be dropped or recreated. Collection edits use
 last-write-wins semantics; a queued request stores a copy of its selected locations.
 Prompts continue using the existing `prompts` dataset and content-based identities.
 Changing an output schema requires a changed name or text to preserve that identity.

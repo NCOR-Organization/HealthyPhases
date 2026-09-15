@@ -107,3 +107,21 @@ test('a non-JSON API response gives an actionable error without exposing its HTM
     assert.match(error.message, /Expected JSON/); assert.doesNotMatch(error.message, /secret diagnostic/); return true;
   });
 });
+
+test('API mutations retain Nexus bearer authentication', async () => {
+  const { context } = app(); let headers;
+  context.localStorage = { getItem: () => JSON.stringify({ state: { token: 'test-token' } }) };
+  context.fetch = async (_url, options) => { headers = options.headers; return response({}); };
+  await context.api('/collections', 'POST', { name: 'Research', locations: ['phases_v2'] });
+  assert.equal(headers.Authorization, 'Bearer test-token');
+  assert.equal(headers['Content-Type'], 'application/json');
+});
+
+test('slow request refreshes never overlap', async () => {
+  const { context } = app(); let finish; let calls = 0;
+  context.fetch = () => { calls++; return new Promise((resolve) => { finish = resolve; }); };
+  const first = context.loadRequests();
+  await context.loadRequests();
+  assert.equal(calls, 1);
+  finish(response({ requests: [] })); await first;
+});
