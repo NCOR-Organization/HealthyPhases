@@ -109,6 +109,29 @@ def build_router(service: PipelineAppService) -> APIRouter:
                 status_code=503, detail="Storage operation failed. Please retry."
             ) from failure
 
+    @router.get("/collections")
+    def collections():
+        return {"collections": management_call(service.resources.collections)}
+
+    @router.post(
+        "/collections", status_code=201, dependencies=[Depends(require_abi_api_token)]
+    )
+    def create_collection(body: dict):
+        return management_call(service.resources.save_collection, body)
+
+    @router.put(
+        "/collections/{collection_id}", dependencies=[Depends(require_abi_api_token)]
+    )
+    def update_collection(collection_id: str, body: dict):
+        return management_call(service.resources.save_collection, body, collection_id)
+
+    @router.delete(
+        "/collections/{collection_id}", dependencies=[Depends(require_abi_api_token)]
+    )
+    def archive_collection(collection_id: str):
+        management_call(service.resources.archive_collection, collection_id)
+        return {"archived": True}
+
     @router.post(
         "/prompts", status_code=201, dependencies=[Depends(require_abi_api_token)]
     )

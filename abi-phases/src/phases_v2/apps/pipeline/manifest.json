@@ -1,9 +1,9 @@
 {
     "name": "Phases Pipeline",
-    "description": "Manage prompt versions, create input collections, upload PDFs, save pipeline configurations, and request and follow runs.",
+    "description": "Manage input collections and prompt versions, upload PDFs, preview documents, queue saved pipeline configurations, and monitor order requests in a dedicated workspace.",
     "category": "domain",
     "url": "html:index.html",
-    "icon_emoji": "🧪",
+    "icon_emoji": "\ud83e\uddea",
     "version": "0.2.0",
     "author": "HealthyPhases",
     "license": "MIT",

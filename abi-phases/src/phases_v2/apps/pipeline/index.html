@@ -1,483 +1,498 @@
 <!doctype html>
+<html lang="en">
+<head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Phases Pipeline</title>
 <style>
-  :root {
-    --ground: #f7f8f8; --surface: #fff; --ink: #17201f; --mute: #6a7877;
-    --rule: #dfe5e3; --accent: #0b6b63; --bad: #a33a2a; --warn: #86671a;
-  }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --ground: #0e1413; --surface: #151d1c; --ink: #e3eae8; --mute: #859894;
-      --rule: #253431; --accent: #5cc3b4; --bad: #e0806e; --warn: #d8b25e;
-    }
-  }
+  :root { color-scheme: light dark; --ground: #f5f7f6; --surface: #fff; --ink: #172c29; --mute: #60756f; --rule: #dce5e1; --accent: #126d5c; --tint: #e9f3ee; --bad: #a33a2a; --warn: #806018; }
+  @media (prefers-color-scheme: dark) { :root { --ground: #101816; --surface: #17221f; --ink: #e4ede8; --mute: #9bafa6; --rule: #30433a; --accent: #76d6b9; --tint: #233e32; --bad: #ffab98; --warn: #dec67f; } }
   * { box-sizing: border-box; }
-  body {
-    margin: 0; padding: 2rem 1.25rem 4rem; background: var(--ground); color: var(--ink);
-    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-  main > *, .grid > * { min-width: 0; }
-  td, .msg, pre { overflow-wrap: anywhere; }
-  main { max-width: 60rem; margin: 0 auto; display: grid; gap: 1.5rem; }
-  h1 { font-size: 1.5rem; margin: 0; }
-  p.lede { color: var(--mute); margin: .3rem 0 0; max-width: 46rem; }
-  section { background: var(--surface); border: 1px solid var(--rule); border-radius: 6px; padding: 1.1rem 1.25rem; }
-  h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: var(--mute); margin: 0 0 .9rem; }
-  .grid { display: grid; gap: .9rem; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); }
-  label { display: block; font-size: .8rem; color: var(--mute); margin-bottom: .3rem; }
-  select, input, button, textarea { font: inherit; padding: .5rem .6rem; border-radius: 4px; border: 1px solid var(--rule); background: var(--ground); color: var(--ink); width: 100%; }
-  textarea { min-height: 15rem; resize: vertical; font-family: ui-monospace, monospace; }
-  [role="status"] { white-space: pre-wrap; }
-  select[multiple] { min-height: 6rem; }
-  button { background: var(--accent); color: #fff; border: none; cursor: pointer; font-weight: 600; }
-  button:disabled { opacity: .55; cursor: not-allowed; }
-  .row { display: flex; gap: .75rem; align-items: center; margin-top: 1rem; flex-wrap: wrap; }
-  .msg { font-size: .85rem; }
+  [hidden] { display: none !important; }
+  body { margin: 0; background: var(--ground); color: var(--ink); font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+  a { color: var(--accent); }
+  button, input, select, textarea { font: inherit; }
+  button, input, select, textarea { border: 1px solid var(--rule); border-radius: 6px; padding: .6rem .75rem; background: var(--surface); color: var(--ink); }
+  input, select, textarea { width: 100%; }
+  select[multiple] { min-height: 9rem; }
+  textarea { resize: vertical; min-height: 18rem; font-family: ui-monospace, monospace; font-size: .86rem; line-height: 1.6; }
+  button { cursor: pointer; font-weight: 600; }
+  button.primary { background: var(--accent); color: var(--surface); border-color: var(--accent); }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; }
+  .shell { display: grid; grid-template-columns: 235px minmax(0, 1fr); min-height: 100vh; }
+  .sidebar { background: var(--surface); border-right: 1px solid var(--rule); padding: 2rem 1rem; position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; gap: 2rem; }
+  .brand { display: flex; align-items: center; gap: .7rem; padding: 0 .55rem; }
+  .mark { background: var(--accent); color: var(--surface); width: 2.2rem; height: 2.2rem; display: grid; place-items: center; border-radius: 8px; font-weight: 800; }
+  .brand strong { font-size: 1.1rem; display: block; }
+  .brand small { color: var(--mute); }
+  .nav-label, .eyebrow { text-transform: uppercase; letter-spacing: .12em; font-size: .67rem; font-weight: 700; color: var(--mute); }
+  .nav-label { margin: 0 .75rem .6rem; }
+  nav { display: grid; gap: .35rem; }
+  nav a { display: flex; gap: .75rem; align-items: center; padding: .75rem; text-decoration: none; color: var(--mute); border-radius: 6px; font-weight: 600; }
+  nav a:hover { background: var(--ground); color: var(--ink); }
+  nav a[aria-current='page'] { background: var(--tint); color: var(--accent); }
+  .nav-icon { width: 1.4rem; flex-shrink: 0; white-space: nowrap; text-align: center; font-family: ui-monospace, monospace; }
+  .sidebar-foot { margin-top: auto; padding: .75rem; color: var(--mute); font-size: .75rem; border-top: 1px solid var(--rule); }
+  main { min-width: 0; width: 100%; max-width: 1300px; padding: 2.5rem 3rem 4rem; }
+  header { margin-bottom: 1.75rem; }
+  h1 { font-size: 1.9rem; letter-spacing: -.035em; margin: .35rem 0; }
+  h2 { font-size: 1rem; margin: 0 0 .8rem; }
+  h3 { font-size: .92rem; margin: 0 0 .6rem; }
+  p { margin: .5rem 0 1rem; }
+  .lede, .hint, .muted { color: var(--mute); }
+  .lede { max-width: 48rem; margin: 0; }
+  .hint { font-size: .8rem; }
+  .page { display: grid; gap: 1.25rem; }
+  .card { background: var(--surface); border: 1px solid var(--rule); border-radius: 9px; padding: 1.4rem; min-width: 0; }
+  .grid { display: grid; gap: 1.1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .split { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.8fr); gap: 1.25rem; align-items: start; }
+  .stack { display: grid; gap: 1rem; }
+  label { display: block; font-size: .82rem; font-weight: 600; margin: 0 0 .4rem; }
+  .row { display: flex; flex-wrap: wrap; gap: .7rem; align-items: center; }
+  .spread { justify-content: space-between; }
+  .actions { margin-top: 1.1rem; }
+  .resource-list { display: grid; gap: .5rem; max-height: 32rem; overflow-y: auto; margin-top: 1rem; }
+  .resource { text-align: left; width: 100%; overflow-wrap: anywhere; font-weight: 500; }
+  .resource small { display: block; color: var(--mute); font-weight: 400; }
+  .resource[aria-pressed='true'] { border-color: var(--accent); background: var(--tint); }
+  .msg { font-size: .85rem; overflow-wrap: anywhere; }
+  .msg:empty { display: none; }
   .msg.bad { color: var(--bad); }
   .msg.warn { color: var(--warn); }
   .msg.ok { color: var(--accent); }
-  table { width: 100%; border-collapse: collapse; font-size: .86rem; }
-  .wrap table { min-width: 42rem; }
-  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
-  th { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--mute); }
-  .pill { font-size: .72rem; padding: .1rem .45rem; border-radius: 99px; border: 1px solid var(--rule); }
+  #app-message { margin: 0 0 1rem; }
+  .wrap { overflow: auto; max-height: 29rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .84rem; }
+  th, td { text-align: left; padding: .8rem .65rem; border-bottom: 1px solid var(--rule); vertical-align: top; overflow-wrap: anywhere; }
+  th { font-size: .65rem; text-transform: uppercase; letter-spacing: .07em; color: var(--mute); }
+  .pill { display: inline-block; font-size: .72rem; padding: .15rem .5rem; border-radius: 99px; border: 1px solid var(--rule); white-space: nowrap; }
   .pill.pending { color: var(--mute); }
   .pill.running { color: var(--warn); border-color: var(--warn); }
   .pill.succeeded { color: var(--accent); border-color: var(--accent); }
   .pill.failed { color: var(--bad); border-color: var(--bad); }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; }
-  .wrap { overflow-x: auto; max-height: 22rem; overflow-y: auto; }
-  .hint { color: var(--mute); font-weight: 400; text-transform: none; letter-spacing: 0; }
-  .muted { color: var(--mute); }
+  code { font: .8rem ui-monospace, monospace; overflow-wrap: anywhere; }
+  .empty { color: var(--mute); padding: 1rem 0; }
+  .note { border-left: 3px solid var(--accent); padding: .7rem 1rem; background: var(--tint); font-size: .83rem; }
+  .link-button { padding: 0; border: 0; background: none; color: var(--accent); text-decoration: underline; }
+  dl { display: grid; grid-template-columns: 7rem minmax(0, 1fr); gap: .5rem 1rem; margin: 0; font-size: .85rem; }
+  dt { color: var(--mute); } dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  @media (max-width: 1050px) { main { padding: 2rem 1.5rem; } .shell { grid-template-columns: 210px minmax(0, 1fr); } .split { grid-template-columns: 1fr; } .resource-list { max-height: 15rem; } }
+  @media (max-width: 650px) { .shell { display: block; } .sidebar { position: static; height: auto; padding: 1rem; gap: 1rem; border-right: 0; border-bottom: 1px solid var(--rule); } nav { grid-template-columns: 1fr 1fr; } nav a { font-size: .8rem; padding: .6rem; } .nav-label, .sidebar-foot { display: none; } main { padding: 1.5rem 1rem 3rem; } .grid { grid-template-columns: 1fr; } h1 { font-size: 1.6rem; } .card { padding: 1rem; } }
 </style>
-
-<main>
-  <header>
-    <h1>Phases Pipeline</h1>
-    <p class="lede">Pick what a run should cover. The request is recorded and the
-      orchestrator picks it up, so you can submit one even while it is down.</p>
-  </header>
-
-  <section>
-    <h2>Saved pipelines</h2>
-    <label for="saved-pipeline">Configuration</label>
-    <select id="saved-pipeline"><option value="">No saved pipelines</option></select>
-    <div class="row">
-      <button id="load-pipeline">Load configuration</button>
-      <button id="run-pipeline">Run saved pipeline</button>
+</head>
+<body>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="mark" aria-hidden="true">P</span><div><strong>Phases</strong><small>Pipeline workspace</small></div></div>
+    <div><p class="nav-label">Workspace</p><nav aria-label="Pipeline navigation">
+      <a href="#runs" data-page="runs"><span class="nav-icon" aria-hidden="true">+</span>New run</a>
+      <a href="#collections" data-page="collections"><span class="nav-icon" aria-hidden="true">[]</span>Input collections</a>
+      <a href="#prompts" data-page="prompts"><span class="nav-icon" aria-hidden="true">{ }</span>Prompt library</a>
+      <a href="#requests" data-page="requests"><span class="nav-icon" aria-hidden="true">~</span>Order requests</a>
+    </nav></div>
+    <div class="sidebar-foot">Phases v2<br>Prepare inputs. Run extraction.<br>Follow the results.</div>
+  </aside>
+  <main>
+    <header><div class="eyebrow">Phases Pipeline</div><h1 id="page-title" tabindex="-1">New run</h1><p id="page-description" class="lede"></p></header>
+    <p id="app-message" class="msg" role="status"></p>
+    <div id="page-runs" class="page">
+      <section class="card">
+        <h2>Saved pipeline configurations</h2>
+        <div class="row"><select id="saved-pipeline" aria-label="Saved pipeline configuration" style="flex:1;min-width:12rem"></select><button id="load-pipeline" disabled>Load configuration</button><button id="run-pipeline" disabled>Run saved configuration</button></div>
+        <p id="pipeline-message" class="msg" role="status"></p>
+      </section>
+      <section class="card">
+        <h2>1. Choose your inputs</h2>
+        <div class="grid">
+          <div><label for="run-collection">Input collection</label><select id="run-collection"><option value="">Choose locations directly</option></select><p class="hint">A collection is a saved group of storage locations.</p><a href="#collections" id="manage-collection">Manage collections</a></div>
+          <div><label for="locations">Storage locations</label><select id="locations" multiple></select><p class="hint">Use Ctrl or Command to select multiple locations.</p></div>
+        </div>
+        <div class="row actions"><input id="quick-collection-name" aria-label="New collection name" placeholder="Name this group of locations" maxlength="120" style="max-width:24rem"><button id="quick-save">Save as collection</button></div>
+        <p id="run-collection-message" class="msg" role="status"></p>
+      </section>
+      <section class="card">
+        <div class="row spread"><h2>Documents in the selected locations</h2><button id="refresh-documents">Refresh documents</button></div>
+        <p id="documents-summary" class="msg" role="status">Select a location to preview its documents.</p>
+        <div class="wrap"><table><thead><tr><th>Document</th><th>Location</th><th>Path</th><th>State</th></tr></thead><tbody id="documents"></tbody></table></div>
+      </section>
+      <section class="card">
+        <h2>2. Configure extraction</h2>
+        <div class="grid"><div><label for="prompt">Prompts <span class="hint">(all selected initially)</span></label><select id="prompt" multiple></select><p class="hint"><a href="#prompts">Browse or edit the prompt library</a></p></div>
+          <div class="stack"><div><label for="model">Model</label><select id="model"></select></div><div><label for="chunker">Chunker</label><select id="chunker"></select></div></div></div>
+        <div class="row actions"><input id="pipeline-name" aria-label="Pipeline configuration name" maxlength="100" placeholder="Name this pipeline configuration" style="max-width:24rem"><button id="save-pipeline">Save configuration</button></div>
+        <p id="chunker-warning" class="msg warn" role="status"></p>
+        <p class="note">The run ingests documents from the selected locations, then chunks and extracts outstanding work for those documents using your selected prompts and model.</p>
+        <div class="row actions"><button id="submit" class="primary" disabled>Request run</button><span class="hint">Queued requests start when the orchestrator is available.</span></div>
+        <p id="message" class="msg" role="status"></p><a id="view-request" href="#requests" hidden>View order request</a>
+      </section>
     </div>
-    <p id="pipeline-message" class="msg" role="status"></p>
-  </section>
-
-  <section>
-    <h2>Input collections</h2>
-    <label for="location-name">New collection name</label>
-    <input id="location-name" maxlength="100" placeholder="e.g. Sleep studies">
-    <div class="row"><button id="create-location">Create collection</button></div>
-    <p id="location-message" class="msg" role="status"></p>
-    <label for="upload-location">Upload destination</label>
-    <select id="upload-location"></select>
-    <label for="upload-files">PDF documents (up to 25 MiB each)</label>
-    <input id="upload-files" type="file" accept=".pdf,application/pdf" multiple>
-    <div class="row"><button id="upload">Upload documents</button></div>
-    <p id="upload-message" class="msg" role="status"></p>
-  </section>
-
-  <section>
-    <h2>New run</h2>
-    <div class="grid">
-      <div>
-        <label for="locations">Storage locations</label>
-        <select id="locations" multiple></select>
+    <div id="page-collections" class="page" hidden>
+      <section class="card">
+        <h2>Storage locations and documents</h2>
+        <div class="grid">
+          <div><label for="location-name">New storage location</label><div class="row"><input id="location-name" maxlength="100" placeholder="e.g. Solitude papers"><button id="create-location">Create location</button></div><p id="location-message" class="msg" role="status"></p></div>
+          <div><label for="upload-location">Upload PDFs to</label><select id="upload-location"></select><label for="upload-files" style="margin-top:.75rem">PDF documents (up to 25 MiB each)</label><input id="upload-files" type="file" accept="application/pdf,.pdf" multiple><button id="upload" class="actions">Upload PDFs</button><p id="upload-message" class="msg" style="white-space:pre-wrap" role="status"></p></div>
+        </div>
+      </section>
+      <div class="split">
+        <section class="card"><div class="row spread"><h2>Your collections</h2><button id="new-collection">New collection</button></div><div id="collection-list" class="resource-list"></div></section>
+        <div class="stack">
+          <section class="card"><h2 id="collection-title">New collection</h2><form id="collection-form">
+            <div class="stack"><div><label for="collection-name">Collection name</label><input id="collection-name" required maxlength="120" placeholder="e.g. Solitude research"></div><div><label for="collection-locations">Storage locations</label><select id="collection-locations" multiple required></select><p class="hint">Contents include documents in each location and its subfolders.</p></div></div>
+            <div class="row actions"><button class="primary" id="save-collection">Save collection</button><button type="button" id="use-collection" disabled>Use in new run</button><button type="button" id="archive-collection" class="danger" hidden>Archive collection</button></div>
+            <p id="collection-message" class="msg" role="status"></p>
+          </form></section>
+          <section class="card"><h2>Collection contents</h2><p id="collection-documents-summary" class="msg" role="status">Choose locations to see the collection contents.</p><div class="wrap"><table><thead><tr><th>Document</th><th>Location</th><th>Path</th><th>State</th></tr></thead><tbody id="collection-documents"></tbody></table></div></section>
+        </div>
       </div>
-      <div>
-        <label for="chunker">Chunker</label>
-        <select id="chunker"></select>
-      </div>
-      <div>
-        <label for="prompt">Prompts <span class="hint">(all selected)</span></label>
-        <select id="prompt" multiple></select>
-      </div>
-      <div>
-        <label for="model">Model</label>
-        <select id="model"></select>
+    </div>
+    <div id="page-prompts" class="page" hidden>
+      <div class="split"><section class="card"><div class="row spread"><h2>Prompt library</h2><button id="new-prompt">New prompt</button></div><label for="prompt-search" class="hint">Find a prompt</label><input id="prompt-search" type="search" placeholder="Search by name"><div id="prompt-list" class="resource-list"></div></section>
+        <section class="card"><h2 id="prompt-title">New prompt</h2><form id="prompt-form"><div class="stack">
+          <div><label for="prompt-name">Prompt name</label><input id="prompt-name" required maxlength="100"></div>
+          <div><label for="prompt-output">Output schema</label><select id="prompt-output"></select><p id="format-example" class="hint"></p></div>
+          <div><label for="prompt-template">Prompt text</label><textarea id="prompt-template" required spellcheck="false" maxlength="100000" placeholder="Extract claims from the following text: {chunk_text}"></textarea><p class="hint">Include <code>{chunk_text}</code> where the document text should appear.</p></div>
+        </div><p id="prompt-version" class="hint"></p><div class="row actions"><button id="save-prompt" class="primary">Save new version</button><button type="button" id="duplicate-prompt">Duplicate prompt</button><button type="button" id="use-prompt" disabled>Add to new run</button></div><p id="prompt-message" class="msg" role="status"></p></form></section>
       </div>
     </div>
-    <div class="row">
-      <button id="submit" style="width:auto">Request run</button>
-      <span id="message" class="msg" role="status"></span>
+    <div id="page-requests" class="page" hidden>
+      <section class="card"><div class="row spread"><div><h2>Order requests</h2><p id="requests-updated" class="hint">Refreshes every 10 seconds while this page is open.</p></div><button id="refresh-requests">Refresh requests</button></div>
+        <div class="row"><label for="request-status">Status</label><select id="request-status" style="width:auto"><option value="">All statuses</option><option>pending</option><option>running</option><option>succeeded</option><option>failed</option></select><span class="hint">Most recent 100 requests</span></div>
+        <p id="requests-message" class="msg" role="status"></p>
+        <div class="wrap"><table><thead><tr><th>Request / submitted</th><th>Status</th><th>Prompts</th><th>Model</th></tr></thead><tbody id="requests"></tbody></table></div>
+      </section>
+      <section class="card" id="request-detail" hidden><h2>Request details</h2><div id="request-detail-content"></div></section>
     </div>
-    <label for="pipeline-name">Save these inputs as a reusable pipeline</label>
-    <input id="pipeline-name" maxlength="100" placeholder="Pipeline name">
-    <div class="row"><button id="save-pipeline">Save new configuration</button></div>
-    <p class="hint">Each saved configuration keeps the selected prompt versions. Uploads added to its locations are included when it next runs.</p>
-    <p id="chunker-warning" class="msg warn"></p>
-  </section>
-
-  <section>
-    <h2>Documents in the selected locations</h2>
-    <p id="documents-summary" class="msg">Select a location to see what would be ingested.</p>
-    <div class="wrap">
-      <table>
-        <thead><tr><th>Document</th><th>Location</th><th>Path</th><th>State</th></tr></thead>
-        <tbody id="documents"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section>
-    <h2>Prompt library</h2>
-    <label for="edit-prompt">Start from a saved prompt version</label>
-    <select id="edit-prompt"></select>
-    <div class="row"><button id="new-prompt">New prompt</button><button id="duplicate-prompt">Duplicate prompt</button></div>
-    <label for="prompt-name">Prompt name</label>
-    <input id="prompt-name" maxlength="100">
-    <label for="prompt-format">Output format</label>
-    <select id="prompt-format"></select>
-    <pre id="format-example" class="hint" style="white-space:pre-wrap"></pre>
-    <label for="prompt-text">Template (include {chunk_text} where the document text belongs)</label>
-    <textarea id="prompt-text" maxlength="100000" spellcheck="false"></textarea>
-    <div class="row"><button id="save-prompt">Save prompt version</button></div>
-    <p class="hint">Edits create a new version. Earlier results and saved pipelines keep their original prompt.</p>
-    <p id="prompt-message" class="msg" role="status"></p>
-  </section>
-
-  <section>
-    <h2>Requests</h2>
-    <button id="refresh-requests" style="width:auto">Refresh status</button>
-    <div class="wrap">
-      <table>
-        <thead>
-          <tr><th>Request</th><th>Status</th><th>Prompt</th><th>Model</th><th>Result</th></tr>
-        </thead>
-        <tbody id="requests"><tr><td colspan="5">Loading…</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-</main>
-
+  </main>
+</div>
 <script>
   const $ = (id) => document.getElementById(id);
+  const state = { collections: [], prompts: [], locations: [], requests: [], pipelines: [], collectionId: '', promptId: '', requestId: '', page: '', ready: false, requestsLoading: false, previewVersions: {}, warningVersion: 0 };
+  const pages = {
+    runs: ['New run', 'Choose inputs, preview documents, and queue an extraction run.'],
+    collections: ['Input collections', 'Organize storage locations into reusable collections and explore their documents.'],
+    prompts: ['Prompt library', 'Create and refine extraction prompts. Saved versions remain available to earlier runs.'],
+    requests: ['Order requests', 'Follow queued and running requests, inspect results, and understand failures.'],
+  };
 
-  // This page is served by the Nexus frontend through /app-html/, so a
-  // relative fetch would hit Next and come back as its 404 page, not the ABI
-  // API. Nexus inlines its runtime config into the document that embeds us;
-  // the iframe is same-origin (sandbox allows it), so we can read it from the
-  // parent. Falling back to a relative base keeps this working when the page
-  // is served directly by ABI instead.
+  // Nexus serves this page in an iframe; its runtime config supplies the ABI origin.
   function apiBase() {
-    const fromWindow = (w) => {
-      try {
-        return (w && w.__NEXUS_RUNTIME_CONFIG__ && w.__NEXUS_RUNTIME_CONFIG__.apiUrl) || "";
-      } catch (_crossOrigin) {
-        return "";
-      }
-    };
-    const base = fromWindow(window) || fromWindow(window.parent) || fromWindow(window.top) || "";
-    return base.replace(/\/$/, "");
+    const fromWindow = (w) => { try { return w?.__NEXUS_RUNTIME_CONFIG__?.apiUrl || ''; } catch (_crossOrigin) { return ''; } };
+    return (fromWindow(window) || fromWindow(window.parent) || fromWindow(window.top)).replace(/\/$/, '');
   }
-
   const API = () => `${apiBase()}/phases_v2/api`;
-
   async function readJson(response, url) {
     const body = await response.text();
-    try {
-      return JSON.parse(body);
-    } catch (_notJson) {
-      // Almost always means the request reached the wrong server.
-      throw new Error(
-        `Expected JSON from ${url} but got ${response.status} ` +
-        `${response.headers.get("content-type") || "an unknown type"}. ` +
-        `The API base resolved to "${apiBase() || "(relative)"}" — if that is ` +
-        `the Nexus frontend rather than the ABI API, the request never ` +
-        `reached the module.`
-      );
+    try { return JSON.parse(body); } catch (_notJson) {
+      throw new Error(`Expected JSON from ${url} but got ${response.status}. Check the ABI API connection (${apiBase() || 'same origin'}).`);
     }
   }
-
   function authHeaders() {
     try {
       const token = JSON.parse(localStorage.getItem('nexus-auth') || '{}').state?.token;
       return token ? { Authorization: `Bearer ${token}` } : {};
     } catch (_unavailable) { return {}; }
   }
-
-  function escapeHtml(value) {
-    const span = document.createElement('span');
-    span.textContent = String(value ?? '');
-    return span.innerHTML;
-  }
-
-  async function post(path, body, raw = false) {
+  async function api(path, method = 'GET', body, raw = false) {
     const url = `${API()}${path}`;
-    const response = await fetch(url, {
-      method: 'POST', credentials: 'include',
-      headers: { ...authHeaders(), 'Content-Type': raw ? 'application/pdf' : 'application/json' },
-      body: raw ? body : JSON.stringify(body),
-    });
+    const response = await fetch(url, { method, credentials: 'include', headers: { ...authHeaders(), ...(body === undefined ? {} : { 'Content-Type': raw ? 'application/pdf' : 'application/json' }) }, ...(body === undefined ? {} : { body: raw ? body : JSON.stringify(body) }) });
     const payload = await readJson(response, url);
-    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : JSON.stringify(payload.detail || payload));
+    if (!response.ok) throw new Error(typeof payload.detail === 'string' ? payload.detail : JSON.stringify(payload.detail || `Request failed (${response.status})`));
     return payload;
   }
-
-  async function action(buttonId, messageId, operation) {
-    const button = $(buttonId), message = $(messageId);
+  const get = (path) => api(path);
+  const selected = (select) => [...select.selectedOptions].map((option) => option.value);
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  function message(id, text = '', kind = '') { $(id).textContent = text; $(id).className = `msg ${kind}`; }
+  async function action(button, messageId, work) {
     button.disabled = true;
-    message.className = 'msg'; message.textContent = 'Working...';
-    try { await operation(message); }
-    catch (error) { message.className = 'msg bad'; message.textContent = error.message || String(error); }
+    message(messageId);
+    try { await work(); } catch (error) { message(messageId, error.message || String(error), 'bad'); }
     finally { button.disabled = false; }
   }
-
-  async function get(path) {
-    const url = `${API()}${path}`;
-    const response = await fetch(url, { credentials: "include", headers: authHeaders() });
-    const payload = await readJson(response, url);
-    if (!response.ok) throw new Error(payload.detail || `${response.status} from ${url}`);
-    return payload;
-  }
-
-  function fill(select, items, value, label) {
-    select.innerHTML = "";
+  function fill(select, items, value, label, chosen) {
+    select.replaceChildren();
     for (const item of items) {
-      const option = document.createElement("option");
-      option.value = item[value];
-      option.textContent = label(item);
-      // A model this deployment's registry cannot build would fail the run.
-      // Show it, so it is clear the catalog has it, but do not let it be
-      // chosen.
-      if (item.available === false) {
-        option.disabled = true;
-        option.textContent += " — unavailable here";
-      }
+      const option = document.createElement('option'); option.value = item[value]; option.textContent = label(item);
+      if (item.available === false) { option.disabled = true; option.textContent += ' - unavailable here'; }
+      option.selected = chosen ? chosen.includes(option.value) : false;
       select.append(option);
     }
-    const firstUsable = [...select.options].find((o) => !o.disabled);
-    if (firstUsable) select.value = firstUsable.value;
+    if (!select.multiple && chosen === undefined) { const first = [...select.options].find((o) => !o.disabled); if (first) select.value = first.value; else select.selectedIndex = -1; }
   }
-
-  function selected(select) {
-    return [...select.selectedOptions].map((o) => o.value);
-  }
-
-  async function loadChoices() {
-    const [locations, chunkers, prompts, models] = await Promise.all([
-      get("/locations"), get("/chunkers"), get("/prompts"), get("/models"),
-    ]);
-    fill($("locations"), locations.locations, "prefix", (l) => l.name);
-    fill($("upload-location"), locations.locations, "prefix", (l) => l.name);
-    fill($("chunker"), chunkers.chunkers, "chunker_id", (c) => `${c.name} v${c.version}`);
-    promptLibrary = prompts.prompts;
-    fill($("prompt"), prompts.prompts, "prompt_id", promptLabel);
-    fill($("edit-prompt"), prompts.prompts, "prompt_id", promptLabel);
-    editPrompt();
-    // Every prompt by default: extracting one dimension of a corpus at a time
-    // is the exception, not the norm.
-    for (const option of $("prompt").options) option.selected = true;
-    fill($("model"), models.models, "model_id", (m) => m.display_name);
-    await refreshWarning();
-  }
-
-  async function refreshWarning() {
-    const id = $("chunker").value;
-    if (!id) return;
-    const { warning } = await get(`/chunker-warning?chunker_id=${encodeURIComponent(id)}`);
-    $("chunker-warning").textContent = warning || "";
-  }
-
-  function result(request) {
-    if (!request.counts) return request.error || "—";
-    const c = request.counts;
-    const prompts = c.prompts_run ? ` over ${c.prompts_run} prompt(s)` : "";
-    return `${c.succeeded} succeeded · ${c.failed} failed · ${c.skipped} skipped${prompts}`;
-  }
-
-  async function loadRequests() {
-    const { requests } = await get("/requests");
-    const body = $("requests");
-    if (!requests.length) {
-      body.innerHTML = '<tr><td colspan="5">No runs requested yet.</td></tr>';
-      return;
+  function selectLocations(select, locations) {
+    for (const location of locations) if (![...select.options].some((o) => o.value === location)) {
+      const option = document.createElement('option'); option.value = location; option.textContent = location; select.append(option);
     }
-    body.innerHTML = "";
-    for (const request of requests) {
-      const detail = await get(`/requests/${request.request_id}`);
-      const row = document.createElement("tr");
-      row.innerHTML = `
-        <td><code>${escapeHtml(detail.request_id.slice(0, 8))}</code></td>
-        <td><span class="pill ${escapeHtml(detail.status)}">${escapeHtml(detail.status)}</span></td>
-        <td>${escapeHtml((detail.prompt_ids || []).join(", "))}</td>
-        <td>${escapeHtml(detail.model_id)}</td>
-        <td>${escapeHtml(result(detail))}</td>`;
-      body.append(row);
+    for (const option of select.options) option.selected = locations.includes(option.value);
+  }
+  function route() {
+    const page = location.hash.slice(1) || 'runs';
+    state.page = pages[page] ? page : 'runs';
+    for (const name of Object.keys(pages)) $(`page-${name}`).hidden = name !== state.page;
+    for (const link of document.querySelectorAll('nav a')) {
+      if (link.dataset.page === state.page) link.setAttribute('aria-current', 'page'); else link.removeAttribute('aria-current');
+    }
+    [$('page-title').textContent, $('page-description').textContent] = pages[state.page];
+    document.title = `${pages[state.page][0]} | Phases Pipeline`;
+    if (state.ready) { $('page-title').focus(); if (state.page === 'requests') loadRequests(); }
+  }
+  function renderCollections() {
+    const current = $('run-collection').value;
+    fill($('run-collection'), [{ collection_id: '', name: 'Choose locations directly' }, ...state.collections], 'collection_id', (c) => c.name, [current]);
+    if (!$('run-collection').value) $('run-collection').value = '';
+    $('collection-list').replaceChildren();
+    if (!state.collections.length) $('collection-list').innerHTML = '<p class="empty">No collections yet. Save a group of locations to reuse it in a run.</p>';
+    for (const collection of state.collections) {
+      const button = document.createElement('button'); button.className = 'resource'; button.setAttribute('aria-pressed', String(collection.collection_id === state.collectionId));
+      button.innerHTML = `${esc(collection.name)}<small>${collection.locations.length} storage location(s)</small>`;
+      button.addEventListener('click', () => editCollection(collection)); $('collection-list').append(button);
     }
   }
-
-  async function refreshDocuments() {
-    const locations = selected($("locations"));
-    const summary = $("documents-summary");
-    const body = $("documents");
-
-    if (!locations.length) {
-      summary.className = "msg";
-      summary.textContent = "Select a location to see what would be ingested.";
-      body.innerHTML = "";
-      return;
+  async function reloadCollections() { state.collections = (await get('/collections')).collections; renderCollections(); }
+  function editCollection(collection) {
+    state.collectionId = collection?.collection_id || '';
+    $('collection-name').value = collection?.name || '';
+    selectLocations($('collection-locations'), collection?.locations || []);
+    $('collection-title').textContent = collection ? 'Edit collection' : 'New collection';
+    $('archive-collection').hidden = !collection;
+    $('use-collection').disabled = !collection;
+    message('collection-message'); renderCollections(); refreshCollectionDocuments();
+  }
+  function useLocations(locations, collectionId = '') {
+    selectLocations($('locations'), locations); $('run-collection').value = collectionId;
+    refreshDocuments(); location.hash = 'runs';
+  }
+  async function saveCollection() {
+    const payload = { name: $('collection-name').value.trim(), locations: selected($('collection-locations')) };
+    const saved = await api(state.collectionId ? `/collections/${encodeURIComponent(state.collectionId)}` : '/collections', state.collectionId ? 'PUT' : 'POST', payload);
+    const affectsRun = $('run-collection').value === saved.collection_id;
+    await reloadCollections(); editCollection(saved);
+    if (affectsRun) { selectLocations($('locations'), saved.locations); refreshDocuments(); }
+    message('collection-message', 'Collection saved.', 'ok');
+  }
+  function renderPromptList() {
+    $('prompt-list').replaceChildren();
+    const prompts = state.prompts.filter((p) => p.name.toLowerCase().includes($('prompt-search').value.toLowerCase()));
+    if (!prompts.length) $('prompt-list').innerHTML = '<p class="empty">No matching prompts.</p>';
+    for (const prompt of prompts) {
+      const button = document.createElement('button'); button.className = 'resource'; button.setAttribute('aria-pressed', String(prompt.prompt_id === state.promptId));
+      button.innerHTML = `${esc(prompt.name)}<small>${esc(prompt.output_key)} &middot; ${esc(prompt.prompt_id.slice(-12))}</small>`;
+      button.addEventListener('click', () => editPrompt(prompt)); $('prompt-list').append(button);
     }
-
-    summary.className = "msg";
-    summary.textContent = "Reading…";
-    const query = locations.map((l) => `location=${encodeURIComponent(l)}`).join("&");
-
-    let preview;
+  }
+  function editPrompt(prompt) {
+    state.promptId = prompt?.prompt_id || '';
+    $('prompt-name').value = prompt?.name || ''; $('prompt-template').value = prompt?.template || '';
+    $('prompt-output').value = prompt?.output_key || 'results'; showFormat();
+    $('prompt-title').textContent = prompt ? 'Edit prompt' : 'New prompt';
+    $('prompt-version').textContent = prompt ? `Version: ${prompt.prompt_id}. Saving changes creates a new version; this version remains available.` : 'Saving adds this prompt to the library.';
+    $('use-prompt').disabled = !prompt; message('prompt-message'); renderPromptList();
+  }
+  async function savePrompt() {
+    const previousId = state.promptId;
+    const saved = await api('/prompts', 'POST', { name: $('prompt-name').value.trim(), template: $('prompt-template').value, output_key: $('prompt-output').value });
+    const chosen = selected($("prompt")).filter((id) => id !== previousId); chosen.push(saved.prompt_id);
+    state.prompts = (await get('/prompts')).prompts;
+    fill($('prompt'), state.prompts, 'prompt_id', promptLabel, chosen); editPrompt(saved);
+    message('prompt-message', 'Prompt saved and selected for your next run.', 'ok');
+  }
+  function promptLabel(prompt) { return state.prompts.filter((p) => p.name === prompt.name).length > 1 ? `${prompt.name} (${prompt.prompt_id.slice(-12)})` : prompt.name; }
+  async function preview(locations, bodyId, summaryId) {
+    const version = (state.previewVersions[bodyId] || 0) + 1; state.previewVersions[bodyId] = version;
+    $(bodyId).replaceChildren();
+    if (!locations.length) { message(summaryId, 'Choose locations to preview their documents.'); return; }
+    message(summaryId, 'Reading documents...');
     try {
-      preview = await get(`/documents?${query}`);
-    } catch (error) {
-      summary.className = "msg bad";
-      summary.textContent = String(error.message || error);
-      return;
-    }
-
-    const fresh = preview.ingestable - preview.already_ingested;
-    summary.className = fresh === 0 ? "msg warn" : "msg";
-    summary.textContent =
-      `${preview.total} object(s) — ${fresh} to ingest, ` +
-      `${preview.already_ingested} already ingested` +
-      (preview.unsupported
-        ? `, ${preview.unsupported} not a document this pipeline reads`
-        : "") +
-      (preview.truncated ? ` (showing the first ${preview.documents.length})` : "");
-    if (preview.failed_locations && preview.failed_locations.length) {
-      summary.className = "msg warn";
-      summary.textContent += ` · could not read: ${preview.failed_locations.join("; ")}`;
-    }
-
-    body.innerHTML = "";
-    for (const doc of preview.documents) {
-      const row = document.createElement("tr");
-      const state = !doc.supported
-        ? '<span class="pill">not a document</span>'
-        : doc.already_ingested
-          ? '<span class="pill succeeded">ingested</span>'
-          : '<span class="pill pending">new</span>';
-      row.innerHTML =
-        `<td>${escapeHtml(doc.name)}</td><td class="muted">${escapeHtml(doc.location)}</td>` +
-        `<td class="muted">${escapeHtml(doc.key)}</td><td>${state}</td>`;
-      body.append(row);
+      const query = locations.map((l) => `location=${encodeURIComponent(l)}`).join('&');
+      const preview = await get(`/documents?${query}`);
+      if (state.previewVersions[bodyId] !== version) return;
+      const fresh = preview.ingestable - preview.already_ingested;
+      message(summaryId, `${preview.total} object(s): ${fresh} new, ${preview.already_ingested} already ingested, ${preview.unsupported} unsupported.` + (preview.truncated ? ` Showing the first ${preview.documents.length}.` : '') + (preview.failed_locations?.length ? ` Could not read: ${preview.failed_locations.join('; ')}` : ''), preview.failed_locations?.length ? 'warn' : '');
+      if (!preview.documents.length) $(bodyId).innerHTML = '<tr><td colspan="4" class="empty">No documents found in these locations.</td></tr>';
+      for (const doc of preview.documents) {
+        const row = document.createElement('tr');
+        const status = !doc.supported ? '<span class="pill">not a document</span>' : doc.already_ingested ? '<span class="pill succeeded">ingested</span>' : '<span class="pill pending">new</span>';
+        row.innerHTML = `<td>${esc(doc.name)}</td><td class="muted">${esc(doc.location)}</td><td class="muted">${esc(doc.key)}</td><td>${status}</td>`; $(bodyId).append(row);
+      }
+    } catch (error) { if (state.previewVersions[bodyId] === version) message(summaryId, error.message, 'bad'); }
+  }
+  function refreshDocuments() { return preview(selected($('locations')), 'documents', 'documents-summary'); }
+  function refreshCollectionDocuments() { return preview(selected($('collection-locations')), 'collection-documents', 'collection-documents-summary'); }
+  async function refreshWarning() {
+    const version = ++state.warningVersion; message('chunker-warning');
+    if (!$('chunker').value) return;
+    try { const { warning } = await get(`/chunker-warning?chunker_id=${encodeURIComponent($('chunker').value)}`); if (version === state.warningVersion) message('chunker-warning', warning || '', 'warn'); }
+    catch (error) { if (version === state.warningVersion) message('chunker-warning', `Could not check chunker compatibility: ${error.message}`, 'warn'); }
+  }
+  function result(request) {
+    if (!request.counts) return request.error || 'No result counts available yet.';
+    const c = request.counts; return `${c.succeeded} succeeded, ${c.failed} failed, ${c.skipped} skipped across ${c.prompts_run} prompt(s).`;
+  }
+  function date(value) { return value ? new Date(value).toLocaleString() : '-'; }
+  function statusPill(status) { return `<span class="pill ${['pending', 'running', 'succeeded', 'failed'].includes(status) ? status : ''}">${esc(status)}</span>`; }
+  function promptNames(request) { return (request.prompt_ids || []).map((id) => { const p = state.prompts.find((p) => p.prompt_id === id); return p ? promptLabel(p) : id; }).join(', '); }
+  function renderRequests() {
+    $('requests').replaceChildren();
+    const requests = state.requests.filter((r) => !$('request-status').value || r.status === $('request-status').value);
+    if (!requests.length) $('requests').innerHTML = '<tr><td colspan="4" class="empty">No requests match this view.</td></tr>';
+    for (const request of requests) {
+      const row = document.createElement('tr');
+      row.innerHTML = `<td><button class="link-button" title="${esc(request.request_id)}">${esc(request.request_id.slice(0, 8))}</button><br><small class="muted">${esc(date(request.requested_at))}</small></td><td>${statusPill(request.status)}</td><td>${esc(promptNames(request))}</td><td>${esc(request.model_id)}</td>`;
+      row.querySelector('button').addEventListener('click', () => { state.requestId = request.request_id; loadRequestDetail(); }); $('requests').append(row);
     }
   }
-
-  let promptLibrary = [], savedPipelines = [];
-  const promptLabel = (p) => `${p.name} (${p.prompt_id.slice(-12)})`;
-  const inputs = () => ({
-    locations: selected($("locations")), chunker_id: $('chunker').value,
-    prompt_ids: selected($("prompt")), model_id: $('model').value,
-  });
-  function selectValues(id, values) {
-    for (const option of $(id).options) option.selected = values.includes(option.value);
+  async function loadRequestDetail() {
+    const id = state.requestId; if (!id) return;
+    $('request-detail').hidden = false;
+    try {
+      const request = await get(`/requests/${encodeURIComponent(id)}`); if (id !== state.requestId) return;
+      const fields = { Request: request.request_id, Status: request.status, Submitted: date(request.requested_at), Started: date(request.started_at), Finished: date(request.finished_at), Locations: (request.locations || []).join('\n'), Prompts: promptNames(request), Model: request.model_id, Chunker: request.chunker_id, 'Run ID': request.run_id || '-', Result: result(request), Error: request.error || '-' };
+      $('request-detail-content').innerHTML = `<dl>${Object.entries(fields).map(([key, value]) => `<dt>${esc(key)}</dt><dd>${esc(value)}</dd>`).join('')}</dl>`;
+    } catch (error) { if (id === state.requestId) $('request-detail-content').textContent = `Could not load request: ${error.message}`; }
   }
-  function editPrompt() {
-    const prompt = promptLibrary.find((p) => p.prompt_id === $('edit-prompt').value);
-    if (!prompt) return;
-    $('prompt-name').value = prompt.name;
-    $('prompt-text').value = prompt.template;
-    $('prompt-format').value = prompt.output_key;
-    showFormat();
+  async function loadRequests() {
+    if (state.requestsLoading) return; state.requestsLoading = true;
+    try { state.requests = (await get('/requests?limit=100')).requests; renderRequests(); message('requests-message'); $('requests-updated').textContent = `Updated ${new Date().toLocaleTimeString()}. Refreshes every 10 seconds.`; await loadRequestDetail(); }
+    catch (error) { message('requests-message', `Could not refresh requests: ${error.message}`, 'bad'); }
+    finally { state.requestsLoading = false; }
+  }
+  async function submit() {
+    $('view-request').hidden = true;
+    const body = { locations: selected($('locations')), chunker_id: $('chunker').value, prompt_ids: selected($("prompt")), model_id: $('model').value };
+    if (!body.locations.length || !body.prompt_ids.length || !body.chunker_id || !body.model_id) throw new Error('Choose at least one location, one prompt, a chunker, and an available model.');
+    const request = await api('/requests', 'POST', body); state.requestId = request.request_id;
+    message('message', `Request ${request.request_id.slice(0, 8)} queued. It will start when the orchestrator picks it up.`, 'ok'); $('view-request').hidden = false;
+  }
+  async function loadChoices() {
+    const [locations, chunkers, prompts, models, collections] = await Promise.all([get('/locations'), get('/chunkers'), get('/prompts'), get('/models'), get('/collections')]);
+    state.locations = locations.locations; state.prompts = prompts.prompts; state.collections = collections.collections;
+    fill($('locations'), state.locations, 'prefix', (l) => l.name);
+    fill($('collection-locations'), state.locations, 'prefix', (l) => l.name);
+    fill($('upload-location'), state.locations, 'prefix', (l) => l.name);
+    fill($('chunker'), chunkers.chunkers, 'chunker_id', (c) => `${c.name} v${c.version}`);
+    fill($('prompt'), state.prompts, 'prompt_id', promptLabel);
+    for (const option of $('prompt').options) option.selected = true;
+    fill($('model'), models.models, 'model_id', (m) => m.display_name);
+    fill($('prompt-output'), ['results', 'what', 'causes', 'how', 'when', 'where', 'effects', 'conditional_statement', 'relations'].map((key) => ({ key })), 'key', (p) => p.key);
+    renderCollections(); renderPromptList(); if (state.prompts.length) editPrompt(state.prompts[0]);
+    state.ready = true; $('submit').disabled = false; message('app-message');
+    refreshWarning(); refreshPipelines().catch((error) => message('pipeline-message', error.message, 'bad')); route();
+  }
+
+  function runInputs() {
+    return { locations: selected($('locations')), chunker_id: $('chunker').value, prompt_ids: selected($('prompt')), model_id: $('model').value };
   }
   function showFormat() {
-    const key = $('prompt-format').value;
+    const key = $('prompt-output').value;
     $('format-example').textContent = key === 'relations'
       ? 'Structured process/disposition relations. Duplicate the probabilistic_processes prompt for its full format.'
       : `Return up to 10 non-empty strings: ${JSON.stringify({ [key]: ['An extracted claim'] })}`;
   }
   async function refreshLocations(pick) {
-    const previous = pick ? [pick] : selected($('locations'));
-    const { locations } = await get('/locations');
-    fill($('locations'), locations, 'prefix', (l) => l.name);
-    selectValues('locations', previous);
-    fill($('upload-location'), locations, 'prefix', (l) => l.name);
-    if (pick) $('upload-location').value = pick;
-    await refreshDocuments();
+    state.locations = (await get('/locations')).locations;
+    for (const id of ['locations', 'collection-locations']) {
+      const chosen = selected($(id));
+      fill($(id), state.locations, 'prefix', (l) => l.name, chosen);
+      selectLocations($(id), chosen);
+    }
+    const uploadLocation = pick || $('upload-location').value;
+    fill($('upload-location'), state.locations, 'prefix', (l) => l.name, [uploadLocation]);
+    refreshDocuments(); refreshCollectionDocuments();
   }
   async function refreshPipelines(pick) {
-    const { pipelines } = await get('/pipelines'); savedPipelines = pipelines;
-    fill($('saved-pipeline'), pipelines, 'pipeline_id', (p) => `${p.name} (${new Date(p.created_at).toLocaleString()})`);
-    if (pick) $('saved-pipeline').value = pick;
-    $('load-pipeline').disabled = $('run-pipeline').disabled = pipelines.length === 0;
+    state.pipelines = (await get('/pipelines')).pipelines;
+    const chosen = pick || $('saved-pipeline').value;
+    fill($('saved-pipeline'), state.pipelines, 'pipeline_id', (p) => `${p.name} (${date(p.created_at)})`);
+    if (state.pipelines.some((p) => p.pipeline_id === chosen)) $('saved-pipeline').value = chosen;
+    $('load-pipeline').disabled = $('run-pipeline').disabled = !state.pipelines.length;
   }
-  async function submit() {
-    await action('submit', 'message', async (message) => {
-      await post('/requests', inputs());
-      message.textContent = 'Requested. The orchestrator will pick it up.';
-      await loadRequests();
-    });
-  }
-  $('create-location').addEventListener('click', () => action('create-location', 'location-message', async (message) => {
-    const location = await post('/locations', { name: $('location-name').value.trim() });
-    await refreshLocations(location.prefix); message.textContent = 'Collection created. You can upload PDFs now.';
+  $('create-location').addEventListener('click', () => action($('create-location'), 'location-message', async () => {
+    const location = await api('/locations', 'POST', { name: $('location-name').value.trim() });
+    await refreshLocations(location.prefix);
+    selectLocations($('collection-locations'), [...new Set([...selected($('collection-locations')), location.prefix])]);
+    refreshCollectionDocuments(); message('location-message', 'Storage location created and added to the collection draft.', 'ok');
   }));
-  $('upload').addEventListener('click', () => action('upload', 'upload-message', async (message) => {
+  $('upload').addEventListener('click', () => action($('upload'), 'upload-message', async () => {
     const files = [...$('upload-files').files], location = $('upload-location').value;
-    if (!files.length) throw new Error('Select at least one PDF.');
-    const outcomes = [];
+    if (!files.length || !location) throw new Error('Select a storage location and at least one PDF.');
+    const outcomes = []; let failed = false;
     for (const file of files) {
       try {
         if (file.size > 25 * 1024 * 1024) throw new Error('exceeds 25 MiB');
-        await post(`/documents?location=${encodeURIComponent(location)}&filename=${encodeURIComponent(file.name)}`, file, true);
+        await api(`/documents?location=${encodeURIComponent(location)}&filename=${encodeURIComponent(file.name)}`, 'POST', file, true);
         outcomes.push(`${file.name}: uploaded`);
-      } catch (error) { outcomes.push(`${file.name}: failed - ${error.message}`); }
-      message.textContent = outcomes.join('\n');
+      } catch (error) { failed = true; outcomes.push(`${file.name}: failed - ${error.message}`); }
+      message('upload-message', outcomes.join('\n'), failed ? 'warn' : 'ok');
     }
     await refreshLocations(location);
   }));
-  $('save-prompt').addEventListener('click', () => action('save-prompt', 'prompt-message', async (message) => {
-    const prompt = await post('/prompts', { name: $('prompt-name').value.trim(), template: $('prompt-text').value, output_key: $('prompt-format').value });
-    const old = selected($('prompt'));
-    promptLibrary = (await get('/prompts')).prompts;
-    fill($('prompt'), promptLibrary, 'prompt_id', promptLabel);
-    selectValues('prompt', [...old, prompt.prompt_id]);
-    fill($('edit-prompt'), promptLibrary, 'prompt_id', promptLabel);
-    $('edit-prompt').value = prompt.prompt_id;
-    message.textContent = 'Version saved and selected for the new run.';
+  $('save-pipeline').addEventListener('click', () => action($('save-pipeline'), 'pipeline-message', async () => {
+    const saved = await api('/pipelines', 'POST', { name: $('pipeline-name').value.trim(), inputs: runInputs() });
+    await refreshPipelines(saved.pipeline_id); message('pipeline-message', 'Configuration saved.', 'ok');
   }));
-  $('edit-prompt').addEventListener('change', editPrompt);
-  $('prompt-format').addEventListener('change', showFormat);
-  $('new-prompt').addEventListener('click', () => {
-    $('prompt-name').value = ''; $('prompt-text').value = 'Extract claims from the following document text:\n\n{chunk_text}';
-    $('prompt-format').value = 'results'; showFormat(); $('prompt-name').focus();
-  });
-  $('duplicate-prompt').addEventListener('click', () => {
-    $('prompt-name').value += ' copy'; $('prompt-name').focus();
-  });
-  $('save-pipeline').addEventListener('click', () => action('save-pipeline', 'pipeline-message', async (message) => {
-    const pipeline = await post('/pipelines', { name: $('pipeline-name').value.trim(), inputs: inputs() });
-    await refreshPipelines(pipeline.pipeline_id); message.textContent = 'Configuration saved.';
-  }));
-  $('load-pipeline').addEventListener('click', () => action('load-pipeline', 'pipeline-message', async (message) => {
-    const pipeline = savedPipelines.find((p) => p.pipeline_id === $('saved-pipeline').value);
+  $('load-pipeline').addEventListener('click', () => action($('load-pipeline'), 'pipeline-message', async () => {
+    const pipeline = state.pipelines.find((p) => p.pipeline_id === $('saved-pipeline').value);
     if (!pipeline) throw new Error('Select a saved pipeline.');
     await refreshLocations();
-    selectValues('locations', pipeline.inputs.locations); selectValues('prompt', pipeline.inputs.prompt_ids);
-    $('chunker').value = pipeline.inputs.chunker_id; $('model').value = pipeline.inputs.model_id;
+    selectLocations($('locations'), pipeline.inputs.locations); $('run-collection').value = '';
+    for (const option of $('prompt').options) option.selected = pipeline.inputs.prompt_ids.includes(option.value);
+    $('model').value = pipeline.inputs.model_id; $('chunker').value = pipeline.inputs.chunker_id;
     $('pipeline-name').value = pipeline.name;
-    await refreshDocuments(); await refreshWarning(); message.textContent = 'Configuration loaded into New run.';
+    await refreshDocuments(); await refreshWarning(); message('pipeline-message', 'Configuration loaded into New run.', 'ok');
   }));
-  $('run-pipeline').addEventListener('click', () => action('run-pipeline', 'pipeline-message', async (message) => {
-    await post(`/pipelines/${encodeURIComponent($('saved-pipeline').value)}/requests`, {});
-    message.textContent = 'Saved pipeline requested.'; await loadRequests();
+  $('run-pipeline').addEventListener('click', () => action($('run-pipeline'), 'pipeline-message', async () => {
+    if (!$('saved-pipeline').value) throw new Error('Select a saved pipeline.');
+    const request = await api(`/pipelines/${encodeURIComponent($('saved-pipeline').value)}/requests`, 'POST', {});
+    state.requestId = request.request_id; $('view-request').hidden = false;
+    message('pipeline-message', 'Saved pipeline queued. Open Order requests to follow it.', 'ok');
   }));
-  $('refresh-requests').addEventListener('click', () => action('refresh-requests', 'message', async (message) => {
-    await loadRequests(); message.textContent = 'Status refreshed.';
-  }));
-  fill($('prompt-format'), ['results', 'what', 'causes', 'how', 'when', 'where', 'effects', 'conditional_statement', 'relations'].map((value) => ({ value })), 'value', (x) => x.value);
-
-  $("submit").addEventListener("click", submit);
-  $("chunker").addEventListener("change", refreshWarning);
-  $("locations").addEventListener("change", refreshDocuments);
-  loadChoices().then(async () => { await refreshDocuments(); await refreshPipelines(); await loadRequests(); }).catch((error) => {
-    $("message").className = "msg bad";
-    $("message").textContent = String(error);
+  $('prompt-output').addEventListener('change', showFormat);
+  $('duplicate-prompt').addEventListener('click', () => {
+    state.promptId = ''; $('prompt-name').value += ' copy'; $('use-prompt').disabled = true;
+    $('prompt-title').textContent = 'New prompt'; $('prompt-version').textContent = 'Saving adds this copy to the library.';
+    $('prompt-name').focus(); renderPromptList();
   });
+
+  window.addEventListener('hashchange', route);
+  $('locations').addEventListener("change", refreshDocuments);
+  $('locations').addEventListener('change', () => { $('run-collection').value = ''; });
+  $('chunker').addEventListener('change', refreshWarning);
+  $('refresh-documents').addEventListener('click', refreshDocuments);
+  $('run-collection').addEventListener('change', () => {
+    const c = state.collections.find((c) => c.collection_id === $('run-collection').value);
+    if (c) { selectLocations($('locations'), c.locations); refreshDocuments(); }
+  });
+  $('manage-collection').addEventListener('click', () => { const c = state.collections.find((c) => c.collection_id === $('run-collection').value); if (c) editCollection(c); });
+  $('quick-save').addEventListener('click', () => action($('quick-save'), 'run-collection-message', async () => {
+    const saved = await api('/collections', 'POST', { name: $('quick-collection-name').value.trim(), locations: selected($('locations')) });
+    await reloadCollections(); $('run-collection').value = saved.collection_id; $('quick-collection-name').value = ''; message('run-collection-message', 'Collection saved.', 'ok');
+  }));
+  $('new-collection').addEventListener('click', () => editCollection(null));
+  $('collection-locations').addEventListener('change', refreshCollectionDocuments);
+  $('collection-form').addEventListener('submit', (event) => { event.preventDefault(); action($('save-collection'), 'collection-message', saveCollection); });
+  $('use-collection').addEventListener('click', () => {
+    const locations = selected($('collection-locations'));
+    const saved = state.collections.find((c) => c.collection_id === state.collectionId);
+    const matches = saved && saved.locations.length === locations.length && saved.locations.every((loc) => locations.includes(loc));
+    useLocations(locations, matches ? saved.collection_id : '');
+  });
+  $('archive-collection').addEventListener('click', () => action($('archive-collection'), 'collection-message', async () => {
+    await api(`/collections/${encodeURIComponent(state.collectionId)}`, 'DELETE'); await reloadCollections(); editCollection(null); message('collection-message', 'Collection archived. Source documents and queued requests are retained.', 'ok');
+  }));
+  $('new-prompt').addEventListener('click', () => editPrompt(null));
+  $('prompt-search').addEventListener('input', renderPromptList);
+  $('prompt-form').addEventListener('submit', (event) => { event.preventDefault(); action($('save-prompt'), 'prompt-message', savePrompt); });
+  $('use-prompt').addEventListener('click', () => { for (const option of $('prompt').options) if (option.value === state.promptId) option.selected = true; location.hash = 'runs'; });
+  $('prompt-form').addEventListener('input', () => { $('use-prompt').disabled = true; });
+  $('submit').addEventListener('click', () => action($('submit'), 'message', submit));
+  $('request-status').addEventListener('change', renderRequests);
+  $('refresh-requests').addEventListener('click', loadRequests);
+  setInterval(() => { if (state.ready && state.page === 'requests' && !document.hidden) loadRequests(); }, 10000);
+  route(); message('app-message', 'Connecting to the pipeline...');
+  loadChoices().catch((error) => message('app-message', `Could not load the workspace: ${error.message}. Reload to retry.`, 'bad'));
 </script>
+</body>
+</html>
