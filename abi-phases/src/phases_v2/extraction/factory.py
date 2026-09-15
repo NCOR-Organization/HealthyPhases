@@ -21,12 +21,22 @@ from phases_v2.extraction.interfaces import ExtractionModel, ExtractionReport
 from phases_v2.models.catalog import resolve as resolve_model
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
+from phases_v2.ports import RowStore
 
 
-def resolve_prompt(prompt_id: str) -> PromptTemplate:
+def resolve_prompt(prompt_id: str, rows: RowStore | None = None) -> PromptTemplate:
     for template in declared_prompts():
         if template.prompt_id == prompt_id:
             return template
+    if rows is not None:
+        from phases_v2.sql import literal
+
+        stored = rows.query(
+            "SELECT name, template, output_key FROM prompts "
+            f"WHERE prompt_id = {literal(prompt_id)}"
+        )
+        if stored:
+            return PromptTemplate(**stored[0])
     raise ValueError(
         f"{prompt_id!r} is not a declared prompt; declared prompts are "
         + ", ".join(t.prompt_id for t in declared_prompts())
@@ -55,10 +65,10 @@ def extract(
 ) -> ExtractionReport:
     """Run one prompt over the outstanding chunks for one model.
 
-    ``resolve_model`` and ``resolve_prompt`` run before anything is written, so
-    a run naming something undeclared fails without leaving rows behind.
+    Model and prompt resolution run before anything is written. Prompts may
+    be declared in code or saved through the app's versioned prompt library.
     """
-    prompt = resolve_prompt(prompt_id)
+    prompt = resolve_prompt(prompt_id, DatasetRowStore(engine.services.dataset))
     resolve_model(model_id)
 
     return run_extraction(

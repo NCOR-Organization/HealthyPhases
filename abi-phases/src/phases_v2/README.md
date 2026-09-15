@@ -103,6 +103,7 @@ Namespace `phases_v2`. Every one is keyed and written only with `mode="upsert"`.
 | `extraction_runs` | invocation | `run_id` |
 | `projections` | key already projected to a target | `target` + `key` |
 | `run_requests` | requested run | `request_id` |
+| `input_collections` | saved group of storage locations | `collection_id` |
 
 `extractions` keeps the model's output twice: `response` is a queryable JSON column, `raw_response`
 the verbatim text. The JSON column *rejects* unparseable output — which is exactly the case where
@@ -197,3 +198,42 @@ time costs nothing: 20 skipped, zero calls, no new rows.
 - **No union view across v1 and v2 graphs.** The shared vocabulary would make one possible.
 - **Snapshot retention is an operator concern.** Every write creates a DuckLake snapshot; expiry and
   compaction are not scheduled here.
+
+## Pipeline workspace
+
+The Phases Pipeline app has four pages in its left navigation:
+
+- **New run**: select a saved collection or storage locations, preview documents,
+  save the selected locations as a collection, choose prompt versions, and queue a run.
+- **Input collections**: create, rename, edit, and archive named groups of locations.
+  The contents preview includes each location's subfolders. Archiving a collection
+  leaves its source documents and queued requests intact.
+- **Prompt library**: browse full prompt text, create prompts, and save edits as
+  new versions. Prompt text must contain `{chunk_text}` and use one of the supported
+  extraction output schemas. Old versions remain selectable and resolvable by workers.
+- **Order requests**: filter the latest 100 requests by status and inspect timestamps,
+  source locations, all selected prompts, execution IDs, counts, and errors.
+  Monitoring refreshes every 10 seconds while the page is visible.
+
+Collections are stored in the new `input_collections` dataset through the existing
+row-store adapter. Restart the ABI API and Dagster processes after updating: normal
+module startup creates the missing dataset, and workers load the updated prompt
+resolver. No existing dataset needs to be dropped or recreated. Collection edits use
+last-write-wins semantics; a queued request stores a copy of its selected locations.
+Prompts continue using the existing `prompts` dataset and content-based identities.
+Changing an output schema requires a changed name or text to preserve that identity.
+
+Location selection scopes **ingestion**. The existing pipeline subsequently chunks
+and extracts outstanding work across the corpus; the preview is not an extraction
+scope filter. The New run page explains this behavior.
+
+Resource mutation commands are defined in
+`app/contracts/app_resources.proto` and validated server-side with Protovalidate.
+The checked-in descriptor is packaged with the module. `make proto` regenerates it
+using the existing extraction descriptor's pinned validation dependency. Resource
+endpoints inherit the ABI API's existing access controls; no separate role model
+is introduced.
+
+Run backend and browser-logic regressions with `make test` (or run
+`uv run pytest src/phases_v2/app` and
+`node --test src/phases_v2/apps/pipeline/pipeline_test.cjs` individually).

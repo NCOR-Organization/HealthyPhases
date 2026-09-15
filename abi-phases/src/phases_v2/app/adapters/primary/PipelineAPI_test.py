@@ -11,6 +11,8 @@ from phases_v2.requests.fakes import FakeRequestStore
 
 class _Rows:
     def query(self, sql):
+        if "FROM prompts" in sql:
+            return []
         if "extraction_runs" in sql:
             return [{"succeeded": 3, "failed": 0, "skipped": 1}]
         return [{"chunker_id": "window_1_aaa"}]

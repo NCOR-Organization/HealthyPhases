@@ -16,7 +16,7 @@ def test_all_eight_ported_prompts_are_declared():
         "solitude_when",
         "solitude_where",
         "solitude_effects",
-        "logical_sentences",
+        "conditional_statement",
         "probabilistic_processes",
     }
 

@@ -10,10 +10,11 @@ sensor picks it up.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, FastAPI, HTTPException, Query
+from fastapi import APIRouter, Body, FastAPI, HTTPException, Query
 from pydantic import BaseModel
 
 from phases_v2.app.service import PipelineAppService
+from phases_v2.app.app_resources import ResourceNotFound
 from phases_v2.requests.interfaces import RequestNotFound
 
 PREFIX = "/phases_v2/api"
@@ -29,6 +30,35 @@ class SubmitRun(BaseModel):
 
 def build_router(service: PipelineAppService) -> APIRouter:
     router = APIRouter(prefix=PREFIX, tags=["phases_v2"])
+
+    def resource_call(action, *args):
+        try:
+            return action(*args)
+        except ResourceNotFound as missing:
+            raise HTTPException(status_code=404, detail=str(missing)) from missing
+        except ValueError as invalid:
+            raise HTTPException(status_code=422, detail=str(invalid)) from invalid
+
+    @router.get("/collections")
+    def collections():
+        return {"collections": service.resources.collections()}
+
+    @router.post("/collections", status_code=201)
+    def create_collection(body: dict = Body(...)):
+        return resource_call(service.resources.save_collection, body)
+
+    @router.put("/collections/{collection_id}")
+    def update_collection(collection_id: str, body: dict = Body(...)):
+        return resource_call(service.resources.save_collection, body, collection_id)
+
+    @router.delete("/collections/{collection_id}")
+    def archive_collection(collection_id: str):
+        resource_call(service.resources.archive_collection, collection_id)
+        return {"archived": True}
+
+    @router.post("/prompts", status_code=201)
+    def save_prompt(body: dict = Body(...)):
+        return resource_call(service.resources.save_prompt, body)
 
     @router.get("/prompts")
     def prompts():

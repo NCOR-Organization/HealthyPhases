@@ -38,8 +38,8 @@ message EffectsOutput {
     max_items: 10, items: {string: {min_len: 1}}
   }];
 }
-message LogicalSentencesOutput {
-  repeated string logical_sentences = 1 [(buf.validate.field).repeated = {
+message ConditionalStatementOutput {
+  repeated string conditional_statement = 1 [(buf.validate.field).repeated = {
     max_items: 10, items: {string: {min_len: 1}}
   }];
 }

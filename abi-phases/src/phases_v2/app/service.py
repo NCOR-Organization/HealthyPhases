@@ -10,9 +10,9 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
+from phases_v2.app.app_resources import AppResources
 from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
-from phases_v2.prompts.templates import declared_prompts
 from phases_v2.requests.domain import submit
 from phases_v2.requests.interfaces import RunRequest
 
@@ -43,19 +43,12 @@ class PipelineAppService:
         #: shared with every other module, so scanning it would offer their
         #: data as a paper source.
         self._papers_root = papers_root.strip("/")
+        self.resources = AppResources(rows, self._papers_root)
 
     # -- what a user chooses from ---------------------------------------
 
-    @staticmethod
-    def prompts() -> list[dict[str, Any]]:
-        return [
-            {
-                "prompt_id": template.prompt_id,
-                "name": template.name,
-                "output_key": template.output_key,
-            }
-            for template in declared_prompts()
-        ]
+    def prompts(self) -> list[dict[str, Any]]:
+        return self.resources.prompts()
 
     def models(self) -> list[dict[str, Any]]:
         """Declared models, each marked with whether it can actually be built."""
@@ -117,7 +110,15 @@ class PipelineAppService:
         difference between a run that costs something and one that does not.
         """
         if self._storage is None:
-            return {"documents": [], "total": 0, "already_ingested": 0, "truncated": False}
+            return {
+                "documents": [],
+                "total": 0,
+                "ingestable": 0,
+                "unsupported": 0,
+                "already_ingested": 0,
+                "truncated": False,
+                "failed_locations": [],
+            }
 
         known = self._ingested_names()
         found: list[dict[str, Any]] = []

@@ -1,0 +1,17 @@
+syntax = "proto3";
+package phases_v2.app.v1;
+import "buf/validate/validate.proto";
+
+message SaveCollection {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 120, pattern: "\\S"}];
+  repeated string locations = 2 [(buf.validate.field).repeated = {
+    min_items: 1, max_items: 100, unique: true,
+    items: {string: {min_len: 1, max_len: 2048}}
+  }];
+}
+
+message SavePrompt {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 120, pattern: "\\S"}];
+  string template = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100000, contains: "{chunk_text}"}];
+  string output_key = 3 [(buf.validate.field).string.min_len = 1];
+}

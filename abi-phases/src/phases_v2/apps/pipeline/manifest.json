@@ -1,6 +1,6 @@
 {
     "name": "Phases Pipeline",
-    "description": "Choose which storage locations, chunker, prompt and model a run should use, request it, and follow what it did. Requests are picked up by the orchestrator, so one can be submitted while it is down.",
+    "description": "Manage input collections and prompt versions, preview documents, queue pipeline runs, and monitor order requests in a dedicated workspace.",
     "category": "domain",
     "url": "html:index.html",
     "icon_emoji": "🧪",
