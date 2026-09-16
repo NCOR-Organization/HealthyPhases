@@ -92,9 +92,12 @@ class NcbiSource:
             "sort": parameters["sort"],
             "datetype": "pdat",
         }
-        for source, target in [("start_date", "mindate"), ("end_date", "maxdate")]:
-            if parameters.get(source):
-                options[target] = parameters[source].replace("-", "/")
+        start_date = parameters.get("start_date")
+        end_date = parameters.get("end_date")
+        if start_date or end_date:
+            # ESearch silently ignores date restrictions unless both bounds exist.
+            options["mindate"] = (start_date or "0001-01-01").replace("-", "/")
+            options["maxdate"] = (end_date or "9999-12-31").replace("-", "/")
         papers, total = [], 0
         for start in range(0, parameters["max_results"], 200):
             result = self._entrez(

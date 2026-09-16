@@ -94,6 +94,35 @@ def test_search_does_not_misassign_missing_summary_to_another_pmid():
         )
 
 
+@pytest.mark.parametrize(
+    "dates, expected",
+    [
+        ({}, {}),
+        ({"start_date": "", "end_date": ""}, {}),
+        (
+            {"start_date": "2026-01-01", "end_date": ""},
+            {"mindate": "2026/01/01", "maxdate": "9999/12/31"},
+        ),
+        (
+            {"start_date": "", "end_date": "2000-01-01"},
+            {"mindate": "0001/01/01", "maxdate": "2000/01/01"},
+        ),
+        (
+            {"start_date": "2025-01-01", "end_date": "2026-01-01"},
+            {"mindate": "2025/01/01", "maxdate": "2026/01/01"},
+        ),
+    ],
+)
+def test_search_sends_both_date_bounds_or_neither(dates, expected):
+    session = Session([Response({"esearchresult": {"count": "0", "idlist": []}})])
+    NcbiSource(session=session, sleep=lambda _: None).search(
+        {"query": "q", "sort": "relevance", "max_results": 1, **dates}
+    )
+    params = session.calls[0][1]["params"]
+    assert {k: params[k] for k in ("mindate", "maxdate") if k in params} == expected
+    assert params["datetype"] == "pdat"
+
+
 def test_retry_is_bounded_and_server_error_is_not_treated_as_a_pdf():
     session = Session(
         [Response(status=503), Response(status=503), Response(status=503)]

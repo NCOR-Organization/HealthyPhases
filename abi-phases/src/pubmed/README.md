@@ -10,6 +10,8 @@ provenance and [LICENSE](LICENSE) for the retained upstream license.
    `naas_abi_marketplace.applications.pubmed` in this repository.
 2. Open **PubMed Library** in Nexus. Search with a PubMed expression, optional
    publication dates, sort order and a result limit (default 100, maximum 1000).
+   Either publication date can be used alone; an empty bound leaves that end
+   of the date range unrestricted.
 3. Review the results and click **Ingest this query**. The search itself saves
    metadata only. The ingestion action creates a durable pending request.
 4. Run the existing ABI Dagster daemon and code location. The
