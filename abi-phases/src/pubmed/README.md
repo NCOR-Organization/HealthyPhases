@@ -41,6 +41,39 @@ is additive and idempotent. Existing legacy objects under `pubmed/pdfs` remain;
 new artifacts use `pubmed/papers/<PMCID>/<SHA256>.pdf`. No automatic backfill of
 legacy files or dataset schema migration is performed.
 
+## Scheduled queries
+
+Open **Scheduled queries** in PubMed Library to view recurring searches and enable
+or disable them. Create a schedule from any saved search, give it a name and choose
+an hourly, daily or weekly interval (1, 24 or 168 elapsed hours). The first run is
+one interval after creation. The query, publication-date bounds, sort and result
+limit are copied from that saved search.
+
+**Download newly found papers** is on by default. Turn it off for search-only
+schedules. Each occurrence saves a fresh search; downloads go through the existing
+publication request queue. Papers without a PMCID, already published papers, and
+papers in pending/running download requests are excluded from new requests. Failed
+or unavailable downloads may be retried when a later scheduled search finds them.
+
+Enable/disable changes are durable. Disabling prevents future runs, including
+queued occurrences that have not claimed the schedule yet. A started run and its
+publication requests may finish. Re-enabling starts a new interval. Stopping
+Dagster pauses execution; restarting coalesces missed intervals into one search,
+then resumes the interval from that run's start. Dates are stored in UTC and shown
+in the browser's local timezone; these are elapsed intervals, not calendar/cron
+schedules. The UI shows last-run status, errors and result-limit warnings.
+
+The `pubmed_schedule_sensor` polls every 30 seconds and dispatches at most one due
+occurrence per tick. Stable run keys and catalog compare-and-swap protect each
+occurrence from duplicate execution. Completion preserves concurrent toggle edits;
+failure/cancellation reconciliation allows the next interval to proceed. No
+existing search becomes scheduled automatically. Phase v2 automation remains
+separate and deferred.
+
+Searches still respect their saved result limit (at most 1000). They do not promise
+an exhaustive PubMed backfill or discovery beyond that bounded selection; use
+focused queries and review the warning when the limit is reached.
+
 ## Published dataset contract, version 1
 
 The `.proto` source is [contracts/pubmed_publication.proto](contracts/pubmed_publication.proto).
@@ -49,6 +82,7 @@ Datasets live in namespace `pubmed`:
 
 | Table | Key | Meaning |
 |---|---|---|
+| `schedules` | `schedule_id` | Opt-in recurring search settings, enabled state, next occurrence and last-run outcome |
 | `queries` | `query_id` | A saved, bounded search, its exact inputs, total result count and retrieval time |
 | `papers` | `pmid` | Citation metadata, PMCID, DOI and authors |
 | `query_papers` | `query_id`, `pmid` | Query membership independent of artifact identity |

@@ -7,6 +7,7 @@ from naas_abi_core.services.dataset.adapters.secondary.DatasetSecondaryAdapterDu
 from naas_abi_core.services.dataset.DatasetService import DatasetService
 
 from pubmed.adapters.secondary.pubmed_dataset_store import PubmedDatasetStore
+from pubmed.application.pubmed_schedules import PubmedSchedules
 from pubmed.application.pubmed_service import PubmedService
 from pubmed.domain.pubmed_errors import RequestAlreadyClaimed
 from pubmed.tests.pubmed_service_test import FakeSource, MemoryStorage, queue
@@ -50,3 +51,35 @@ def test_concurrent_claims_have_one_owner(dataset):
     with ThreadPoolExecutor(max_workers=2) as pool:
         results = list(pool.map(claim, ["one", "two"]))
     assert sum(result is not None for result in results) == 1
+
+
+def test_schedule_roundtrip_and_concurrent_execution_have_one_owner(dataset):
+    from datetime import datetime
+
+    store = PubmedDatasetStore(dataset)
+    store.ensure()
+    publisher = PubmedService(store, FakeSource(), MemoryStorage())
+    scheduler = PubmedSchedules(publisher)
+    query = publisher.search({"query": "solitude"})["query"]
+    row = scheduler.create(
+        {"query_id": query["query_id"], "name": "Daily", "interval_hours": 24}
+    )
+    restored = scheduler.list()[0]
+    assert restored["enabled"] is True
+    assert restored["search"]["query"] == "solitude"
+    scheduler.clock = lambda: datetime.fromisoformat(row["next_run_at"])
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(
+            pool.map(
+                lambda run: scheduler.execute(
+                    row["schedule_id"], row["next_run_at"], run
+                ),
+                ["one", "two"],
+            )
+        )
+    assert sum(result is not None for result in results) == 1
+    assert len(publisher.requests()) == 1
+    assert scheduler.list()[0]["status"] == "succeeded"
+    assert scheduler.toggle(row["schedule_id"], {"enabled": False})["enabled"] is False
+    store.ensure()
+    assert scheduler.list()[0]["enabled"] is False

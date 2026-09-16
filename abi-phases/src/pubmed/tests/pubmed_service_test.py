@@ -19,6 +19,7 @@ class MemoryStore:
         "query_papers": ("query_id", "pmid"),
         "artifacts": ("artifact_id",),
         "run_requests": ("request_id",),
+        "schedules": ("schedule_id",),
     }
 
     def __init__(self):
@@ -41,6 +42,16 @@ class MemoryStore:
             raise RequestAlreadyClaimed(request_id)
         row.update(status="running", run_id=run_id)
         self.save("run_requests", [row])
+        return row
+
+    def update_schedule(self, schedule_id, change):
+        from pubmed.domain.pubmed_errors import PublicationNotFound
+
+        rows = self.rows("schedules", schedule_id=schedule_id)
+        if not rows:
+            raise PublicationNotFound(schedule_id)
+        row = change(rows[0])
+        self.save("schedules", [row])
         return row
 
 

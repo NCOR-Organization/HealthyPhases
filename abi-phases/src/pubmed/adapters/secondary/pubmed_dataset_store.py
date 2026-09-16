@@ -22,6 +22,7 @@ TABLES = {
     "query_papers": ("MembershipRecord", ("query_id", "pmid")),
     "artifacts": ("ArtifactRecord", ("artifact_id",)),
     "run_requests": ("RequestRecord", ("request_id",)),
+    "schedules": ("ScheduleRecord", ("schedule_id",)),
 }
 
 
@@ -40,6 +41,8 @@ def specs():
                 kind = "integer"
             elif field.type == FieldDescriptor.TYPE_INT64:
                 kind = "bigint"
+            elif field.type == FieldDescriptor.TYPE_BOOL:
+                kind = "boolean"
             columns.append(ColumnSpec(name=field.name, type=kind))
         yield DatasetSpec(
             name=name, namespace=NAMESPACE, columns=tuple(columns), primary_key=keys
@@ -102,6 +105,34 @@ class PubmedDatasetStore:
             try:
                 self.dataset.write(
                     "run_requests",
+                    [row],
+                    namespace=NAMESPACE,
+                    mode="upsert",
+                    snapshot_id=snapshot,
+                )
+                return row
+            except DatasetSnapshotConflictError:
+                if attempt == 4:
+                    raise
+                sleep(0.05 * (attempt + 1))
+
+    def update_schedule(self, schedule_id, change):
+        for attempt in range(5):
+            snapshot = self.dataset.describe(
+                "schedules", namespace=NAMESPACE
+            ).snapshot_id
+            rows = self.dataset.query(
+                f"SELECT * FROM schedules WHERE schedule_id = {literal(schedule_id)}",
+                namespace=NAMESPACE,
+            ).rows
+            # The write checks the token captured before this read. Any intervening
+            # commit forces a retry without attaching a second historical catalog.
+            if not rows:
+                raise PublicationNotFound(schedule_id)
+            row = validate("ScheduleRecord", change(rows[0]))
+            try:
+                self.dataset.write(
+                    "schedules",
                     [row],
                     namespace=NAMESPACE,
                     mode="upsert",

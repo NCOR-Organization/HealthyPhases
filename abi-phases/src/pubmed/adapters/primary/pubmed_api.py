@@ -4,17 +4,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException
 
+from pubmed.application.pubmed_schedules import PubmedSchedules
 from pubmed.domain.pubmed_errors import AcquisitionError, PublicationNotFound
 
 
 def router(service):
     api = APIRouter(prefix="/pubmed/api", tags=["pubmed"])
+    schedules = PubmedSchedules(service)
 
     def call(action, *args):
         try:
             return action(*args)
         except PublicationNotFound as exc:
-            raise HTTPException(404, "Query or request not found") from exc
+            raise HTTPException(404, "Query, request or schedule not found") from exc
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from exc
         except AcquisitionError as exc:
@@ -23,6 +25,18 @@ def router(service):
     @api.post("/search")
     def search(body: Annotated[dict, Body()]):
         return call(service.search, body)
+
+    @api.get("/schedules")
+    def list_schedules():
+        return {"schedules": schedules.list()}
+
+    @api.post("/schedules", status_code=201)
+    def create_schedule(body: Annotated[dict, Body()]):
+        return call(schedules.create, body)
+
+    @api.patch("/schedules/{schedule_id}")
+    def toggle_schedule(schedule_id: str, body: Annotated[dict, Body()]):
+        return call(schedules.toggle, schedule_id, body)
 
     @api.get("/queries")
     def queries():

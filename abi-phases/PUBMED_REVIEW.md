@@ -52,10 +52,14 @@ git diff 9d37ce1..feat/pubmed-dataset-app -- abi-phases
 
 ## Boundaries and operational assumptions
 
-Phase v2 scheduling and automatic ingestion on publication are deferred. No
-marketplace publication, deployment, live model-backed extraction or production
-Dagster daemon run was performed. The browser review used a local demo server,
-not a deployed Nexus instance.
+Phase v2 scheduling and automatic ingestion on publication are deferred.
+The agreed second-phase behavior is to automatically register newly published
+PubMed papers and render their text. Sources can opt into the full pipeline
+(chunking, LLM extraction, and graph/vector updates) using saved model and prompt
+settings. Full pipeline execution is enabled per source. No
+marketplace publication, production deployment, live model-backed extraction or
+production Dagster daemon run was performed. The initial browser review used a
+local demo server; the subsequent local Nexus verification is recorded below.
 
 Datasets have the same deployment-wide visibility and API access boundary as the
 existing Phase v2 app. No new persistence service or cross-domain RPC is introduced:
@@ -66,3 +70,49 @@ README for timeout/retry limits and configuring deployment concurrency.
 Normal standalone Phase v2 stage jobs retain their existing corpus-wide defaults;
 full pipeline runs now follow the selected papers. Legacy PDFs stay in place and
 are not automatically backfilled into the new datasets.
+
+
+## Local stack review (2026-09-16)
+
+Started with `abi dev up -d` from this worktree, using the untracked
+`config.review.yaml` selected by `ENV=review` in `.env`. The user authorized copying
+the original `.env`; the copy has mode 0600 and remains Git-ignored. Review ports,
+local admin credentials, SQLite catalogs and filesystem storage are separate.
+
+- Nexus: http://localhost:12789
+- ABI API: http://localhost:10668
+- Dagster: http://localhost:11789
+- Oxigraph: http://localhost:8667/health
+- Login: `admin@example.com` / `admin` (development instance only).
+- Workspace: PubMed Review; PubMed Library and Phases Pipeline are enabled.
+
+Verified API login, the app catalog, PubMed queries, Phase v2 PubMed source
+listing, loaded Dagster sensors, and browser login/opening PubMed Library inside
+Nexus with no JavaScript exceptions. No paper or LLM pipeline run was submitted.
+
+A local change in `.abi/libs/naas-abi/naas_abi/apps/nexus/apps/web/next.config.js`
+keeps React's precompiled bundles and property-information out of Next 14's SWC
+transform; otherwise their rewritten exports prevent the frontend from compiling.
+This dependency-worktree change is uncommitted and available for review.
+The legacy Phase reverse-search endpoint still reports missing process-environment
+OpenAI credentials; the PubMed and Phase v2 app endpoints mounted successfully.
+
+Stop this instance from the worktree with `.venv/bin/abi dev down`.
+
+
+## Follow-up: scheduled PubMed queries
+
+The PubMed app now has a Scheduled queries page for creating recurring searches
+and toggling them on/off. Schedules are stored in the additive `pubmed.schedules`
+dataset. A separate Dagster job refreshes the saved search and optionally queues
+new downloads; Phase v2 automation remains deferred. See `src/pubmed/README.md`
+for interval semantics, failure recovery, bounded-search limits and pause behavior.
+
+
+Scheduled-query verification: `make test lint build` passed (457 Python tests,
+3 opt-in skips; 15 frontend tests). Tests cover schedule validation, due/disabled
+behavior, duplicate occurrences, pause during a run, search-only mode, failure
+recovery, real DuckLake persistence/concurrent claims, and the Dagster job.
+The running local Dagster instance exposes `pubmed_scheduled_query` and
+`pubmed_schedule_sensor`. Browser creation, enable and disable checks passed with
+no JavaScript errors. A clearly named review example remains disabled.

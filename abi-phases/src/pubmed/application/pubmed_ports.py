@@ -1,5 +1,6 @@
 """Outbound ports owned by the PubMed application."""
 
+from collections.abc import Callable
 from typing import Protocol
 
 
@@ -7,6 +8,9 @@ class PublicationStore(Protocol):
     def rows(self, table: str, **filters) -> list[dict]: ...
     def save(self, table: str, records: list[dict]) -> None: ...
     def claim(self, request_id: str, run_id: str) -> dict: ...
+    def update_schedule(
+        self, schedule_id: str, change: Callable[[dict], dict]
+    ) -> dict: ...
 
 
 class LiteratureSource(Protocol):

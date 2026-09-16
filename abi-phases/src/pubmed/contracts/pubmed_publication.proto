@@ -14,6 +14,34 @@ message Submit {
   string query_id = 1 [(buf.validate.field).string.uuid = true];
   repeated string pmids = 2 [(buf.validate.field).repeated = {max_items: 1000, unique: true, items: {string: {pattern: "^[0-9]+$"}}}];
 }
+message ScheduleCreate {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+  string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 120, pattern: "\\S"}];
+  int32 interval_hours = 3 [(buf.validate.field).int32 = {in: [1, 24, 168]}];
+  bool enabled = 4;
+  bool ingest_new = 5;
+}
+message ScheduleToggle {
+  optional bool enabled = 1 [(buf.validate.field).required = true];
+}
+message ScheduleRecord {
+  string schedule_id = 1 [(buf.validate.field).string.uuid = true];
+  string name = 2;
+  Search search = 3;
+  int32 interval_hours = 4;
+  bool enabled = 5;
+  bool ingest_new = 6;
+  string created_at = 7;
+  string next_run_at = 8;
+  string last_started_at = 9;
+  string last_finished_at = 10;
+  string status = 11;
+  string run_id = 12;
+  string last_query_id = 13;
+  string last_request_id = 14;
+  string error = 15;
+  bool last_truncated = 16;
+}
 message QueryRecord {
   string query_id = 1;
   string query = 2;
