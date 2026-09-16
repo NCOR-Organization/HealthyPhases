@@ -1,0 +1,14 @@
+{
+  "name": "PubMed Library",
+  "description": "Search biomedical literature, schedule recurring queries, and publish new papers.",
+  "category": "application",
+  "url": "html:index.html",
+  "icon_emoji": "📚",
+  "version": "0.1.0",
+  "author": "HealthyPhases",
+  "license": "MIT",
+  "keywords": ["pubmed", "papers", "research", "datasets"],
+  "tier": "community",
+  "maintainer": "HealthyPhases",
+  "pricing": {"type": "free", "price": 0}
+}

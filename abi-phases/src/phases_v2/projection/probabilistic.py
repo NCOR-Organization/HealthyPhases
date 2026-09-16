@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from phases_v2.ports import RowStore
-from phases_v2.sql import literal
+from phases_v2.sql import in_list, literal
 from phases_v2.structured_text import canonical_payload_text
 
 TARGET = "probabilistic_relations_v1"
@@ -43,10 +43,18 @@ def project_relations(
     *,
     batch_size: int = 500,
     dry_run: bool = False,
+    paper_ids: list[str] | None = None,
 ) -> BackfillReport:
     """Read one pinned snapshot; commit rows before recording their item IDs."""
     if not 1 <= batch_size <= 5000:
         raise ValueError("batch_size must be between 1 and 5000")
+    scope = (
+        ""
+        if paper_ids is None
+        else (
+            f"AND ei.paper_id IN {in_list(paper_ids)} " if paper_ids else "AND FALSE "
+        )
+    )
     report = BackfillReport()
     cursor = ""
     while True:
@@ -56,7 +64,7 @@ def project_relations(
             "JOIN extractions e ON e.extraction_id = ei.extraction_id "
             "JOIN prompts p ON p.prompt_id = ei.prompt_id "
             "WHERE e.status = 'succeeded' AND p.output_key = 'relations' "
-            f"AND ei.item_id > {literal(cursor)} "
+            f"{scope}AND ei.item_id > {literal(cursor)} "
             "AND NOT EXISTS (SELECT 1 FROM projections done "
             f"WHERE done.target = {literal(TARGET)} AND done.key = ei.item_id) "
             f"ORDER BY ei.item_id LIMIT {batch_size}"

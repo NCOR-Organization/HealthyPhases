@@ -10,11 +10,11 @@ from naas_abi_core.services.dataset.DatasetService import DatasetService
 
 from phases_v2.app.adapters.primary.PipelineAPI import PREFIX, register
 from phases_v2.app.service import PipelineAppService
+from phases_v2.chunking.chunkers import WINDOW_512_128
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
-from phases_v2.prompts.templates import declared_prompts
-from phases_v2.chunking.chunkers import WINDOW_512_128
 from phases_v2.models.catalog import DECLARED_MODELS
+from phases_v2.prompts.templates import declared_prompts
 from phases_v2.requests.fakes import FakeRequestStore
 
 

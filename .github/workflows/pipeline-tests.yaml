@@ -2,6 +2,11 @@ name: Pipeline tests
 on:
   pull_request:
     paths:
+      - 'abi-phases/src/pubmed/**'
+      - 'abi-phases/src/phases_v2/sources/**'
+      - 'abi-phases/src/phases_v2/papers/**'
+      - 'abi-phases/pyproject.toml'
+      - 'abi-phases/uv.lock'
       - 'abi-phases/src/phases_v2/app/**'
       - 'abi-phases/src/phases_v2/apps/pipeline/**'
       - 'abi-phases/src/phases_v2/datasets/**'
@@ -27,8 +32,8 @@ jobs:
       - name: Install dependencies
         working-directory: abi-phases
         run: uv sync --frozen
-      - name: Test pipeline resources, API, extraction, and navigation
+      - name: Test pipeline resources, PubMed publisher, API, and navigation
         working-directory: abi-phases
         run: |
-          uv run --with pytest pytest src/phases_v2/app src/phases_v2/apps/pipeline src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
-          node --test src/phases_v2/apps/pipeline/pipeline_test.cjs
+          uv run --with pytest pytest src/pubmed src/phases_v2/sources src/phases_v2/papers src/phases_v2/app src/phases_v2/apps/pipeline src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
+          node --test src/phases_v2/apps/pipeline/pipeline_test.cjs src/pubmed/apps/search/pubmed_app_test.cjs

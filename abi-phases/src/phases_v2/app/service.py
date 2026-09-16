@@ -11,8 +11,8 @@ from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
-from phases_v2.app.pipeline_management import PipelineManagement
 from phases_v2.app.app_resources import AppResources
+from phases_v2.app.pipeline_management import PipelineManagement
 from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.requests.domain import submit
@@ -28,7 +28,9 @@ class PipelineAppService:
         is_model_available=None,
         renderer=None,
         papers_root: str = "phases_v2",
+        pubmed_catalog=None,
     ):
+        self._pubmed = pubmed_catalog
         self._requests = request_store
         self._storage = object_storage
         self._rows = rows
@@ -49,6 +51,24 @@ class PipelineAppService:
         self.management = PipelineManagement(
             rows, object_storage, self._papers_root, is_model_available
         )
+
+    def pubmed_queries(self):
+        if self._pubmed is None:
+            return {"available": False, "queries": []}
+        return self._pubmed.queries()
+
+    def pubmed_artifacts(self, query_id):
+        return self._pubmed.artifacts(query_id) if self._pubmed else []
+
+    def submit_pubmed(self, payload):
+        if self._pubmed is None or self._rows is None:
+            raise ValueError("PubMed publication dataset is unavailable")
+        from phases_v2.app.contracts.app_validation import validate_command
+        from phases_v2.sources.phases_v2_sources import submit_pubmed
+
+        validate_command("SubmitPubmedRun", payload)
+        self.management.validate_choices(payload)
+        return submit_pubmed(self._rows, self._requests, self._pubmed, payload)
 
     # -- what a user chooses from ---------------------------------------
 

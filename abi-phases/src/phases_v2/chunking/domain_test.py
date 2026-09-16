@@ -5,7 +5,6 @@ mechanisms can run over the same corpus without either replacing the other.
 """
 
 from phases_v2 import identity
-from phases_v2.chunking.chunkers import WINDOW_512_128
 from phases_v2.chunking.domain import chunk_papers
 from phases_v2.chunking.fakes import FakeChunkStore, FakeTextSource
 from phases_v2.chunking.interfaces import PaperText
@@ -105,9 +104,7 @@ def test_re_running_does_not_re_read_the_text():
 
 def test_a_run_can_be_scoped_to_a_subset_of_papers():
     texts = FakeTextSource({"p1.md": "one", "p2.md": "two"})
-    store = FakeChunkStore(
-        [PaperText("p1", "p1.md"), PaperText("p2", "p2.md")]
-    )
+    store = FakeChunkStore([PaperText("p1", "p1.md"), PaperText("p2", "p2.md")])
 
     _run(store, texts, paper_ids=["p1"])
 

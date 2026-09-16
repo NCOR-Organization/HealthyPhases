@@ -20,12 +20,14 @@ from phases_v2.projection.graph import project_graph
 from phases_v2.projection.interfaces import ProjectionReport, TripleSink
 
 
-def project_to_graph(engine, sink: TripleSink | None = None) -> ProjectionReport:
+def project_to_graph(
+    engine, sink: TripleSink | None = None, paper_ids=None
+) -> ProjectionReport:
     live = DatasetRowStore(engine.services.dataset)
     pinned = live.at_snapshot(live.snapshot())
 
     return project_graph(
-        reader=DatasetExtractionReader(pinned),
+        reader=DatasetExtractionReader(pinned, paper_ids=paper_ids),
         sink=sink
         if sink is not None
         else TripleStoreSink(engine.services.triple_store),
@@ -34,7 +36,9 @@ def project_to_graph(engine, sink: TripleSink | None = None) -> ProjectionReport
     )
 
 
-def project_to_vectors(engine, sink=None, embedder=None) -> ProjectionReport:
+def project_to_vectors(
+    engine, sink=None, embedder=None, paper_ids=None
+) -> ProjectionReport:
     """Embed outstanding chunks and items, reading at one pinned snapshot."""
     from phases_v2.projection.adapters.secondary.VectorStoreSink import VectorStoreSink
     from phases_v2.projection.embedding_factory import embedder_for
@@ -44,7 +48,7 @@ def project_to_vectors(engine, sink=None, embedder=None) -> ProjectionReport:
     pinned = live.at_snapshot(live.snapshot())
 
     return project_vectors(
-        reader=DatasetExtractionReader(pinned),
+        reader=DatasetExtractionReader(pinned, paper_ids=paper_ids),
         embedder=embedder if embedder is not None else embedder_for(engine),
         sink=sink
         if sink is not None
@@ -72,7 +76,7 @@ def refresh_vector_metadata(engine) -> int:
     )
 
 
-def project_to_relations(engine, *, dry_run: bool = False):
+def project_to_relations(engine, *, dry_run: bool = False, paper_ids=None):
     from phases_v2.projection.adapters.secondary.ProbabilisticContractValidator import (
         validate_relation,
     )
@@ -80,5 +84,9 @@ def project_to_relations(engine, *, dry_run: bool = False):
 
     live = DatasetRowStore(engine.services.dataset)
     return project_relations(
-        live.at_snapshot(live.snapshot()), live, validate_relation, dry_run=dry_run
+        live.at_snapshot(live.snapshot()),
+        live,
+        validate_relation,
+        dry_run=dry_run,
+        paper_ids=paper_ids,
     )

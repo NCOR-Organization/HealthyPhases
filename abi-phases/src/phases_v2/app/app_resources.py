@@ -5,8 +5,8 @@ import uuid
 from typing import Any
 
 from phases_v2.app.contracts.app_validation import validate_command
-from phases_v2.ports import RowStore
 from phases_v2.app.pipeline_management import ManagementUnavailable
+from phases_v2.ports import RowStore
 
 
 class ResourceNotFound(KeyError):

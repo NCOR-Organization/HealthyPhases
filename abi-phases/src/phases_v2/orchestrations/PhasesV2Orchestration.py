@@ -69,7 +69,31 @@ def ingest_papers_op(
 ) -> dict:
     from phases_v2.papers.factory import ingest_papers
 
-    report = ingest_papers(_engine(), config.locations)
+    engine = _engine()
+    artifacts = None
+    if config.request_id:
+        from phases_v2.datasets.row_store import DatasetRowStore
+        from phases_v2.sources.phases_v2_sources import manifest_for
+
+        artifacts = manifest_for(
+            DatasetRowStore(engine.services.dataset), config.request_id
+        )
+    is_dataset_source = any(
+        location.startswith("dataset:pubmed:") for location in config.locations
+    )
+    if is_dataset_source and artifacts is None:
+        raise dg.Failure(
+            "The submitted PubMed source manifest is missing; refusing a storage scan"
+        )
+    report = (
+        ingest_papers(
+            engine,
+            sorted({a["storage_prefix"] for a in artifacts}),
+            artifacts=artifacts,
+        )
+        if artifacts is not None
+        else ingest_papers(engine, config.locations)
+    )
     context.log.info(
         f"ingested={report.ingested} skipped={report.skipped} failed={report.failed}"
     )
@@ -77,6 +101,10 @@ def ingest_papers_op(
         context.log.warning(f"Could not read ingestion location {location}: {error}")
     for paper, error in report.failed_papers.items():
         context.log.warning(f"Could not ingest paper {paper}: {error}")
+    if report.failed:
+        raise dg.Failure(
+            f"Paper ingestion failed: {report.failed_locations} {report.failed_papers}"
+        )
     return {
         "ingested": report.ingested,
         "skipped": report.skipped,
@@ -145,35 +173,36 @@ def run_extraction_op(
         totals["skipped"] += report.skipped
 
     context.log.info(f"{len(config.prompt_ids)} prompt(s): {totals}")
-    return totals
+    return {**totals, "paper_ids": paper_ids}
 
 
 @dg.op
 def project_relations_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from dataclasses import asdict
+
     from phases_v2.projection.factory import project_to_relations
 
-    report = project_to_relations(_engine())
+    report = project_to_relations(_engine(), paper_ids=after.get("paper_ids"))
     context.log.info(f"Structured relations: {asdict(report)}")
-    return asdict(report)
+    return {**asdict(report), "paper_ids": after.get("paper_ids")}
 
 
 @dg.op
 def project_graph_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_graph
 
-    report = project_to_graph(_engine())
+    report = project_to_graph(_engine(), paper_ids=after.get("paper_ids"))
     context.log.info(f"projected={report.projected}")
-    return {"projected": report.projected}
+    return {"projected": report.projected, "paper_ids": after.get("paper_ids")}
 
 
 @dg.op
 def project_vectors_op(context: dg.OpExecutionContext, after: dict) -> dict:
     from phases_v2.projection.factory import project_to_vectors
 
-    report = project_to_vectors(_engine())
+    report = project_to_vectors(_engine(), paper_ids=after.get("paper_ids"))
     context.log.info(f"embedded={report.projected}")
-    return {"embedded": report.projected}
+    return {"embedded": report.projected, "paper_ids": after.get("paper_ids")}
 
 
 @dg.op

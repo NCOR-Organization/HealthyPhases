@@ -13,6 +13,8 @@ from phases_v2.requests.fakes import FakeRequestStore
 
 class _Rows:
     def query(self, sql):
+        if "FROM prompts" in sql:
+            return []
         if "extraction_runs" in sql:
             return [{"succeeded": 3, "failed": 0, "skipped": 1}]
         if "chunks" in sql:
@@ -147,3 +149,31 @@ def test_the_models_endpoint_reports_availability():
     by_id = {m["model_id"]: m["available"] for m in models}
     assert by_id[usable] is True
     assert all(v is False for k, v in by_id.items() if k != usable)
+
+
+def test_pubmed_submission_preserves_auth_and_pipeline_choice_validation(monkeypatch):
+    from unittest.mock import Mock
+    from uuid import uuid4
+
+    monkeypatch.setenv("ABI_API_KEY", "test-pipeline-key")
+    request = Mock(request_id=str(uuid4()), status="pending")
+    submit = Mock(return_value=request)
+    monkeypatch.setattr("phases_v2.sources.phases_v2_sources.submit_pubmed", submit)
+    app = FastAPI()
+    service = PipelineAppService(
+        request_store=FakeRequestStore(), rows=_Rows(), pubmed_catalog=Mock()
+    )
+    register(app, service)
+    client = TestClient(app)
+    body = {key: value for key, value in _valid_body().items() if key != "locations"}
+    body["query_id"] = str(uuid4())
+    url = PREFIX + "/sources/pubmed/requests"
+    assert client.post(url, json=body).status_code in (401, 403)
+    submit.assert_not_called()
+    client.headers["Authorization"] = "Bearer test-pipeline-key"
+    assert client.post(url, json={**body, "model_id": "unknown"}).status_code == 422
+    submit.assert_not_called()
+    response = client.post(url, json=body)
+    assert response.status_code == 201
+    assert response.json()["request_id"] == request.request_id
+    assert submit.call_args.args[-1] == body

@@ -109,6 +109,23 @@ def build_router(service: PipelineAppService) -> APIRouter:
                 status_code=503, detail="Storage operation failed. Please retry."
             ) from failure
 
+    @router.get("/sources/pubmed")
+    def pubmed_queries():
+        return management_call(service.pubmed_queries)
+
+    @router.get("/sources/pubmed/{query_id}")
+    def pubmed_artifacts(query_id: str):
+        return {"artifacts": management_call(service.pubmed_artifacts, query_id)}
+
+    @router.post(
+        "/sources/pubmed/requests",
+        status_code=201,
+        dependencies=[Depends(require_abi_api_token)],
+    )
+    def submit_pubmed(body: dict):
+        request = management_call(service.submit_pubmed, body)
+        return {"request_id": request.request_id, "status": request.status}
+
     @router.get("/collections")
     def collections():
         return {"collections": management_call(service.resources.collections)}

@@ -142,6 +142,10 @@ class PipelineManagement:
         validate_message("PipelineInputs", inputs)
         for location in inputs["locations"]:
             self.location(location)
+        self.validate_choices(inputs)
+        return inputs
+
+    def validate_choices(self, inputs: dict) -> None:
         if inputs["chunker_id"] not in {c.chunker_id for c in DECLARED_CHUNKERS}:
             raise ValueError("Unknown chunker_id")
         if inputs["model_id"] not in {m.model_id for m in DECLARED_MODELS}:
@@ -151,7 +155,6 @@ class PipelineManagement:
         known = {p["prompt_id"] for p in self.prompts()}
         if set(inputs["prompt_ids"]) - known:
             raise ValueError("Unknown prompt_ids; reload the prompt catalog")
-        return inputs
 
     def pipelines(self) -> list[dict]:
         return self._rows().query(

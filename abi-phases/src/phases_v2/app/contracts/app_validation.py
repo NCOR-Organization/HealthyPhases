@@ -10,7 +10,6 @@ from google.protobuf import (
     json_format,
     message_factory,
 )
-
 from google.protobuf.message import Message
 
 from phases_v2.app import contracts

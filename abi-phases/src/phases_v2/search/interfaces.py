@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
-from phases_v2.search.models import ItemLocation, SemanticMatch, SearchHit
+from phases_v2.search.models import ItemLocation, SearchHit, SemanticMatch
 
 
 class ISemanticIndexPort(Protocol):

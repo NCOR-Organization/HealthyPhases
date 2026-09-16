@@ -274,3 +274,11 @@ def test_backfill_rows_execute_protovalidate_rules(changes):
     }
     with pytest.raises(ValueError):
         validate_relation(row)
+
+
+def test_relation_projection_preserves_selected_paper_scope(corpus):
+    engine, rows = corpus
+    assert project_to_relations(engine, paper_ids=[]).examined == 0
+    assert project_to_relations(engine, paper_ids=["other"]).examined == 0
+    assert rows.query("SELECT COUNT(*) AS n FROM probabilistic_relations")[0]["n"] == 0
+    assert project_to_relations(engine, paper_ids=["p"]).projected == 6
