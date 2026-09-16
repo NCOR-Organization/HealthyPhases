@@ -20,6 +20,7 @@ from naas_abi_core.services.object_storage.ObjectStorageService import (
 )
 from naas_abi_core.services.triple_store.TripleStoreService import TripleStoreService
 from naas_abi_core.services.vector_store.VectorStoreService import VectorStoreService
+from pydantic import Field, SecretStr
 
 
 class PhasesV2Configuration(ModuleConfiguration):
@@ -39,6 +40,8 @@ class PhasesV2Configuration(ModuleConfiguration):
     #: keeps them out of scope by construction rather than by a blacklist that
     #: needs updating whenever a module is added.
     papers_root: str = "phases_v2"
+    openai_api_key: SecretStr | None = None
+    extraction_workers: int = Field(default=20, ge=1, strict=True)
 
 
 class ABIModule(BaseModule[PhasesV2Configuration]):
@@ -54,10 +57,11 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
     )
 
     def api(self, app) -> None:
-        """Mount the pipeline app's endpoints.
+        """Mount the pipeline and reverse-search apps' endpoints.
 
-        Wrapped: a wiring error here must not stop the engine from booting, the
-        way v1's `api()` also degrades rather than taking the API down.
+        Each is wrapped on its own: a wiring error in one must not stop the
+        other from mounting, or the engine from booting — the way v1's `api()`
+        also degrades rather than taking the API down.
         """
         try:
             from phases_v2.app.adapters.primary.PipelineAPI import register
@@ -72,6 +76,19 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
             logger.debug("Mounted phases_v2 pipeline API at /phases_v2/api")
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Failed to mount the phases_v2 pipeline app: {exc}")
+
+        try:
+            from phases_v2.app.adapters.primary.SearchAPI import (
+                register as register_search,
+            )
+            from phases_v2.search.factory import search_service
+
+            register_search(
+                app, search_service(self._engine, configuration=self._configuration)
+            )
+            logger.debug("Mounted phases_v2 reverse-search API at /phases_v2/api/search")
+        except Exception as exc:  # noqa: BLE001
+            logger.error(f"Failed to mount the phases_v2 reverse-search app: {exc}")
 
     def on_initialized(self):
         """Create the datasets and publish what this module declares."""

@@ -127,10 +127,11 @@ def test_failures_are_visible_and_missed_intervals_do_not_replay(scheduler):
     assert scheduler.due() == []
 
 
-def test_http_create_list_toggle_and_validation(service):
+def test_http_create_list_toggle_and_validation(service, monkeypatch):
+    monkeypatch.setenv("ABI_API_KEY", "pubmed-test-key")
     app = FastAPI()
     app.include_router(router(service))
-    client = TestClient(app)
+    client = TestClient(app, headers={"Authorization": "Bearer pubmed-test-key"})
     query = service.search({"query": "solitude"})["query"]
     response = client.post(
         "/pubmed/api/schedules",
@@ -223,10 +224,13 @@ def test_deletion_during_execution_is_not_undone_on_completion(scheduler):
     assert scheduler.list() == []
 
 
-def test_delete_http_returns_empty_success_and_toggle_cannot_restore_it(service):
+def test_delete_http_returns_empty_success_and_toggle_cannot_restore_it(
+    service, monkeypatch
+):
+    monkeypatch.setenv("ABI_API_KEY", "pubmed-test-key")
     app = FastAPI()
     app.include_router(router(service))
-    client = TestClient(app)
+    client = TestClient(app, headers={"Authorization": "Bearer pubmed-test-key"})
     row = create(PubmedSchedules(service))
     url = "/pubmed/api/schedules/" + row["schedule_id"]
     response = client.delete(url)

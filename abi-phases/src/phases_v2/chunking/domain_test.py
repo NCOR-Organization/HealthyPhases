@@ -104,9 +104,7 @@ def test_re_running_does_not_re_read_the_text():
 
 def test_a_run_can_be_scoped_to_a_subset_of_papers():
     texts = FakeTextSource({"p1.md": "one", "p2.md": "two"})
-    store = FakeChunkStore(
-        [PaperText("p1", "p1.md"), PaperText("p2", "p2.md")]
-    )
+    store = FakeChunkStore([PaperText("p1", "p1.md"), PaperText("p2", "p2.md")])
 
     _run(store, texts, paper_ids=["p1"])
 

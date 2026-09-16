@@ -41,10 +41,10 @@ PIPELINES: dict[str, tuple[str, str, str]] = {
     "when":    ("solitude_when.txt",    "when",    "When solitude happens (temporal context)"),
     "where":   ("solitude_where.txt",   "where",   "Where solitude happens (spatial context)"),
     "effects": ("solitude_effects.txt", "effects", "Effects and purpose of solitude"),
-    "logical_sentences": (
-        "logical_sentences.txt",
-        "logical_sentences",
-        "Generic logical/axiom-style claims (if X then Y) the paper is asserting",
+    "conditional_statement": (
+        "conditional_statement.txt",
+        "conditional_statement",
+        "Generic conditional statements (if X then Y) the paper is asserting",
     ),
 }
 

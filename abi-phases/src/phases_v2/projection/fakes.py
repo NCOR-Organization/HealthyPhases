@@ -34,7 +34,10 @@ class FakeProjectionLedger:
 class FakeExtractionReader:
     """Reads from lists, and can be frozen to simulate a pinned snapshot."""
 
-    def __init__(self, papers=None, chunks=None, extractions=None, items=None):
+    def __init__(
+        self, papers=None, chunks=None, extractions=None, items=None, prompts=None
+    ):
+        self._prompts = list(prompts or [])
         self._papers = list(papers or [])
         self._chunks = list(chunks or [])
         self._extractions = list(extractions or [])
@@ -43,6 +46,9 @@ class FakeExtractionReader:
     def add_extraction(self, extraction: dict[str, Any], items=None) -> None:
         self._extractions.append(extraction)
         self._items.extend(items or [])
+
+    def prompts(self):
+        return list(self._prompts)
 
     def papers(self):
         return list(self._papers)

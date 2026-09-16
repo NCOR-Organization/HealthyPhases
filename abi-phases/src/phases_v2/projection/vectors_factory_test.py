@@ -6,6 +6,7 @@ this design leans on actually lives.
 """
 
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import pytest
 from naas_abi_core.services.dataset.adapters.secondary.DatasetSecondaryAdapterDuckLake import (
@@ -17,8 +18,10 @@ from naas_abi_core.services.vector_store.adapters.SqliteVecAdapter import (
 )
 from naas_abi_core.services.vector_store.VectorStoreService import VectorStoreService
 
+from phases_v2 import PhasesV2Configuration
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
+from phases_v2.projection.adapters.secondary.OpenAIEmbedder import OpenAIEmbedder
 from phases_v2.projection.adapters.secondary.VectorStoreSink import VectorStoreSink
 from phases_v2.projection.factory import project_to_vectors
 from phases_v2.projection.fakes import FakeEmbedder
@@ -94,6 +97,22 @@ def test_chunks_and_items_are_embedded_into_their_own_collections(engine):
     store = engine.services.vector_store
     assert store.get_collection_size(CHUNKS_COLLECTION) == 3
     assert store.get_collection_size(ITEMS_COLLECTION) == 3
+
+
+def test_default_projection_embedder_uses_module_credentials(engine, monkeypatch):
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    engine.modules = {
+        "phases_v2": SimpleNamespace(configuration=PhasesV2Configuration(
+            global_config={"ai_mode": "cloud"}, openai_api_key="projection-test-key"
+        ))
+    }
+
+    def embed(self, texts):
+        assert self._api_key == "projection-test-key"
+        return [[1.0] + [0.0] * (self.dimension - 1) for _ in texts]
+
+    monkeypatch.setattr(OpenAIEmbedder, "embed", embed)
+    assert project_to_vectors(engine).projected == 6
 
 
 def test_a_second_run_computes_no_embeddings_and_stores_nothing_new(engine):

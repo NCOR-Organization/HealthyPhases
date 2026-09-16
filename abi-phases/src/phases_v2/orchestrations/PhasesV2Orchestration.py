@@ -16,8 +16,6 @@ does that, so a sensor that crashes mid-evaluation cannot strand a request in a
 state no run is working on.
 """
 
-from typing import Optional
-
 import dagster as dg
 from naas_abi_core.orchestrations.DagsterOrchestration import DagsterOrchestration
 
@@ -55,7 +53,7 @@ class RunConfig(dg.Config):
     prompt_ids: list[str] = []
     model_id: str = ""
     request_id: str = ""
-    max_chunks: Optional[int] = None
+    max_chunks: int | None = None
 
 
 def _chunker(chunker_id: str):
@@ -120,16 +118,16 @@ def chunk_papers_op(
 ) -> dict:
     from phases_v2.chunking.factory import chunk_corpus
 
+    paper_ids = after.get("paper_ids")
+    if config.request_id and paper_ids is None:
+        raise ValueError("The request is missing its ingested document scope")
     report = chunk_corpus(
-        _engine(), chunker=_chunker(config.chunker_id), paper_ids=after.get("paper_ids")
+        _engine(), chunker=_chunker(config.chunker_id), paper_ids=paper_ids
     )
     context.log.info(
         f"papers_chunked={report.papers_chunked} chunks={report.chunks_written}"
     )
-    return {
-        "chunks_written": report.chunks_written,
-        "paper_ids": after.get("paper_ids"),
-    }
+    return {"chunks_written": report.chunks_written, "paper_ids": paper_ids}
 
 
 @dg.op
@@ -144,15 +142,22 @@ def run_extraction_op(
     """
     from phases_v2.extraction.factory import extract
 
+    engine = _engine()
+    workers = engine.modules["phases_v2"].configuration.extraction_workers
+    context.log.info(f"Extraction worker pool size: {workers}")
+    paper_ids = after.get("paper_ids")
+    if config.request_id and paper_ids is None:
+        raise ValueError("The request is missing its ingested document scope")
     totals = {"succeeded": 0, "failed": 0, "skipped": 0}
     for prompt_id in config.prompt_ids:
         report = extract(
-            _engine(),
+            engine,
+            workers=workers,
             model_id=config.model_id,
             prompt_id=prompt_id,
             chunker=_chunker(config.chunker_id),
             max_chunks=config.max_chunks,
-            paper_ids=after.get("paper_ids"),
+            paper_ids=paper_ids,
             run_id=(
                 extraction_run_id(config.request_id, prompt_id)
                 if config.request_id
@@ -168,7 +173,18 @@ def run_extraction_op(
         totals["skipped"] += report.skipped
 
     context.log.info(f"{len(config.prompt_ids)} prompt(s): {totals}")
-    return {**totals, "paper_ids": after.get("paper_ids")}
+    return {**totals, "paper_ids": paper_ids}
+
+
+@dg.op
+def project_relations_op(context: dg.OpExecutionContext, after: dict) -> dict:
+    from dataclasses import asdict
+
+    from phases_v2.projection.factory import project_to_relations
+
+    report = project_to_relations(_engine(), paper_ids=after.get("paper_ids"))
+    context.log.info(f"Structured relations: {asdict(report)}")
+    return {**asdict(report), "paper_ids": after.get("paper_ids")}
 
 
 @dg.op
@@ -186,13 +202,18 @@ def project_vectors_op(context: dg.OpExecutionContext, after: dict) -> dict:
 
     report = project_to_vectors(_engine(), paper_ids=after.get("paper_ids"))
     context.log.info(f"embedded={report.projected}")
-    return {"embedded": report.projected}
+    return {"embedded": report.projected, "paper_ids": after.get("paper_ids")}
 
 
 @dg.op
 def start_op() -> dict:
     """A no-op so a single-stage job can satisfy an ordering input."""
     return {}
+
+
+@dg.job(name="phases_v2_backfill_probabilistic_relations")
+def backfill_relations_job():
+    project_relations_op(after=start_op())
 
 
 @dg.job(name="phases_v2_ingest_papers")
@@ -213,7 +234,7 @@ def chunk_papers_job():
     tags={"dagster/concurrency_key": "phases_v2_extraction"},
 )
 def run_extraction_job():
-    run_extraction_op(after=start_op())
+    project_relations_op(after=run_extraction_op(after=start_op()))
 
 
 @dg.job(name="phases_v2_project_graph")
@@ -267,7 +288,8 @@ def full_pipeline_job():
     ingested = ingest_papers_op(after=claimed)
     chunked = chunk_papers_op(after=ingested)
     extracted = run_extraction_op(after=chunked)
-    projected = project_graph_op(after=extracted)
+    relations = project_relations_op(after=extracted)
+    projected = project_graph_op(after=relations)
     embedded = project_vectors_op(after=projected)
     complete_request_op(after=embedded)
 
@@ -376,6 +398,20 @@ def run_failure_sensor(context: dg.RunFailureSensorContext):
     )
 
 
+@dg.op
+def refresh_vector_metadata_op(context: dg.OpExecutionContext):
+    from phases_v2.projection.factory import refresh_vector_metadata
+
+    updated = refresh_vector_metadata(_engine())
+    context.log.info(f"Updated search metadata on {updated} existing vectors")
+    context.add_output_metadata({"vectors_updated": updated})
+
+
+@dg.job(name="phases_v2_refresh_vector_metadata")
+def refresh_vector_metadata_job():
+    refresh_vector_metadata_op()
+
+
 class PhasesV2Orchestration(DagsterOrchestration):
     @classmethod
     def New(cls) -> "PhasesV2Orchestration":
@@ -386,7 +422,9 @@ class PhasesV2Orchestration(DagsterOrchestration):
                     chunk_papers_job,
                     run_extraction_job,
                     project_graph_job,
+                    backfill_relations_job,
                     project_vectors_job,
+                    refresh_vector_metadata_job,
                     full_pipeline_job,
                 ],
                 sensors=[run_request_sensor, run_failure_sensor],

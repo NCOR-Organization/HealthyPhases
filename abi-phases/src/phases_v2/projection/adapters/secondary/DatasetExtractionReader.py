@@ -20,9 +20,13 @@ class DatasetExtractionReader:
         self._paper_ids = paper_ids
         self._rows = rows
 
+    def prompts(self):
+        return self._rows.query("SELECT prompt_id, name FROM prompts")
+
     def papers(self) -> list[dict[str, Any]]:
         return self._rows.query(
-            "SELECT paper_id, file_name FROM papers" + self._scope()
+            "SELECT paper_id, file_name, storage_prefix, storage_key FROM papers"
+            + self._scope()
         )
 
     def chunks(self) -> list[dict[str, Any]]:

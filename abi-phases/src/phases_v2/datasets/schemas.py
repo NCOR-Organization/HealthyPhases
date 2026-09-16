@@ -158,6 +158,27 @@ EXTRACTED_ITEMS = _spec(
     partitions=("prompt_id",),
 )
 
+PROBABILISTIC_RELATIONS = _spec(
+    "probabilistic_relations",
+    (
+        ("relation_id", "string"),
+        ("item_id", "string"),
+        ("relation_index", "integer"),
+        ("extraction_id", "string"),
+        ("chunk_id", "string"),
+        ("paper_id", "string"),
+        ("prompt_id", "string"),
+        ("model_id", "string"),
+        ("subject_process", "string"),
+        ("subject_participant", "string"),
+        ("target_process", "string"),
+        ("direction", "string"),
+        ("evidence_text", "string"),
+    ),
+    primary_key=("relation_id",),
+    partitions=("direction",),
+)
+
 PROJECTIONS = _spec(
     "projections",
     (
@@ -191,6 +212,23 @@ RUN_REQUESTS = _spec(
     primary_key=("request_id",),
 )
 
+INPUT_LOCATIONS = _spec(
+    "input_locations",
+    (("prefix", "string"), ("name", "string"), ("created_at", "timestamp")),
+    primary_key=("prefix",),
+)
+
+PIPELINES = _spec(
+    "pipelines",
+    (
+        ("pipeline_id", "string"),
+        ("name", "string"),
+        ("inputs", "json"),
+        ("created_at", "timestamp"),
+    ),
+    primary_key=("pipeline_id",),
+)
+
 INPUT_COLLECTIONS = _spec(
     "input_collections",
     (
@@ -219,6 +257,9 @@ DATASETS: tuple[DatasetSpec, ...] = (
     EXTRACTION_RUNS,
     EXTRACTIONS,
     EXTRACTED_ITEMS,
+    PROBABILISTIC_RELATIONS,
     PROJECTIONS,
     RUN_REQUESTS,
+    INPUT_LOCATIONS,
+    PIPELINES,
 )

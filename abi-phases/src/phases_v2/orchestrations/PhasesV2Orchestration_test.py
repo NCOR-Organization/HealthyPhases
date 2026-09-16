@@ -59,7 +59,12 @@ def test_prompts_and_sensor_ticks_share_the_bootstrapped_engine(monkeypatch):
     entrypoint = ModuleType("naas_abi_core.apps.dagster.dagster")
     available = Mock(return_value=False)
     entrypoint.engine = SimpleNamespace(
-        services=SimpleNamespace(dataset_available=available)
+        services=SimpleNamespace(dataset_available=available),
+        modules={
+            "phases_v2": SimpleNamespace(
+                configuration=SimpleNamespace(extraction_workers=7)
+            )
+        },
     )
     monkeypatch.setitem(sys.modules, entrypoint.__name__, entrypoint)
     extract = Mock(return_value=SimpleNamespace(succeeded=1, failed=0, skipped=0))
@@ -82,6 +87,7 @@ def test_prompts_and_sensor_ticks_share_the_bootstrapped_engine(monkeypatch):
         "first",
         "second",
     ]
+    assert all(call.kwargs["workers"] == 7 for call in extract.call_args_list)
     assert available.call_count == 2
 
 
@@ -94,7 +100,9 @@ def test_the_definitions_expose_every_stage_and_the_pipeline():
         "phases_v2_chunk_papers",
         "phases_v2_run_extraction",
         "phases_v2_project_graph",
+        "phases_v2_backfill_probabilistic_relations",
         "phases_v2_project_vectors",
+        "phases_v2_refresh_vector_metadata",
         "phases_v2_full_pipeline",
     }
 
@@ -249,7 +257,8 @@ def test_the_pipeline_stages_run_in_order_not_in_parallel():
     assert upstream("ingest_papers_op") == {"claim_request_op"}
     assert upstream("chunk_papers_op") == {"ingest_papers_op"}
     assert upstream("run_extraction_op") == {"chunk_papers_op"}
-    assert upstream("project_graph_op") == {"run_extraction_op"}
+    assert upstream("project_relations_op") == {"run_extraction_op"}
+    assert upstream("project_graph_op") == {"project_relations_op"}
     assert upstream("project_vectors_op") == {"project_graph_op"}
     assert upstream("complete_request_op") == {"project_vectors_op"}
 
@@ -263,20 +272,77 @@ def test_no_stage_is_left_without_an_upstream_dependency():
     assert nodes - with_upstream == {"claim_request_op"}
 
 
+def test_requested_pipeline_carries_empty_scope_without_falling_back_to_corpus(
+    monkeypatch,
+):
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        chunk_papers_op,
+        run_extraction_op,
+    )
+
+    module = import_module("phases_v2.orchestrations.PhasesV2Orchestration")
+    engine = SimpleNamespace(
+        modules={
+            "phases_v2": SimpleNamespace(
+                configuration=SimpleNamespace(extraction_workers=1)
+            )
+        }
+    )
+    monkeypatch.setattr(module, "_engine", lambda: engine)
+    chunk = Mock(return_value=SimpleNamespace(papers_chunked=0, chunks_written=0))
+    extract = Mock(return_value=SimpleNamespace(succeeded=0, failed=0, skipped=0))
+    monkeypatch.setattr("phases_v2.chunking.factory.chunk_corpus", chunk)
+    monkeypatch.setattr("phases_v2.extraction.factory.extract", extract)
+    config = RunConfig(request_id="requested", prompt_ids=["custom"])
+    with dg.build_op_context() as context:
+        chunked = chunk_papers_op(context, config, after={"paper_ids": []})
+        run_extraction_op(context, config, after=chunked)
+    assert chunk.call_args.kwargs["paper_ids"] == []
+    assert extract.call_args.kwargs["paper_ids"] == []
+
+
+def test_requested_pipeline_refuses_missing_document_scope(monkeypatch):
+    import pytest
+
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        chunk_papers_op,
+    )
+
+    chunk = Mock()
+    monkeypatch.setattr("phases_v2.chunking.factory.chunk_corpus", chunk)
+    with dg.build_op_context() as context, pytest.raises(ValueError, match="scope"):
+        chunk_papers_op(context, RunConfig(request_id="requested"), after={})
+    chunk.assert_not_called()
+
+
 def test_pipeline_carries_selected_paper_ids_to_each_stage(monkeypatch):
     from phases_v2.orchestrations.PhasesV2Orchestration import (
         RunConfig,
         chunk_papers_op,
         project_graph_op,
+        project_relations_op,
         project_vectors_op,
         run_extraction_op,
     )
 
     monkeypatch.setattr(
-        "phases_v2.orchestrations.PhasesV2Orchestration._engine", lambda: object()
+        "phases_v2.orchestrations.PhasesV2Orchestration._engine",
+        lambda: SimpleNamespace(
+            modules={
+                "phases_v2": SimpleNamespace(
+                    configuration=SimpleNamespace(extraction_workers=1)
+                )
+            }
+        ),
     )
     chunk = Mock(return_value=SimpleNamespace(papers_chunked=1, chunks_written=1))
     extract = Mock(return_value=SimpleNamespace(succeeded=1, failed=0, skipped=0))
+    from phases_v2.projection.probabilistic import BackfillReport
+
+    relations = Mock(return_value=BackfillReport(projected=1))
+    monkeypatch.setattr("phases_v2.projection.factory.project_to_relations", relations)
     graph = Mock(return_value=SimpleNamespace(projected=1))
     vectors = Mock(return_value=SimpleNamespace(projected=1))
     monkeypatch.setattr("phases_v2.chunking.factory.chunk_corpus", chunk)
@@ -287,9 +353,10 @@ def test_pipeline_carries_selected_paper_ids_to_each_stage(monkeypatch):
     with dg.build_op_context() as context:
         after = chunk_papers_op(context, config, after={"paper_ids": ["selected"]})
         after = run_extraction_op(context, config, after=after)
+        after = project_relations_op(context, after=after)
         after = project_graph_op(context, after=after)
         project_vectors_op(context, after=after)
-    for operation in (chunk, extract, graph, vectors):
+    for operation in (chunk, extract, relations, graph, vectors):
         assert operation.call_args.kwargs["paper_ids"] == ["selected"]
 
 

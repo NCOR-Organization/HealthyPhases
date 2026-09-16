@@ -19,24 +19,22 @@ from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
 from phases_v2.extraction.domain import run_extraction
 from phases_v2.extraction.interfaces import ExtractionModel, ExtractionReport
 from phases_v2.models.catalog import resolve as resolve_model
-from phases_v2.ports import RowStore
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
 
 
-def resolve_prompt(prompt_id: str, rows: RowStore | None = None) -> PromptTemplate:
-    for template in declared_prompts():
-        if template.prompt_id == prompt_id:
-            return template
+def resolve_prompt(prompt_id: str, rows=None) -> PromptTemplate:
     if rows is not None:
         from phases_v2.sql import literal
 
-        stored = rows.query(
-            "SELECT name, template, output_key FROM prompts "
-            f"WHERE prompt_id = {literal(prompt_id)}"
+        matches = rows.query(
+            f"SELECT name, template, output_key FROM prompts WHERE prompt_id = {literal(prompt_id)}"
         )
-        if stored:
-            return PromptTemplate(**stored[0])
+        if matches:
+            return PromptTemplate(**matches[0])
+    for template in declared_prompts():
+        if template.prompt_id == prompt_id:
+            return template
     raise ValueError(
         f"{prompt_id!r} is not a declared prompt; declared prompts are "
         + ", ".join(t.prompt_id for t in declared_prompts())
@@ -62,11 +60,12 @@ def extract(
     max_chunks: int | None = None,
     model: ExtractionModel | None = None,
     run_id: str | None = None,
+    workers: int = 20,
 ) -> ExtractionReport:
     """Run one prompt over the outstanding chunks for one model.
 
-    Model and prompt resolution run before anything is written. Prompts may
-    be declared in code or saved through the app's versioned prompt library.
+    ``resolve_model`` and ``resolve_prompt`` run before anything is written, so
+    a run naming something undeclared fails without leaving rows behind.
     """
     prompt = resolve_prompt(prompt_id, DatasetRowStore(engine.services.dataset))
     resolve_model(model_id)
@@ -82,4 +81,5 @@ def extract(
         paper_ids=paper_ids,
         max_chunks=max_chunks,
         run_id=run_id,
+        workers=workers,
     )

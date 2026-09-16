@@ -103,12 +103,65 @@ Namespace `phases_v2`. Every one is keyed and written only with `mode="upsert"`.
 | `extraction_runs` | invocation | `run_id` |
 | `projections` | key already projected to a target | `target` + `key` |
 | `run_requests` | requested run | `request_id` |
-| `input_collections` | saved group of storage locations | `collection_id` |
 
 `extractions` keeps the model's output twice: `response` is a queryable JSON column, `raw_response`
 the verbatim text. The JSON column *rejects* unparseable output — which is exactly the case where
 keeping the model's words matters most — so the split is what makes "re-parse later instead of
 re-paying" true for failures as well as successes.
+
+## Reverse search
+
+Reverse-search results display the extraction `model_id`. The model filters list models
+with extracted items in the dataset, independently of which models are currently configured
+for new ingestion. Select several models to include any of them; prompt and model filters
+are combined. With no models selected, all models are included.
+
+Both `/phases_v2/api/search/semantic` and `/phases_v2/api/search/keyword` accept repeated
+`model` query parameters. `/phases_v2/api/search/models` returns the available model IDs.
+Semantic search embeds the query once and retrieves top matches per selected model using
+vector metadata filters, then merges them by score. Existing projections already store
+`model_id`, so this change does not require re-embedding.
+
+Source-path filters include subfolders, match complete path components, and combine with
+model and prompt filters. Both search endpoints accept repeated `path` parameters;
+`/phases_v2/api/search/paths` lists folders and parents from papers with extracted items.
+Paths combine the paper's `storage_prefix` with the directory of its `storage_key`.
+The UI selects folders only, not individual papers. Unknown paths return no results.
+Semantic search resolves the selected folders to existing `paper_id` vector metadata,
+then combines ranked lookups per paper/model. The query is embedded once per request.
+To obtain an exact count with the shared vector port, the adapter expands each ranked
+lookup until all matches above the threshold have been read. This also includes points
+not yet counted as indexed by Qdrant. Broad semantic queries therefore cost more than
+a bounded top-k lookup; there is no silent cap on the reported total or CSV export.
+
+Each result includes `source_path` and the stored `prompt_template` associated with its
+`prompt_id`. The prompt viewer shows that historical template, keeping its chunk placeholder,
+alongside the separately available source context. It never substitutes the current code template.
+
+The app displays "Showing N of M matches" and loads subsequent batches when the user
+scrolls to the bottom (with a manual **Load more** fallback). The batch-size control is
+limited to 100; total matches are not. Keyword results use deterministic paper/chunk/item
+ordering; native Qdrant semantic pages use exact vector scoring and Qdrant point-ID tie ordering.
+
+`GET /keyword` accepts `limit` and `offset`; `GET /semantic` accepts `k` and `offset`.
+Responses include `total` (also exposed as `count`), `page_count`, `has_more`, `next_offset`,
+and the dataset `snapshot`. Clients pass that snapshot to later pages and exports to
+keep keyword results and provenance consistent if ingestion adds records. Semantic filtering and ranking use the current vector index, which has no snapshot API; indexing
+or metadata changes can change semantic totals/order between requests. The snapshot pins
+source details, not Qdrant metadata. The existing CLI/top-k methods
+remain available for bounded searches.
+
+**Export all matches (CSV)** calls `GET /export?mode=keyword|semantic&q=...` using the
+last submitted query, filters, threshold, and dataset snapshot, independently of loaded
+pages or unsubmitted form edits. The server reads every matching row, spools large CSVs
+to a temporary file, and only begins the download after reads succeed, so a storage
+failure cannot masquerade as a successful partial export. New search requests cancel
+stale page responses and pending exports. Search request validation is defined in
+`app/contracts/search.proto` and generated with `make proto`.
+Columns include query, mode, item ID, extracted text, score, model, prompt ID/name/template,
+paper ID/name, source folder, and chunk ID/sequence/context. CSV uses UTF-8 with a BOM,
+quoted multiline fields, and escaped quotes. Formula-like text is prefixed with an apostrophe
+to keep spreadsheet applications from evaluating it. Empty or failed searches disable export.
 
 ## Layout
 
@@ -128,13 +181,16 @@ phases_v2/
 ├── chunking/               #  │ each: interfaces.py, domain.py, fakes.py,
 ├── extraction/             #  │ adapters/secondary/, factory.py, and a _test.py per file
 ├── projection/             #  │
-├── requests/               # ─┘
+├── requests/               #  │
+├── search/                 # ─┘ reverse search: semantic + keyword, over extracted_items
 ├── prompts/                # templates declared in code + their text
 ├── models/                 # the AI models a run may use
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
-├── app/                    # the pipeline app's service and HTTP endpoints
-└── apps/pipeline/          # manifest.json + the page itself
+├── app/                    # the pipeline and reverse-search apps' services and HTTP endpoints
+└── apps/
+    ├── pipeline/           # manifest.json + the page itself
+    └── reverse_search/     # manifest.json + the page itself
 ```
 
 Each domain takes its collaborators as arguments and imports no adapter, so its tests run against
@@ -172,11 +228,17 @@ phases_v2_run_extraction     phases_v2_full_pipeline
     enabled: true
     config:
       papers_root: "phases_v2"   # object-storage prefix papers are read from
+      openai_api_key: "{{ secret.OPENAI_API_KEY }}"
 ```
 
 `papers_root` matters: the object-storage root is shared with every other module, so scanning it
 would offer their private data as a source of papers. Owning a prefix keeps them out of scope by
 construction rather than by a blacklist that needs updating whenever a module is added.
+
+The embedding key is resolved by ABI's secret service (including its `.env` adapter) and
+passed explicitly to the shared embedder factory for both ingestion and semantic search.
+Both use `text-embedding-3-large` at 3072 dimensions. The key is required when embedding;
+keyword search does not need it. No process environment fallback is used.
 
 Prompts, chunkers and models are declared in code, not configured — they are published to datasets
 on module load so a client can list them without reading the source.
@@ -199,15 +261,188 @@ time costs nothing: 20 skipped, zero calls, no new rows.
 - **Snapshot retention is an operator concern.** Every write creates a DuckLake snapshot; expiry and
   compaction are not scheduled here.
 
+
+### Extraction concurrency
+
+One ingestion request still starts one full-pipeline Dagster run. Stages and
+prompts execute in order; within each prompt, a bounded thread pool overlaps
+model HTTP calls. Set `modules[].config.extraction_workers` on `phases_v2`
+(default `20`, positive integer; `1` for sequential requests). The existing
+engine and prompt-bound model are reused. Database writes and report updates
+stay on the coordinating thread, with items saved before success records.
+Only a pool-sized window is submitted, so queued work and completed responses
+remain bounded. Failed calls remain individually retryable on the next run.
+Provider retry/timeout behavior is unchanged; lower the worker count if provider
+rate limits are encountered. This setting applies to newly started execution,
+not an already-running extraction process.
+
+
+## Authoring pipelines in the web app
+
+The Phases Pipeline app supports the following workflow:
+
+1. Create an input collection under the configured `papers_root`.
+2. Upload PDFs into that collection (25 MiB per file). Each file reports its own
+   outcome; uploads do not start extraction. Uploads use content-addressed paths,
+   so retries are idempotent and different PDFs with the same filename coexist.
+3. Create or duplicate a prompt, including `{chunk_text}` in the template. Select
+   an existing validated output format; `results` is the generic list of claims.
+   Saving changed text creates a new version. Changing only the output format
+   requires changing the name or template too, preserving existing prompt IDs.
+4. Choose locations, prompt versions, chunker, and model. Request a run immediately,
+   or save a named configuration and use **Run saved pipeline** later.
+5. Use **Refresh status** to follow requests. The app does not poll continuously.
+
+Saved configurations are immutable copies of their inputs; load one, edit the form,
+and save a new configuration to make a variant. They reference exact prompt versions
+but include whatever documents their locations contain when ingestion starts.
+Deleting prompts, documents, and configurations is not exposed by this UI.
+
+The `input_locations` dataset stores named prefixes, including empty collections.
+The `pipelines` dataset stores named configurations and their input JSON. Both are
+created at module initialization using the existing dataset service; no existing
+schema migration is required. Restart the ABI API and Dagster processes after upgrading.
+These catalogs share the existing module storage scope; they are not per-user workspaces.
+
+Full pipeline runs pass the IDs of successfully ingested or already-ingested selected
+papers through chunking and extraction. An empty collection remains an empty scope;
+it never falls back to the whole corpus. Standalone stage jobs retain their existing
+whole-corpus default. Graph and vector projections remain incremental shared projections.
+
+New authoring endpoints require the platform's existing ABI API key or registered
+Nexus session-token validation. The embedded UI sends the current Nexus session token;
+a direct API client supplies `Authorization: Bearer ...`. No new authentication scheme
+or inter-domain security policy is introduced. Uploads validate size, filename, path,
+and PDF header; full PDF rendering happens during ingestion.
+
+New endpoints under `/phases_v2/api`:
+
+- `POST /prompts`: save `{name, template, output_key}` as a prompt version.
+- `POST /locations`: create `{name}` beneath the configured papers root.
+- `POST /documents?location=...&filename=...`: upload raw PDF bytes.
+- `GET /pipelines` and `POST /pipelines`: list/save `{name, inputs}` configurations.
+- `POST /pipelines/{pipeline_id}/requests`: request the saved configuration.
+
+Management request shapes and validation are defined in
+`app/contracts/pipeline_management.proto`. `make proto` regenerates both checked-in
+Protobuf descriptors using the existing checksum-pinned Protovalidate source. Python
+loads the generated descriptors and runs Protovalidate before persistence. Format
+compatibility and storage-root containment are checked by the application service.
+
+### Native Qdrant filtering and migration
+
+New extracted-item vectors include `prompt_name`, `model_id`, `paper_id`,
+`source_path`, every `source_ancestors` folder (including the folder itself), and
+`search_metadata_version=1`, alongside existing item/chunk/extraction/prompt IDs.
+Keyword payload indexes support the filter fields; the metadata version has an
+integer index. OR selections within a facet combine with AND across facets.
+Folder matching respects path-component boundaries.
+
+With complete versioned metadata, default semantic searches use a native exact
+Qdrant count plus a paged exact-scoring query. Only that page's payload and source
+provenance are loaded. Query embeddings and metadata counts are reused. A score
+threshold cannot be counted by the metadata count API: those searches enumerate
+only IDs/scores in 1,024-point batches, applying the threshold and all filters in
+Qdrant, then load payloads for the requested page. Full CSV exports use 500-result
+pages and still return all matches.
+
+Run `phases_v2_refresh_vector_metadata` in Dagster after deployment to update
+existing payloads and create indexes without changing point IDs, vectors, or text.
+The job reads a dataset snapshot, updates existing points in batches, and fails
+explicitly if a point cannot be matched to a dataset item. It is idempotent and
+can be rerun after correcting paper paths or prompt annotations. New projections
+write the metadata directly. Re-run this job after editing annotations on rows
+whose vectors were already projected; the embedding ledger alone does not refresh
+old payloads.
+
+Until all points carry the current metadata version, the API uses the legacy
+search path (dataset filtering and exhaustive ranking). Readiness is rechecked
+every 30 seconds; do not mark migration complete based only on a running job.
+Non-Qdrant backends retain that path. No new persistence or dependencies are added.
+
+Caches are process-local, capped at 32 entries / an estimated 64 MiB each, with a
+five-minute TTL; identical concurrent computations are coalesced and failures are
+not retained. Entries include the dataset snapshot and applicable filters.
+Qdrant itself has no snapshot here, so concurrent indexing/payload changes can
+shift results during paging/export. Exact scoring avoids approximate-search
+variations between page sizes, but does not freeze concurrent mutations.
+
+### Probabilistic search results and paper downloads
+
+Reverse search detects probability-modulating JSON claims (single relations,
+lists, or `relations` envelopes) and displays their participant, subject process,
+and target process as typed nodes. Edges explicitly label increases, decreases,
+or neutral (no effect) on the target's probability. Evidence and the original
+JSON remain available; unknown or incomplete payloads retain their text.
+Source chunks appear before the stored extraction prompt.
+
+`GET /phases_v2/api/search/paper?item_id=...` downloads the original PDF resolved
+from that item's paper record. The service reads the recorded object-storage
+prefix/key and restricts it to the configured `papers_root`; it accepts no caller
+file paths or external URLs. Missing PDFs show an inline error. Downloads use the
+same access controls as search, so the configured corpus must contain only papers
+intended for search users. Current semantic/keyword matching is unchanged; a
+dedicated directional-effect query remains future work.
+
+Run the focused backend and frontend checks with `make test-search`.
+
+Older structured extractions were stored using Python dictionary/list text.
+Search responses convert these literal payloads to JSON on read so existing
+matches can render as graphs without re-extraction or a corpus migration.
+New structured items are stored as JSON. Compatibility parsing is bounded,
+uses literal-only parsing, and leaves malformed or unsupported text unchanged.
+
+Keyword queries support double-quoted exact words and phrases: `"like"` excludes
+`likely` and `dislike`; `"being alone" stress` requires that phrase plus `stress`.
+Matching is case-insensitive, quoted words use word boundaries, and spaces or
+line breaks between phrase words are equivalent. Straight and smart double
+quotes work. Unquoted terms retain substring matching, all terms are required,
+and an unclosed quote falls back to ordinary word matching. These rules apply
+to result counts, pagination, highlighting, and complete CSV exports.
+
+### Structured probability-modulating relations
+
+The `probabilistic_relations` dataset is a typed, rebuildable projection of
+successful extractions whose prompt output key is `relations`. It includes
+subject process, participant, target process, direction, evidence, and all source
+IDs. `relation_id` is stable per extracted item and relation index. Its row
+contract is `projection/contracts/probabilistic.proto`. Saved evidence is retained
+in full, including legacy excerpts longer than the extraction prompt requested.
+
+The Effects search tab queries these fields directly. Put `stress` in Target
+process and choose Increases to find relationships increasing stress, regardless
+of which other fields mention stress. Subject and participant filters, existing
+source/model/prompt filters, pagination, and CSV export are supported. Blank
+filters browse all projected relationships. Targets use text matching (including
+quoted exact phrases), not ontology entity normalization.
+
+`phases_v2_backfill_probabilistic_relations` is a standalone Dagster job for this
+projection. The full pipeline and standalone extraction job also run it after
+extraction. To backfill without model calls from the ABI project directory:
+
+```sh
+uv run abi run script src/phases_v2/projection/probabilistic_backfill.py -- --dry-run
+uv run abi run script src/phases_v2/projection/probabilistic_backfill.py
+```
+
+Each run pins one snapshot and pages through outstanding items in batches of 500.
+Derived rows are upserted before the projection ledger is recorded, so retries
+cannot create duplicate relation IDs. Invalid payloads are reported (counts and
+up to 20 item IDs/errors), left untouched, and retried by later runs. The backfill
+never rewrites source extractions or calls an LLM. API startup only creates the
+empty dataset; it does not run a potentially large backfill during startup.
+
 ## Pipeline workspace
 
 The Phases Pipeline app has four pages in its left navigation:
 
 - **New run**: select a saved collection or storage locations, preview documents,
   save the selected locations as a collection, choose prompt versions, and queue a run.
+  Existing saved pipeline configurations can still be saved, loaded, and run here.
 - **Input collections**: create, rename, edit, and archive named groups of locations.
   The contents preview includes each location's subfolders. Archiving a collection
-  leaves its source documents and queued requests intact.
+  leaves its source documents and queued requests intact. Create storage locations
+  and upload PDFs from this page as well.
 - **Prompt library**: browse full prompt text, create prompts, and save edits as
   new versions. Prompt text must contain `{chunk_text}` and use one of the supported
   extraction output schemas. Old versions remain selectable and resolvable by workers.
@@ -217,17 +452,15 @@ The Phases Pipeline app has four pages in its left navigation:
 
 Collections are stored in the new `input_collections` dataset through the existing
 row-store adapter. Restart the ABI API and Dagster processes after updating: normal
-module startup creates the missing dataset, and workers load the updated prompt
-resolver. No existing dataset needs to be dropped or recreated. Collection edits use
+module startup creates the missing dataset. No existing dataset needs to be dropped or recreated. Collection edits use
 last-write-wins semantics; a queued request stores a copy of its selected locations.
 Prompts continue using the existing `prompts` dataset and content-based identities.
 Changing an output schema requires a changed name or text to preserve that identity.
 
-Location selection scopes **ingestion**. The existing pipeline subsequently chunks
-and extracts outstanding work across the corpus; the preview is not an extraction
-scope filter. The New run page explains this behavior.
+Location selection scopes ingestion, chunking, and extraction to the selected
+documents, preserving the current orchestrator behavior.
 
-Resource mutation commands are defined in
+Collection mutation commands are defined in
 `app/contracts/app_resources.proto` and validated server-side with Protovalidate.
 The checked-in descriptor is packaged with the module. `make proto` regenerates it
 using the existing extraction descriptor's pinned validation dependency. Resource

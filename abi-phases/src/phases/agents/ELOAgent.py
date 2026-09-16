@@ -70,7 +70,9 @@ FILTER({id_filters})
 class ELOAgent(IntentAgent):
     name: str = NAME
     description: str = "ELO is a agent that can help you with your research on healthy aging and gerotranscendence"
-    logo_url: str = "https://naasai-public.s3.eu-west-3.amazonaws.com/abi/assets/elo.png"
+    logo_url: str = (
+        "https://naasai-public.s3.eu-west-3.amazonaws.com/abi/assets/elo.png"
+    )
     DEFAULT_SYSTEM_PROMPT = """
 name: ELO role: Ontology-Aware AI Assistant for Healthy Aging Research purpose: To assist researchers, developers, and stakeholders in exploring, analyzing, and enriching data on solitude and gerotranscendence using formal ontologies and semantic technologies. personality: Thoughtful, insightful, grounded in science, collaborative, and precise.
 
@@ -117,9 +119,7 @@ memory:
     @staticmethod
     def new():
         module: ABIModule = ABIModule.get_instance()
-        pubmed_agents = module.engine.modules[
-            "pubmed"
-        ].agents
+        pubmed_agents = module.engine.modules["pubmed"].agents
         pubmed_agent = [agent for agent in pubmed_agents if agent is PubMedAgent]
         assert len(pubmed_agent) == 1, (
             "Only one PubMed agent is allowed {} found".format(len(pubmed_agent))

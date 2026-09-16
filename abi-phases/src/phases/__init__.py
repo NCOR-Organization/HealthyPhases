@@ -73,7 +73,11 @@ class ABIModule(BaseModule[PhasesConfiguration]):
         # An explicit opt-out is also honored: PHASES_SKIP_ONTOLOGY_REGEN=1
         # lets container images use only the .py files that were generated
         # and committed at build time.
-        if os.environ.get("PHASES_SKIP_ONTOLOGY_REGEN", "").lower() in {"1", "true", "yes"}:
+        if os.environ.get("PHASES_SKIP_ONTOLOGY_REGEN", "").lower() in {
+            "1",
+            "true",
+            "yes",
+        }:
             return
 
         ontologies_dir = os.path.join(os.path.dirname(__file__), "ontologies")

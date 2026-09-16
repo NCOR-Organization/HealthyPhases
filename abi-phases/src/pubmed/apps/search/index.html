@@ -37,8 +37,11 @@ function apiBase() {
   const from = (w) => { try { return w?.__NEXUS_RUNTIME_CONFIG__?.apiUrl || ''; } catch (_) { return ''; } };
   return (from(window) || from(window.parent) || from(window.top)).replace(/\/$/, '');
 }
+function authHeaders() {
+  try { const token = JSON.parse(localStorage.getItem('nexus-auth') || '{}').state?.token; return token ? {Authorization: `Bearer ${token}`} : {}; } catch (_unavailable) { return {}; }
+}
 async function api(path, method = 'GET', body) {
-  const response = await fetch(`${apiBase()}/pubmed/api${path}`, { method, credentials: 'include', ...(body === undefined ? {} : {headers: {'Content-Type':'application/json'}, body:JSON.stringify(body)}) });
+  const response = await fetch(`${apiBase()}/pubmed/api${path}`, { method, credentials: 'include', headers: {...authHeaders(), ...(body === undefined ? {} : {'Content-Type':'application/json'})}, ...(body === undefined ? {} : {body:JSON.stringify(body)}) });
   if (response.status === 204) return {};
   const text = await response.text(); let data;
   try { data = JSON.parse(text); } catch (_) { throw new Error('PubMed API is unavailable. Check the ABI connection.'); }

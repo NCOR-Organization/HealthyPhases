@@ -51,7 +51,7 @@ modules:
           role_baseline:
             owner: [maps, chat, files, agents, skills, apps, marketplace, search, ontology, graph, datasets, settings, code, slides]
             admin: [chat, files, agents, search, ontology, graph, settings]
-            member: [chat, files]
+            member: [chat, files, apps, ontology, graph, datasets]
             viewer: [chat, files]
           workspace_overrides: {}
         magic_link_allow_signup: false
@@ -129,6 +129,8 @@ modules:
       # Papers are read from this prefix only. The object-storage root is
       # shared with every other module.
       papers_root: "phases_v2"
+      openai_api_key: "{{ secret.OPENAI_API_KEY }}"
+      extraction_workers: 20
 
   - module: pubmed
     enabled: true

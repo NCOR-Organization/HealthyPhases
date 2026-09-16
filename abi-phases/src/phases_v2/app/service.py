@@ -6,11 +6,13 @@ without a web server, and so the endpoints stay a thin translation layer.
 
 from __future__ import annotations
 
+import re
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
 
 from phases_v2.app.app_resources import AppResources
+from phases_v2.app.pipeline_management import PipelineManagement
 from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.requests.domain import submit
@@ -46,6 +48,9 @@ class PipelineAppService:
         #: data as a paper source.
         self._papers_root = papers_root.strip("/")
         self.resources = AppResources(rows, self._papers_root)
+        self.management = PipelineManagement(
+            rows, object_storage, self._papers_root, is_model_available
+        )
 
     def pubmed_queries(self):
         if self._pubmed is None:
@@ -58,14 +63,17 @@ class PipelineAppService:
     def submit_pubmed(self, payload):
         if self._pubmed is None or self._rows is None:
             raise ValueError("PubMed publication dataset is unavailable")
+        from phases_v2.app.contracts.app_validation import validate_command
         from phases_v2.sources.phases_v2_sources import submit_pubmed
 
+        validate_command("SubmitPubmedRun", payload)
+        self.management.validate_choices(payload)
         return submit_pubmed(self._rows, self._requests, self._pubmed, payload)
 
     # -- what a user chooses from ---------------------------------------
 
     def prompts(self) -> list[dict[str, Any]]:
-        return self.resources.prompts()
+        return self.management.prompts()
 
     def models(self) -> list[dict[str, Any]]:
         """Declared models, each marked with whether it can actually be built."""
@@ -102,6 +110,7 @@ class PipelineAppService:
         """
         root = self._papers_root
         found = [{"prefix": root, "name": f"{root} (all)"}]
+        found.extend(self.management.collections())
         if self._storage is None:
             return found
 
@@ -112,8 +121,10 @@ class PipelineAppService:
 
         for key in sorted({k.rstrip("/") for k in keys if k}):
             name = key.rsplit("/", 1)[-1]
+            if re.fullmatch(r"[a-f0-9]{64}", name):
+                continue
             prefix = key if key.startswith(root + "/") else f"{root}/{name}"
-            if prefix == root:
+            if prefix in {entry["prefix"] for entry in found}:
                 continue
             found.append({"prefix": prefix, "name": name})
         return found
@@ -132,12 +143,13 @@ class PipelineAppService:
                 "total": 0,
                 "ingestable": 0,
                 "unsupported": 0,
+                "failed_locations": [],
                 "already_ingested": 0,
                 "truncated": False,
-                "failed_locations": [],
             }
 
-        known = self._ingested_names()
+        known_paths, known_ids = self._ingested_documents()
+        seen: set[str] = set()
         found: list[dict[str, Any]] = []
         failed: list[str] = []
 
@@ -149,12 +161,23 @@ class PipelineAppService:
                 continue
             for key in keys:
                 name = key.rsplit("/", 1)[-1]
+                full_key = (
+                    key if key.startswith(location + "/") else f"{location}/{key}"
+                )
+                if full_key in seen:
+                    continue
+                seen.add(full_key)
+                parent = full_key.rsplit("/", 2)[-2]
+                is_uploaded = re.fullmatch(r"[a-f0-9]{64}", parent) is not None
+                ingested = (
+                    parent in known_ids if is_uploaded else full_key in known_paths
+                )
                 found.append(
                     {
                         "location": location,
                         "key": key,
                         "name": name,
-                        "already_ingested": name in known,
+                        "already_ingested": ingested,
                         "supported": self._supported(name),
                     }
                 )
@@ -176,17 +199,16 @@ class PipelineAppService:
             return True
         return bool(self._renderer.handles(file_name))
 
-    def _ingested_names(self) -> set[str]:
+    def _ingested_documents(self) -> tuple[set[str], set[str]]:
         if self._rows is None:
-            return set()
-        try:
-            return {
-                row["file_name"]
-                for row in self._rows.query("SELECT file_name FROM papers")
-                if row.get("file_name")
-            }
-        except Exception:  # noqa: BLE001 - a preview must not fail the page
-            return set()
+            return set(), set()
+        rows = self._rows.query(
+            "SELECT paper_id, storage_prefix, storage_key FROM papers WHERE text_key IS NOT NULL"
+        )
+        return (
+            {f"{row['storage_prefix']}/{row['storage_key']}" for row in rows},
+            {row["paper_id"] for row in rows},
+        )
 
     # -- submitting -----------------------------------------------------
 
@@ -199,6 +221,15 @@ class PipelineAppService:
         model_id: str,
         requested_by: str | None = None,
     ) -> RunRequest:
+        self.management.validate_inputs(
+            {
+                "locations": locations,
+                "chunker_id": chunker_id,
+                "prompt_ids": prompt_ids,
+                "model_id": model_id,
+                "requested_by": requested_by,
+            }
+        )
         return submit(
             self._requests,
             locations=locations,
@@ -264,7 +295,7 @@ class PipelineAppService:
         return (
             "The corpus is currently chunked with "
             f"{', '.join(sorted(existing))}. Running with {chunker_id} will "
-            "re-chunk it and make every extraction outstanding again."
+            "chunk the selected documents and may require new extractions."
         )
 
 

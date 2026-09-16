@@ -15,7 +15,7 @@ directory needs none either.
 
 | Workflow | What it did |
 | --- | --- |
-| [`AxiomsWorkflow`](AxiomsWorkflow/) | Read document chunks from the triple store and extracted axioms (logical sentences) from them. |
+| [`AxiomsWorkflow`](AxiomsWorkflow/) | Read document chunks from the triple store and extracted axioms (conditional statements) from them. |
 | [`AxiomsEmbeddingWorkflow`](AxiomsEmbeddingWorkflow/) | Read extracted axioms and computed vector embeddings for them. |
 | [`AxiomsSearchWorkflow`](AxiomsSearchWorkflow/) | Embedded a user prompt and searched extracted axioms by vector similarity. |
 | [`AxiomsCrossPaperSimilarityWorkflow`](AxiomsCrossPaperSimilarityWorkflow/) | Analyzed similar axioms across different paper paths. |

@@ -126,3 +126,11 @@ test('failed deletion keeps the confirmation open for retry', async () => {
   await assert.rejects(context.deleteSchedule(),/Storage unavailable/);
   assert.equal($('delete-schedule-dialog').open,true);
 });
+
+test('PubMed mutations send Nexus bearer authentication', async () => {
+  const { context } = app(); let headers;
+  context.localStorage = { getItem: () => JSON.stringify({ state: { token: 'test-token' } }) };
+  context.fetch = async (_url, options) => { headers = options.headers; return response({}); };
+  await context.api('/schedules', 'POST', {});
+  assert.equal(headers.Authorization, 'Bearer test-token');
+});

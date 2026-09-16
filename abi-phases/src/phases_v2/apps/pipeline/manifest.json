@@ -1,13 +1,20 @@
 {
     "name": "Phases Pipeline",
-    "description": "Manage input collections and prompt versions, preview documents, queue pipeline runs, and monitor order requests in a dedicated workspace.",
+    "description": "Manage input collections and prompt versions, upload PDFs, preview documents, queue saved pipeline configurations, and monitor order requests in a dedicated workspace.",
     "category": "domain",
     "url": "html:index.html",
     "icon_emoji": "🧪",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "author": "HealthyPhases",
     "license": "MIT",
-    "keywords": ["pipeline", "ingestion", "extraction", "papers", "phases", "dagster"],
+    "keywords": [
+        "pipeline",
+        "ingestion",
+        "extraction",
+        "papers",
+        "phases",
+        "dagster"
+    ],
     "tier": "community",
     "maintainer": "HealthyPhases",
     "pricing": {

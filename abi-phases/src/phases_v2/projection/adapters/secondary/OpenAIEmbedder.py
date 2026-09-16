@@ -17,9 +17,16 @@ REQUEST_CHUNKS = 32
 
 
 class OpenAIEmbedder:
-    def __init__(self, model: str = MODEL, dimension: int = DIMENSION):
+    def __init__(
+        self,
+        model: str = MODEL,
+        dimension: int = DIMENSION,
+        *,
+        api_key: str | None = None,
+    ):
         self._model = model
         self._dimension = dimension
+        self._api_key = api_key
         self._client: Any = None
 
     @property
@@ -30,9 +37,15 @@ class OpenAIEmbedder:
         if not texts:
             return []
         if self._client is None:
+            if not self._api_key or not self._api_key.strip():
+                raise ValueError(
+                    "Set phases_v2.config.openai_api_key from "
+                    "{{ secret.OPENAI_API_KEY }} to enable embeddings."
+                )
             from langchain_openai import OpenAIEmbeddings
 
             self._client = OpenAIEmbeddings(
+                api_key=self._api_key,
                 model=self._model,
                 dimensions=self._dimension,
                 embedding_ctx_length=TOKEN_CHUNK_SIZE,

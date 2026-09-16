@@ -10,15 +10,17 @@ from naas_abi_core.services.dataset.DatasetService import DatasetService
 
 from phases_v2.app.adapters.primary.PipelineAPI import PREFIX, register
 from phases_v2.app.service import PipelineAppService
+from phases_v2.chunking.chunkers import WINDOW_512_128
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
-from phases_v2.extraction.factory import resolve_prompt
+from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.prompts.templates import declared_prompts
 from phases_v2.requests.fakes import FakeRequestStore
 
 
 @pytest.fixture
-def resources(tmp_path):
+def resources(tmp_path, monkeypatch):
+    monkeypatch.setenv("ABI_API_KEY", "test-pipeline-key")
     dataset = DatasetService(
         adapter=DatasetSecondaryAdapterDuckLake(
             catalog=f"sqlite:{tmp_path / 'catalog.sqlite'}",
@@ -30,7 +32,11 @@ def resources(tmp_path):
     service = PipelineAppService(FakeRequestStore(), rows=rows)
     app = FastAPI()
     register(app, service)
-    return TestClient(app), rows, service
+    return (
+        TestClient(app, headers={"Authorization": "Bearer test-pipeline-key"}),
+        rows,
+        service,
+    )
 
 
 def test_collection_edit_and_archive_do_not_change_queued_inputs(resources):
@@ -47,9 +53,9 @@ def test_collection_edit_and_archive_do_not_change_queued_inputs(resources):
     path = f"{PREFIX}/collections/{collection['collection_id']}"
     request = service.submit_run(
         locations=collection["locations"],
-        prompt_ids=["p"],
-        chunker_id="c",
-        model_id="m",
+        prompt_ids=[declared_prompts()[0].prompt_id],
+        chunker_id=WINDOW_512_128.chunker_id,
+        model_id=DECLARED_MODELS[0].model_id,
     )
     updated = client.put(path, json={"name": "Revised", "locations": ["phases_v2/new"]})
     assert updated.status_code == 200
@@ -90,76 +96,15 @@ def test_collection_validation_rejects_invalid_commands_before_writing(
     assert rows.query("SELECT * FROM input_collections") == []
 
 
-def test_prompt_edits_preserve_original_and_are_resolvable_by_the_worker(resources):
-    client, rows, _ = resources
-    original = declared_prompts()[0]
-    first = client.post(
-        f"{PREFIX}/prompts",
-        json={
-            "name": original.name,
-            "template": "Custom claims: {chunk_text}",
-            "output_key": original.output_key,
-        },
-    )
-    assert first.status_code == 201
-    second = client.post(
-        f"{PREFIX}/prompts",
-        json={
-            "name": original.name,
-            "template": "Revised claims: {chunk_text}",
-            "output_key": original.output_key,
-        },
-    )
-    assert second.status_code == 201
-    assert first.json()["prompt_id"] != second.json()["prompt_id"]
-    assert (
-        resolve_prompt(first.json()["prompt_id"], rows).template
-        == "Custom claims: {chunk_text}"
-    )
-    assert (
-        resolve_prompt(second.json()["prompt_id"], rows).template
-        == "Revised claims: {chunk_text}"
-    )
-    assert resolve_prompt(original.prompt_id, rows) == original
-    assert {
-        p["prompt_id"] for p in client.get(f"{PREFIX}/prompts").json()["prompts"]
-    } >= {
-        original.prompt_id,
-        first.json()["prompt_id"],
-        second.json()["prompt_id"],
-    }
-
-
-def test_prompt_schema_cannot_silently_change_under_an_existing_identity(resources):
+def test_collection_mutations_require_authentication(resources):
     client, _, _ = resources
-    first, other = declared_prompts()[:2]
-    response = client.post(
-        f"{PREFIX}/prompts",
-        json={
-            "name": first.name,
-            "template": first.template,
-            "output_key": other.output_key,
-        },
-    )
-    assert response.status_code == 422
-
-
-@pytest.mark.parametrize(
-    "changes",
-    [
-        {"name": ""},
-        {"template": "Missing placeholder"},
-        {"output_key": "unknown"},
-        {"template": 42},
-        {"unexpected": True},
-    ],
-)
-def test_prompt_contract_and_output_schema_are_validated(resources, changes):
-    client, rows, _ = resources
-    payload = {
-        "name": "Custom",
-        "template": "Extract {chunk_text}",
-        "output_key": declared_prompts()[0].output_key,
-    } | changes
-    assert client.post(f"{PREFIX}/prompts", json=payload).status_code == 422
-    assert rows.query("SELECT * FROM prompts") == []
+    client.headers.clear()
+    for method, path in [
+        ("POST", "/collections"),
+        ("PUT", "/collections/unknown"),
+        ("DELETE", "/collections/unknown"),
+    ]:
+        response = client.request(
+            method, PREFIX + path, json={"name": "Research", "locations": ["phases_v2"]}
+        )
+        assert response.status_code in (401, 403)

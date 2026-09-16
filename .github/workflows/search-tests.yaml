@@ -1,0 +1,37 @@
+name: Search tests
+on:
+  pull_request:
+    paths:
+      - 'abi-phases/src/phases_v2/search/**'
+      - 'abi-phases/src/phases_v2/projection/**'
+      - 'abi-phases/src/phases_v2/datasets/**'
+      - 'abi-phases/src/phases_v2/orchestrations/**'
+      - 'abi-phases/src/phases_v2/structured_text.py'
+      - 'abi-phases/src/phases_v2/extraction/domain*'
+      - 'abi-phases/src/phases_v2/apps/reverse_search/**'
+      - 'abi-phases/src/phases_v2/app/adapters/primary/SearchAPI*'
+      - 'abi-phases/src/phases_v2/app/contracts/**'
+      - 'abi-phases/Makefile'
+      - '.github/workflows/search-tests.yaml'
+permissions:
+  contents: read
+jobs:
+  search-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Checkout ABI dependency
+        run: git submodule update --init abi-phases/.abi
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install dependencies
+        working-directory: abi-phases
+        run: uv sync --frozen
+      - name: Test search service, HTTP endpoints, and result rendering
+        working-directory: abi-phases
+        run: make test-search

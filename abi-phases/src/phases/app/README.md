@@ -51,7 +51,7 @@ Mounted onto the existing ABI FastAPI app via `ABIModule.api()`
 | GET | `/phases/app/` | the single-page UI |
 
 `pipeline` is repeatable and filters by extraction pipeline
-(`causes` / `how` / `when` / `where` / `effects` / `logical_sentences` / ...).
+(`causes` / `how` / `when` / `where` / `effects` / `conditional_statement` / ...).
 
 ## Running
 

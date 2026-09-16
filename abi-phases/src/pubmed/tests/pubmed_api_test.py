@@ -4,10 +4,11 @@ from fastapi.testclient import TestClient
 from pubmed.adapters.primary.pubmed_api import router
 
 
-def test_http_validation_submission_and_status(service):
+def test_http_validation_submission_and_status(service, monkeypatch):
+    monkeypatch.setenv("ABI_API_KEY", "pubmed-test-key")
     app = FastAPI()
     app.include_router(router(service))
-    client = TestClient(app)
+    client = TestClient(app, headers={"Authorization": "Bearer pubmed-test-key"})
     assert client.post("/pubmed/api/search", json={"query": ""}).status_code == 422
     query = client.post("/pubmed/api/search", json={"query": "solitude"}).json()[
         "query"
@@ -86,3 +87,22 @@ def test_canceled_job_marks_request_failed_and_allows_retry(monkeypatch, service
         service.one("run_requests", request_id=row["request_id"])["status"] == "failed"
     )
     assert service.retry(row["request_id"])["status"] == "pending"
+
+
+def test_pubmed_mutations_require_authentication(service, monkeypatch):
+    monkeypatch.setenv("ABI_API_KEY", "pubmed-test-key")
+    app = FastAPI()
+    app.include_router(router(service))
+    client = TestClient(app)
+    for method, path in [
+        ("post", "/search"),
+        ("post", "/requests"),
+        ("post", "/schedules"),
+        ("patch", "/schedules/id"),
+        ("delete", "/schedules/id"),
+        ("post", "/requests/id/retry"),
+    ]:
+        assert client.request(method, "/pubmed/api" + path, json={}).status_code in (
+            401,
+            403,
+        )

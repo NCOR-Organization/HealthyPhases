@@ -78,6 +78,9 @@ def test_the_expected_datasets_are_declared():
         "extraction_runs",
         "extractions",
         "extracted_items",
+        "probabilistic_relations",
         "projections",
         "run_requests",
+        "input_locations",
+        "pipelines",
     }

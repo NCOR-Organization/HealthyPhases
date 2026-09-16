@@ -81,10 +81,10 @@ def ingest(
             report.failed_papers[f"{location}/{key}"] = str(failure)
             continue
 
-        report.paper_ids.append(paper_id)
         text_key = f"{paper_id}.md"
         source.put_object(text_prefix, text_key, text.encode("utf-8"))
 
+        report.paper_ids.append(paper_id)
         records.append(
             PaperRecord(
                 paper_id=paper_id,

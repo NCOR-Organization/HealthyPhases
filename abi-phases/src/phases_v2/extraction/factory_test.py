@@ -206,10 +206,10 @@ def test_resolving_a_declared_prompt_returns_it():
 
 
 def test_a_prompt_saved_in_the_app_is_executed_and_recorded(engine):
-    from phases_v2.app.app_resources import AppResources
+    from phases_v2.app.pipeline_management import PipelineManagement
 
     rows = DatasetRowStore(engine.services.dataset)
-    saved = AppResources(rows, "phases_v2").save_prompt(
+    saved = PipelineManagement(rows, None, "phases_v2").save_prompt(
         {
             "name": "Custom research prompt",
             "template": "Extract research claims: {chunk_text}",

@@ -15,7 +15,7 @@
    - [`GenericChunkExtractionWorkflow.py`](workflows/GenericChunkExtractionWorkflow/GenericChunkExtractionWorkflow.py)
    - [`run_extraction.py`](workflows/GenericChunkExtractionWorkflow/run_extraction.py) — CLI entry
    - [`prompts/`](workflows/GenericChunkExtractionWorkflow/prompts/) — extraction prompt templates
-     (`logical_sentences.txt`, `solitude_what.txt`, `solitude_causes.txt`,
+     (`conditional_statement.txt`, `solitude_what.txt`, `solitude_causes.txt`,
      `solitude_effects.txt`, `solitude_how.txt`, `solitude_when.txt`, `solitude_where.txt`)
 3. **Embed.** [`workflows/ExtractedItemsEmbeddingWorkflow/`](workflows/ExtractedItemsEmbeddingWorkflow/)
    — embeds the extracted items.

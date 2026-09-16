@@ -5,12 +5,11 @@ import uuid
 from typing import Any
 
 from phases_v2.app.contracts.app_validation import validate_command
+from phases_v2.app.pipeline_management import ManagementUnavailable
 from phases_v2.ports import RowStore
-from phases_v2.prompts.domain import PromptTemplate, register_prompts
-from phases_v2.prompts.templates import declared_prompts
 
 
-class ResourceNotFound(LookupError):
+class ResourceNotFound(KeyError):
     pass
 
 
@@ -21,7 +20,9 @@ class AppResources:
 
     def _writable(self):
         if self._rows is None:
-            raise ValueError("Resource storage is unavailable in this deployment.")
+            raise ManagementUnavailable(
+                "Resource storage is unavailable in this deployment."
+            )
 
     def collections(self) -> list[dict[str, Any]]:
         if self._rows is None:
@@ -61,6 +62,7 @@ class AppResources:
             if (
                 not (location == self._root or location.startswith(self._root + "/"))
                 or any(part in (".", "..", "") for part in location.split("/"))
+                or any(ord(c) < 32 for c in location)
                 or "\\" in location
             ):
                 raise ValueError(f"Locations must be inside {self._root}.")
@@ -77,44 +79,3 @@ class AppResources:
         self._writable()
         row = self.collection(collection_id)
         self._rows.write_rows("input_collections", [dict(row, archived=True)])
-
-    def prompts(self) -> list[dict[str, Any]]:
-        entries = {
-            p.prompt_id: {
-                "prompt_id": p.prompt_id,
-                "name": p.name,
-                "template": p.template,
-                "output_key": p.output_key,
-            }
-            for p in declared_prompts()
-        }
-        if self._rows is not None:
-            for row in self._rows.query(
-                "SELECT prompt_id, name, template, output_key FROM prompts"
-            ):
-                entries[row["prompt_id"]] = row
-        return sorted(entries.values(), key=lambda row: (row["name"], row["prompt_id"]))
-
-    def save_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
-        self._writable()
-        command = validate_command("SavePrompt", payload)
-        if command.output_key not in {p.output_key for p in declared_prompts()}:
-            raise ValueError("Choose an output schema supported by this pipeline.")
-        template = PromptTemplate(
-            command.name.strip(), command.template, command.output_key
-        )
-        for existing in self.prompts():
-            if (
-                existing["prompt_id"] == template.prompt_id
-                and existing["output_key"] != template.output_key
-            ):
-                raise ValueError(
-                    "Change the prompt name or text when changing its output schema."
-                )
-        register_prompts(self._rows, [template])
-        return {
-            "prompt_id": template.prompt_id,
-            "name": template.name,
-            "template": template.template,
-            "output_key": template.output_key,
-        }

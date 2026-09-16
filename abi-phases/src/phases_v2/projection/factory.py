@@ -40,8 +40,8 @@ def project_to_vectors(
     engine, sink=None, embedder=None, paper_ids=None
 ) -> ProjectionReport:
     """Embed outstanding chunks and items, reading at one pinned snapshot."""
-    from phases_v2.projection.adapters.secondary.OpenAIEmbedder import OpenAIEmbedder
     from phases_v2.projection.adapters.secondary.VectorStoreSink import VectorStoreSink
+    from phases_v2.projection.embedding_factory import embedder_for
     from phases_v2.projection.vectors import project_vectors
 
     live = DatasetRowStore(engine.services.dataset)
@@ -49,9 +49,44 @@ def project_to_vectors(
 
     return project_vectors(
         reader=DatasetExtractionReader(pinned, paper_ids=paper_ids),
-        embedder=embedder if embedder is not None else OpenAIEmbedder(),
+        embedder=embedder if embedder is not None else embedder_for(engine),
         sink=sink
         if sink is not None
         else VectorStoreSink(engine.services.vector_store),
         ledger=DatasetProjectionLedger(live),
+    )
+
+
+def refresh_vector_metadata(engine) -> int:
+    from naas_abi_core.services.vector_store.adapters.QdrantAdapter import QdrantAdapter
+
+    from phases_v2.projection.adapters.secondary.QdrantMetadataSink import (
+        QdrantMetadataSink,
+    )
+    from phases_v2.projection.metadata_refresh import refresh_metadata
+
+    store = engine.services.vector_store
+    if not isinstance(store.adapter, QdrantAdapter):
+        raise TypeError("Vector metadata refresh requires Qdrant")
+    store.initialize()
+    live = DatasetRowStore(engine.services.dataset)
+    return refresh_metadata(
+        DatasetExtractionReader(live.at_snapshot(live.snapshot())),
+        QdrantMetadataSink(store.adapter.client),
+    )
+
+
+def project_to_relations(engine, *, dry_run: bool = False, paper_ids=None):
+    from phases_v2.projection.adapters.secondary.ProbabilisticContractValidator import (
+        validate_relation,
+    )
+    from phases_v2.projection.probabilistic import project_relations
+
+    live = DatasetRowStore(engine.services.dataset)
+    return project_relations(
+        live.at_snapshot(live.snapshot()),
+        live,
+        validate_relation,
+        dry_run=dry_run,
+        paper_ids=paper_ids,
     )

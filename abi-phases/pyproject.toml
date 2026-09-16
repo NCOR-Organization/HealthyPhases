@@ -33,15 +33,15 @@ naas-abi-marketplace = { path = ".abi/libs/naas-abi-marketplace",  editable = tr
 naas-abi-cli = { path = ".abi/libs/naas-abi-cli",  editable = true }
 
 [dependency-groups]
-dev = [
-    "pytest>=9.1.1",
-    "ruff>=0.16.3",
-]
+dev = ["pytest>=9.1.1", "ruff>=0.16.3"]
 
 [tool.setuptools.package-data]
-"phases_v2" = ["README.md", "apps/pipeline/*.html", "apps/pipeline/*.json", "prompts/templates/*.txt", "ontologies/*.ttl"]
-"phases_v2.app.contracts" = ["*.proto", "*.pb"]
+"phases_v2" = ["apps/*/*.html", "apps/*/manifest.json", "prompts/templates/*.txt", "ontologies/*.ttl", "README.md"]
 "phases_v2.extraction.contracts" = ["*.proto", "*.pb"]
+
+"phases_v2.app.contracts" = ["*.proto", "*.pb"]
+
+"phases_v2.projection.contracts" = ["*.proto", "*.pb"]
 
 "pubmed" = ["LICENSE", "UPSTREAM.md", "README.md", "apps/search/*", "contracts/*.proto", "contracts/*.pb", "ontologies/*.ttl"]
 
