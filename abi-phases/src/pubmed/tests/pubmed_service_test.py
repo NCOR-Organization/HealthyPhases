@@ -54,6 +54,12 @@ class MemoryStore:
         self.save("schedules", [row])
         return row
 
+    def delete_schedule(self, schedule_id):
+        from pubmed.domain.pubmed_errors import PublicationNotFound
+
+        if self.tables["schedules"].pop((schedule_id,), None) is None:
+            raise PublicationNotFound(schedule_id)
+
 
 class MemoryStorage:
     def __init__(self):

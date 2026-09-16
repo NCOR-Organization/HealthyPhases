@@ -44,7 +44,9 @@ legacy files or dataset schema migration is performed.
 ## Scheduled queries
 
 Open **Scheduled queries** in PubMed Library to view recurring searches and enable
-or disable them. Create a schedule from any saved search, give it a name and choose
+or disable them. **Delete** removes a schedule after confirmation and prevents
+queued occurrences that have not started from executing. Saved searches, downloaded papers and already-started
+work are retained. Create a schedule from any saved search, give it a name and choose
 an hourly, daily or weekly interval (1, 24 or 168 elapsed hours). The first run is
 one interval after creation. The query, publication-date bounds, sort and result
 limit are copied from that saved search.
@@ -65,7 +67,9 @@ schedules. The UI shows last-run status, errors and result-limit warnings.
 
 The `pubmed_schedule_sensor` polls every 30 seconds and dispatches at most one due
 occurrence per tick. Stable run keys and catalog compare-and-swap protect each
-occurrence from duplicate execution. Completion preserves concurrent toggle edits;
+occurrence from duplicate execution. Deletion removes the current schedule row using a catalog-checked replacement;
+historical dataset snapshots remain available until their normal expiry.
+Completion preserves concurrent toggle edits and never recreates deleted schedules;
 failure/cancellation reconciliation allows the next interval to proceed. No
 existing search becomes scheduled automatically. Phase v2 automation remains
 separate and deferred.

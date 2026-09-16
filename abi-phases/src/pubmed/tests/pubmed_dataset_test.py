@@ -83,3 +83,37 @@ def test_schedule_roundtrip_and_concurrent_execution_have_one_owner(dataset):
     assert scheduler.toggle(row["schedule_id"], {"enabled": False})["enabled"] is False
     store.ensure()
     assert scheduler.list()[0]["enabled"] is False
+
+
+def test_delete_retries_conflicts_preserves_other_schedules_and_removes_last_row(
+    dataset, monkeypatch
+):
+    store = PubmedDatasetStore(dataset)
+    store.ensure()
+    publisher = PubmedService(store, FakeSource(), MemoryStorage())
+    scheduler = PubmedSchedules(publisher)
+    query = publisher.search({"query": "solitude"})["query"]
+    payload = {"query_id": query["query_id"], "name": "Daily", "interval_hours": 24}
+    first, second = scheduler.create(payload), scheduler.create(payload)
+    real_write = dataset.write
+    changed = False
+
+    def concurrent_edit(name, rows, **options):
+        nonlocal changed
+        if name == "schedules" and options.get("mode") == "replace" and not changed:
+            changed = True
+            real_write(
+                "schedules",
+                [{**second, "enabled": False}],
+                namespace="pubmed",
+                mode="upsert",
+            )
+        return real_write(name, rows, **options)
+
+    monkeypatch.setattr(dataset, "write", concurrent_edit)
+    scheduler.delete(first["schedule_id"])
+    remaining = scheduler.list()
+    assert len(remaining) == 1 and remaining[0]["schedule_id"] == second["schedule_id"]
+    assert remaining[0]["enabled"] is False
+    scheduler.delete(second["schedule_id"])
+    assert store.rows("schedules") == []

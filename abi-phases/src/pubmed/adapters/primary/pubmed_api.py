@@ -2,7 +2,7 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Body, HTTPException
+from fastapi import APIRouter, Body, HTTPException, Response
 
 from pubmed.application.pubmed_schedules import PubmedSchedules
 from pubmed.domain.pubmed_errors import AcquisitionError, PublicationNotFound
@@ -37,6 +37,11 @@ def router(service):
     @api.patch("/schedules/{schedule_id}")
     def toggle_schedule(schedule_id: str, body: Annotated[dict, Body()]):
         return call(schedules.toggle, schedule_id, body)
+
+    @api.delete("/schedules/{schedule_id}", status_code=204)
+    def delete_schedule(schedule_id: str):
+        call(schedules.delete, schedule_id)
+        return Response(status_code=204)
 
     @api.get("/queries")
     def queries():

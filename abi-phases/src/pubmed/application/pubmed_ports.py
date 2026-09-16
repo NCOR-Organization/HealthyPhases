@@ -11,6 +11,7 @@ class PublicationStore(Protocol):
     def update_schedule(
         self, schedule_id: str, change: Callable[[dict], dict]
     ) -> dict: ...
+    def delete_schedule(self, schedule_id: str) -> None: ...
 
 
 class LiteratureSource(Protocol):

@@ -143,3 +143,27 @@ class PubmedDatasetStore:
                 if attempt == 4:
                     raise
                 sleep(0.05 * (attempt + 1))
+
+    def delete_schedule(self, schedule_id):
+        for attempt in range(5):
+            snapshot = self.dataset.describe(
+                "schedules", namespace=NAMESPACE
+            ).snapshot_id
+            rows = self.rows("schedules")
+            remaining = [row for row in rows if row["schedule_id"] != schedule_id]
+            if len(remaining) == len(rows):
+                raise PublicationNotFound(schedule_id)
+            try:
+                # The catalog token preserves any concurrent creation or toggle.
+                self.dataset.write(
+                    "schedules",
+                    remaining,
+                    namespace=NAMESPACE,
+                    mode="replace",
+                    snapshot_id=snapshot,
+                )
+                return
+            except DatasetSnapshotConflictError:
+                if attempt == 4:
+                    raise
+                sleep(0.05 * (attempt + 1))

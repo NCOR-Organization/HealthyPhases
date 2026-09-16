@@ -192,3 +192,45 @@ def test_dagster_scheduled_job_refreshes_and_queues_once(monkeypatch, scheduler)
     assert scheduler.list()[0]["status"] == "succeeded"
     assert len(scheduler.publisher.requests()) == 1
     assert scheduler.due() == []
+
+
+def test_delete_removes_schedule_but_preserves_searches_and_papers(scheduler):
+    row = create(scheduler)
+    before = scheduler.publisher.queries()
+    scheduler.delete(row["schedule_id"])
+    assert scheduler.list() == []
+    assert scheduler.publisher.queries() == before
+    assert len(scheduler.store.rows("papers")) == 2
+    assert scheduler.execute(row["schedule_id"], row["next_run_at"], "queued") is None
+    assert (
+        scheduler.fail(row["schedule_id"], "queued", "Late failure", row["next_run_at"])
+        is None
+    )
+    assert scheduler.list() == []
+
+
+def test_deletion_during_execution_is_not_undone_on_completion(scheduler):
+    row = create(scheduler)
+    original = scheduler.publisher.source.search
+
+    def search(parameters):
+        scheduler.delete(row["schedule_id"])
+        return original(parameters)
+
+    scheduler.publisher.source.search = search
+    advance(scheduler, row)
+    assert scheduler.execute(row["schedule_id"], row["next_run_at"], "active") is None
+    assert scheduler.list() == []
+
+
+def test_delete_http_returns_empty_success_and_toggle_cannot_restore_it(service):
+    app = FastAPI()
+    app.include_router(router(service))
+    client = TestClient(app)
+    row = create(PubmedSchedules(service))
+    url = "/pubmed/api/schedules/" + row["schedule_id"]
+    response = client.delete(url)
+    assert response.status_code == 204 and response.content == b""
+    assert client.get("/pubmed/api/schedules").json() == {"schedules": []}
+    assert client.patch(url, json={"enabled": True}).status_code == 404
+    assert client.delete(url).status_code == 404

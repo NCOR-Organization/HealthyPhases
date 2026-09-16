@@ -9,7 +9,7 @@ from uuid import uuid4
 
 from pubmed.application.pubmed_service import PubmedService
 from pubmed.contracts.pubmed_validation import validate
-from pubmed.domain.pubmed_errors import RequestAlreadyClaimed
+from pubmed.domain.pubmed_errors import PublicationNotFound, RequestAlreadyClaimed
 
 
 class PubmedSchedules:
@@ -85,6 +85,9 @@ class PubmedSchedules:
             key=lambda row: row["next_run_at"],
         )
 
+    def delete(self, schedule_id: str) -> None:
+        self.store.delete_schedule(schedule_id)
+
     def execute(
         self, schedule_id: str, scheduled_at: str, run_id: str
     ) -> dict[str, Any] | None:
@@ -113,7 +116,7 @@ class PubmedSchedules:
 
         try:
             row = self.store.update_schedule(schedule_id, claim)
-        except RequestAlreadyClaimed:
+        except (RequestAlreadyClaimed, PublicationNotFound):
             return None
         try:
             result = self.publisher.search(row["search"])
@@ -147,7 +150,10 @@ class PubmedSchedules:
                     )
                 return current
 
-            return self.store.update_schedule(schedule_id, finish)
+            try:
+                return self.store.update_schedule(schedule_id, finish)
+            except PublicationNotFound:
+                return None  # Deleting an active schedule must not recreate it.
         except Exception:
             self.fail(
                 schedule_id, run_id, "Scheduled search failed; inspect the Dagster run"
@@ -156,7 +162,7 @@ class PubmedSchedules:
 
     def fail(
         self, schedule_id: str, run_id: str, error: str, scheduled_at: str = ""
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any] | None:
         def change(row):
             unclaimed = (
                 scheduled_at
@@ -178,4 +184,7 @@ class PubmedSchedules:
                     )
             return row
 
-        return self.store.update_schedule(schedule_id, change)
+        try:
+            return self.store.update_schedule(schedule_id, change)
+        except PublicationNotFound:
+            return None

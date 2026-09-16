@@ -15,7 +15,7 @@ function app() {
       replaceChildren() { this.children = []; this.options = []; this.innerHTML = ''; },
       append(child) { this.children.push(child); this.options.push(child); },
       get lastElementChild() { if (!this.lastChild) this.lastChild = element(); return this.lastChild; },
-      addEventListener() {}, focus() {},
+      addEventListener() {}, focus() {}, showModal() { this.open = true; }, close() { this.open = false; },
       setAttribute(key, value) { this.attributes[key] = value; },
       removeAttribute(key) { delete this.attributes[key]; },
       querySelector() { return element(); },
@@ -98,4 +98,31 @@ test('enabling a schedule persists through the API and refreshes the list', asyn
   await context.toggleSchedule('s',true);
   assert.deepEqual(calls,[['/pubmed/api/schedules/s','PATCH','{"enabled":true}'],['/pubmed/api/schedules','GET',undefined]]);
   assert.match($('schedule-status').textContent,/No scheduled queries/);
+});
+
+
+test('canceling deletion leaves the schedule untouched', async () => {
+  const { context, $ } = app(); let called = false;
+  context.fetch = async () => { called = true; return response({}); };
+  context.openDelete({schedule_id:'s',name:'Daily'});
+  assert.equal($('delete-schedule-dialog').open,true);
+  context.cancelDelete(); await context.deleteSchedule();
+  assert.equal(called,false);
+  assert.equal($('delete-schedule-dialog').open,false);
+});
+
+test('confirmed deletion accepts an empty response and refreshes schedules', async () => {
+  const { context, $ } = app(); const calls = [];
+  context.fetch = async (url, options) => { calls.push([url,options.method]); return options.method === 'DELETE' ? {ok:true,status:204} : response({schedules:[]}); };
+  context.openDelete({schedule_id:'s',name:'Daily'}); await context.deleteSchedule();
+  assert.deepEqual(calls,[['/pubmed/api/schedules/s','DELETE'],['/pubmed/api/schedules','GET']]);
+  assert.equal($('delete-schedule-dialog').open,false);
+  assert.match($('schedule-status').textContent,/Schedule deleted/);
+});
+
+test('failed deletion keeps the confirmation open for retry', async () => {
+  const { context, $ } = app(); context.fetch = async () => response({detail:'Storage unavailable'},false);
+  context.openDelete({schedule_id:'s',name:'Daily'});
+  await assert.rejects(context.deleteSchedule(),/Storage unavailable/);
+  assert.equal($('delete-schedule-dialog').open,true);
 });
