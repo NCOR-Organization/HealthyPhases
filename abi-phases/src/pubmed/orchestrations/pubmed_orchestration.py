@@ -3,6 +3,8 @@
 import dagster as dg
 from naas_abi_core.orchestrations.DagsterOrchestration import DagsterOrchestration
 
+BACKFILL_TAG = "pubmed/backfill_id"
+GENERATION_TAG = "pubmed/backfill_generation"
 TAG = "pubmed/request_id"
 SCHEDULE_TAG = "pubmed/schedule_id"
 SCHEDULED_AT_TAG = "pubmed/scheduled_at"
@@ -137,12 +139,88 @@ def request_sensor(context):
     )
 
 
+def backfills():
+    from pubmed.application.pubmed_backfills import PubmedBackfills
+
+    return PubmedBackfills(service())
+
+
+class BackfillConfig(dg.Config):
+    backfill_id: str
+    generation: int
+
+
+@dg.op
+def advance_backfill(context: dg.OpExecutionContext, config: BackfillConfig):
+    row = backfills().execute(config.backfill_id, config.generation, context.run_id)
+    context.log.info(f"Full ingestion: {row['status'] if row else 'already claimed'}")
+
+
+@dg.job(name="pubmed_backfill")
+def backfill_job():
+    advance_backfill()
+
+
+def build_backfill_run_requests(due):
+    return [
+        dg.RunRequest(
+            run_key=f"{row['backfill_id']}:{row['generation']}",
+            tags={
+                BACKFILL_TAG: row["backfill_id"],
+                GENERATION_TAG: str(row["generation"]),
+            },
+            run_config={
+                "ops": {
+                    "advance_backfill": {
+                        "config": {
+                            "backfill_id": row["backfill_id"],
+                            "generation": row["generation"],
+                        }
+                    }
+                }
+            },
+        )
+        for row in due
+    ]
+
+
+@dg.sensor(
+    name="pubmed_backfill_sensor",
+    job=backfill_job,
+    minimum_interval_seconds=30,
+    default_status=dg.DefaultSensorStatus.RUNNING,
+)
+def backfill_sensor(context):
+    from naas_abi_core.apps.dagster.dagster import engine
+
+    if not engine.services.dataset_available():
+        return dg.SkipReason("DatasetService unavailable")
+    due = backfills().due()[:1]
+    return (
+        build_backfill_run_requests(due)
+        if due
+        else dg.SkipReason("No full ingestion ready to advance")
+    )
+
+
+def fail_backfill_run(run, message):
+    backfill_id = run.tags.get(BACKFILL_TAG)
+    if backfill_id:
+        backfills().fail(
+            backfill_id, int(run.tags[GENERATION_TAG]), run.run_id, message
+        )
+
+
 @dg.run_failure_sensor(
     name="pubmed_failure_sensor",
-    monitored_jobs=[publication_job, scheduled_query_job],
+    monitored_jobs=[publication_job, scheduled_query_job, backfill_job],
     default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def failure_sensor(context):
+    fail_backfill_run(
+        context.dagster_run,
+        "Full ingestion interrupted; inspect the Dagster run and resume",
+    )
     request_id = context.dagster_run.tags.get(TAG)
     if request_id:
         service().fail(
@@ -161,10 +239,14 @@ def failure_sensor(context):
 @dg.run_status_sensor(
     name="pubmed_cancellation_sensor",
     run_status=dg.DagsterRunStatus.CANCELED,
-    monitored_jobs=[publication_job, scheduled_query_job],
+    monitored_jobs=[publication_job, scheduled_query_job, backfill_job],
     default_status=dg.DefaultSensorStatus.RUNNING,
 )
 def cancellation_sensor(context):
+    fail_backfill_run(
+        context.dagster_run,
+        "Full ingestion canceled; resume to continue from its checkpoint",
+    )
     request_id = context.dagster_run.tags.get(TAG)
     if request_id:
         service().fail(
@@ -185,8 +267,9 @@ class PubmedOrchestration(DagsterOrchestration):
     def New(cls):
         return cls(
             definitions=dg.Definitions(
-                jobs=[publication_job, scheduled_query_job],
+                jobs=[publication_job, scheduled_query_job, backfill_job],
                 sensors=[
+                    backfill_sensor,
                     request_sensor,
                     schedule_sensor,
                     failure_sensor,

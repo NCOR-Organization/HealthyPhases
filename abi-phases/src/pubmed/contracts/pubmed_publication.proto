@@ -94,3 +94,58 @@ message RequestRecord {
   string error = 9;
   google.protobuf.Struct outcomes = 10;
 }
+
+message BackfillCreate {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message BackfillRange {
+  int32 lower = 1 [(buf.validate.field).int32.gte = 1];
+  int32 upper = 2 [(buf.validate.field).int32.gte = 1];
+}
+message BackfillRecord {
+  string backfill_id = 1 [(buf.validate.field).string.uuid = true];
+  string source_query_id = 2 [(buf.validate.field).string.uuid = true];
+  string query_id = 3 [(buf.validate.field).string.uuid = true];
+  Search search = 4;
+  string status = 5 [(buf.validate.field).string = {in: ["pending", "running", "waiting", "succeeded", "partial", "failed"]}];
+  int32 generation = 6 [(buf.validate.field).int32.gte = 0];
+  repeated BackfillRange ranges = 7 [(buf.validate.field).repeated.max_items = 100];
+  repeated string active_pmids = 8 [(buf.validate.field).repeated = {max_items: 200, unique: true, items: {string: {pattern: "^[0-9]+$"}}}];
+  string current_request_id = 9;
+  string run_id = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string finished_at = 13;
+  string error = 14;
+  int32 total = 15;
+  bool initialized = 16;
+  int32 discovered = 17;
+  int32 completed = 18;
+  int32 published = 19;
+  int32 unavailable = 20;
+  int32 failed = 21;
+}
+
+// Public progress omits the worker's private discovery frontier and ownership.
+message BackfillProgress {
+  string backfill_id = 1 [(buf.validate.field).string.uuid = true];
+  string source_query_id = 2 [(buf.validate.field).string.uuid = true];
+  string query_id = 3 [(buf.validate.field).string.uuid = true];
+  Search search = 4;
+  string status = 5 [(buf.validate.field).string = {in: ["pending", "running", "waiting", "succeeded", "partial", "failed"]}];
+  int32 generation = 6 [(buf.validate.field).int32.gte = 0];
+  string current_request_id = 7;
+  string created_at = 8;
+  string updated_at = 9;
+  string finished_at = 10;
+  string error = 11;
+  int32 total = 12 [(buf.validate.field).int32.gte = 0];
+  bool initialized = 13;
+  int32 discovered = 14 [(buf.validate.field).int32.gte = 0];
+  int32 completed = 15 [(buf.validate.field).int32.gte = 0];
+  int32 published = 16 [(buf.validate.field).int32.gte = 0];
+  int32 unavailable = 17 [(buf.validate.field).int32.gte = 0];
+  int32 failed = 18 [(buf.validate.field).int32.gte = 0];
+  int32 remaining = 19 [(buf.validate.field).int32.gte = 0];
+  bool discovery_complete = 20;
+}

@@ -112,30 +112,75 @@ class NcbiSource:
             ids = result.get("idlist", [])
             if not ids:
                 break
-            summaries = self._entrez("esummary", id=",".join(ids))["result"]
-            for pmid in ids:
-                item = summaries.get(pmid)
-                if not item or item.get("error"):
-                    raise AcquisitionError(
-                        f"Missing PubMed summary for PMID {pmid}; retry the search"
-                    )
-                identifiers = {
-                    a["idtype"]: a["value"] for a in item.get("articleids", [])
-                }
-                papers.append(
-                    {
-                        "pmid": pmid,
-                        "pmcid": identifiers.get("pmc", ""),
-                        "doi": identifiers.get("doi", ""),
-                        "title": item.get("title", ""),
-                        "journal": item.get("fulljournalname", ""),
-                        "publication_date": item.get("pubdate", ""),
-                        "authors": [a["name"] for a in item.get("authors", [])],
-                    }
-                )
+            papers.extend(self.summaries(ids))
             if start + len(ids) >= total:
                 break
         return total, papers
+
+    def search_ids(
+        self,
+        parameters: dict,
+        lower: int | None = None,
+        upper: int | None = None,
+        limit: int = 200,
+    ) -> tuple[int, list[str]]:
+        """Retrieve a complete small UID partition, or its count for splitting."""
+        options = {"term": parameters["query"], "datetype": "pdat"}
+        if lower is not None:
+            options["term"] = f"({parameters['query']}) AND ({lower}:{upper}[UID])"
+        if parameters.get("start_date") or parameters.get("end_date"):
+            options["mindate"] = (parameters.get("start_date") or "0001-01-01").replace(
+                "-", "/"
+            )
+            options["maxdate"] = (parameters.get("end_date") or "9999-12-31").replace(
+                "-", "/"
+            )
+        result = self._entrez("esearch", **options, retstart=0, retmax=limit)[
+            "esearchresult"
+        ]
+        if result.get("ERROR") or result.get("errorlist"):
+            raise AcquisitionError("PubMed rejected the search expression")
+        count, ids = int(result["count"]), result.get("idlist", [])
+        if (
+            count < 0
+            or len(ids) != len(set(ids))
+            or any(not re.fullmatch(r"[0-9]+", p) for p in ids)
+        ):
+            raise AcquisitionError("PubMed returned invalid identifiers")
+        if count <= limit and len(ids) != count:
+            raise AcquisitionError(
+                "PubMed returned an incomplete partition; resume to retry"
+            )
+        if lower is not None and any(not lower <= int(p) <= upper for p in ids):
+            raise AcquisitionError(
+                "PubMed returned identifiers outside the requested range"
+            )
+        return count, ids
+
+    def summaries(self, ids: list[str]) -> list[dict[str, Any]]:
+        if not ids:
+            return []
+        papers = []
+        summaries = self._entrez("esummary", id=",".join(ids))["result"]
+        for pmid in ids:
+            item = summaries.get(pmid)
+            if not item or item.get("error"):
+                raise AcquisitionError(
+                    f"Missing PubMed summary for PMID {pmid}; retry the search"
+                )
+            identifiers = {a["idtype"]: a["value"] for a in item.get("articleids", [])}
+            papers.append(
+                {
+                    "pmid": pmid,
+                    "pmcid": identifiers.get("pmc", ""),
+                    "doi": identifiers.get("doi", ""),
+                    "title": item.get("title", ""),
+                    "journal": item.get("fulljournalname", ""),
+                    "publication_date": item.get("pubdate", ""),
+                    "authors": [a["name"] for a in item.get("authors", [])],
+                }
+            )
+        return papers
 
     def _versions(self, pmcid):
         response = self._get(

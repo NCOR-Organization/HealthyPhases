@@ -126,8 +126,8 @@ class PubmedSchedules:
                 known = {
                     a["pmid"] for a in self.store.rows("artifacts", status="ready")
                 }
-                for request in self.store.rows("run_requests"):
-                    if request["status"] in ("pending", "running"):
+                for status in ("pending", "running"):
+                    for request in self.store.rows("run_requests", status=status):
                         known.update(request["pmids"])
                 pmids = [
                     p["pmid"]

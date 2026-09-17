@@ -61,6 +61,18 @@ test('failed searches clear the previous selection so it cannot be ingested acci
   await assert.rejects(context.ingest(), /Choose a nonempty query/);
 });
 
+test('preview ingestion submits only the displayed papers of a larger backfill', async () => {
+  const { context, $ } = app(); let sent;
+  $('history').value = 'aggregate-query';
+  context.fetch = async (url, options) => {
+    if (options.method === 'POST') { sent = JSON.parse(options.body); return response({request_id:'request'}); }
+    return response(url.endsWith('/requests') ? {requests:[]} : {papers:[{pmid:'123',title:'Preview'}],total:10050});
+  };
+  await context.chooseQuery();
+  await context.ingest();
+  assert.deepEqual(sent, {query_id:'aggregate-query',pmids:['123']});
+});
+
 test('search history cannot replace newer results with a late response', async () => {
   const { context, $ } = app(); let resolveOld;
   $('history').value = 'old'; context.fetch = () => new Promise((resolve) => { resolveOld = resolve; });
@@ -133,4 +145,49 @@ test('PubMed mutations send Nexus bearer authentication', async () => {
   context.fetch = async (_url, options) => { headers = options.headers; return response({}); };
   await context.api('/schedules', 'POST', {});
   assert.equal(headers.Authorization, 'Bearer test-token');
+});
+
+test('full ingestion confirms the saved query and dates rather than edited inputs', async () => {
+  const { context, $ } = app(); let sent;
+  vm.runInContext("state.queryId = 'saved'; state.queries = [{query_id:'saved',query:'solitude',start_date:'1900-01-01',end_date:'',total:12500,max_results:100}];", context);
+  $('query').value = 'unsaved change';
+  context.openBackfill();
+  assert.equal($('backfill-dialog').open, true);
+  assert.match($('backfill-description').textContent, /solitude.*1900-01-01.*12500/);
+  assert.doesNotMatch($('backfill-description').textContent, /unsaved change/);
+  context.fetch = async (url, options) => {
+    if (options.method === 'POST') { sent = JSON.parse(options.body); return response({backfill_id:'new'}); }
+    return response({backfills:[]});
+  };
+  await context.createBackfill();
+  assert.deepEqual(sent, {query_id:'saved'});
+  assert.equal(context.location.hash, 'backfills');
+  assert.equal($('backfill-dialog').open, false);
+});
+
+test('canceling full ingestion never submits a job', () => {
+  const { context } = app(); let calls = 0;
+  context.fetch = () => { calls++; };
+  context.cancelBackfill();
+  assert.equal(calls, 0);
+});
+
+test('full ingestion page reports separate outcomes and escapes query text', async () => {
+  const { context, $ } = app();
+  context.fetch = async () => response({backfills:[{backfill_id:'one', search:{query:'<img onerror=x>'},status:'failed',total:12500,discovered:200,completed:20,published:15,unavailable:3,failed:2,remaining:180,error:'Interrupted'}]});
+  context.location.hash = '#backfills'; context.showPage(); await new Promise(resolve => setImmediate(resolve));
+  assert.equal($('backfills-page').hidden, false);
+  assert.equal($('search-page').hidden, true);
+  const row = $('backfills').children[0];
+  assert.match(row.innerHTML, /12500 initial matches/);
+  assert.match(row.innerHTML, /15 published/);
+  assert.match(row.innerHTML, /&lt;img/);
+  assert.equal(row.lastElementChild.children[0].textContent, 'Resume');
+});
+
+test('full ingestion refresh does not overlap slow requests', async () => {
+  const { context } = app(); let calls = 0, finish;
+  context.fetch = () => { calls++; return new Promise(resolve => { finish = resolve; }); };
+  const first = context.backfills(); await context.backfills();
+  assert.equal(calls, 1); finish(response({backfills:[]})); await first;
 });
