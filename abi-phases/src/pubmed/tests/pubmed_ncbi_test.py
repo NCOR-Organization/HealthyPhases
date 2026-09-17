@@ -155,3 +155,41 @@ def test_rejects_corrupt_or_oversized_pdf():
         )
         with pytest.raises(AcquisitionError, match=expected):
             source.download("PMC123")
+
+
+def test_backfill_range_keeps_expression_and_dates_without_preview_limit():
+    session = Session(
+        [Response({"esearchresult": {"count": "12000", "idlist": ["101"]}})]
+    )
+    count, ids = NcbiSource(session=session, sleep=lambda _: None).search_ids(
+        {
+            "query": "solitude OR loneliness",
+            "start_date": "1900-01-01",
+            "max_results": 1,
+        },
+        100,
+        50000,
+    )
+    assert count == 12000 and ids == ["101"]
+    params = session.calls[0][1]["params"]
+    assert params["term"] == "(solitude OR loneliness) AND (100:50000[UID])"
+    assert params["retmax"] == 200 and params["retstart"] == 0
+    assert params["mindate"] == "1900/01/01" and params["maxdate"] == "9999/12/31"
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        {"count": "2", "idlist": ["101"]},
+        {"count": "2", "idlist": ["101", "101"]},
+        {"count": "1", "idlist": ["999"]},
+        {"count": "1", "idlist": ["bad"]},
+        {"ERROR": "invalid expression"},
+    ],
+)
+def test_backfill_cannot_treat_incomplete_or_invalid_ranges_as_success(result):
+    source = NcbiSource(
+        session=Session([Response({"esearchresult": result})]), sleep=lambda _: None
+    )
+    with pytest.raises(AcquisitionError):
+        source.search_ids({"query": "solitude"}, 100, 200)

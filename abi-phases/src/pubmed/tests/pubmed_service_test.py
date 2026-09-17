@@ -20,6 +20,7 @@ class MemoryStore:
         "artifacts": ("artifact_id",),
         "run_requests": ("request_id",),
         "schedules": ("schedule_id",),
+        "backfills": ("backfill_id",),
     }
 
     def __init__(self):
@@ -53,6 +54,36 @@ class MemoryStore:
         row = change(rows[0])
         self.save("schedules", [row])
         return row
+
+    def update_backfill(self, backfill_id, change):
+        row = change(self.rows("backfills", backfill_id=backfill_id)[0])
+        self.save("backfills", [row])
+        return deepcopy(row)
+
+    def create_request(self, row):
+        existing = self.rows("run_requests", request_id=row["request_id"])
+        if existing:
+            return existing[0]
+        self.save("run_requests", [row])
+        return deepcopy(row)
+
+    def recent_requests(self, limit=100):
+        return sorted(
+            self.rows("run_requests"), key=lambda r: r["requested_at"], reverse=True
+        )[:limit]
+
+    def members(self, query_id, pmids=None, limit=1001):
+        return [
+            r
+            for r in self.rows("query_papers", query_id=query_id)
+            if pmids is None or r["pmid"] in pmids
+        ][:limit]
+
+    def member_count(self, query_id):
+        return len(self.rows("query_papers", query_id=query_id))
+
+    def rows_for_pmids(self, table, pmids):
+        return [r for r in self.rows(table) if r["pmid"] in pmids]
 
     def delete_schedule(self, schedule_id):
         from pubmed.domain.pubmed_errors import PublicationNotFound

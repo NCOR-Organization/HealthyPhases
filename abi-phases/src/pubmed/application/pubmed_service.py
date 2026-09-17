@@ -77,26 +77,40 @@ class PubmedService:
 
     def papers(self, query_id: str) -> list[dict[str, Any]]:
         self.one("queries", query_id=query_id)
-        pmids = {r["pmid"] for r in self.store.rows("query_papers", query_id=query_id)}
-        artifacts = self.store.rows("artifacts", status="ready")
+        pmids = {r["pmid"] for r in self.store.members(query_id, limit=1000)}
+        artifacts = self.store.rows_for_pmids("artifacts", list(pmids))
         return [
-            dict(p, artifacts=[a for a in artifacts if a["pmid"] == p["pmid"]])
-            for p in self.store.rows("papers")
-            if p["pmid"] in pmids
+            dict(
+                p,
+                artifacts=[
+                    a
+                    for a in artifacts
+                    if a["pmid"] == p["pmid"] and a["status"] == "ready"
+                ],
+            )
+            for p in self.store.rows_for_pmids("papers", list(pmids))
         ]
 
-    def submit(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def submit(
+        self, payload: dict[str, Any], *, request_id: str | None = None
+    ) -> dict[str, Any]:
         command = validate("Submit", payload)
         self.one("queries", query_id=command["query_id"])
         members = {
             r["pmid"]
-            for r in self.store.rows("query_papers", query_id=command["query_id"])
+            for r in self.store.members(
+                command["query_id"], pmids=command["pmids"] or None
+            )
         }
+        if len(members) > 1000:
+            raise ValueError(
+                "Use full ingestion for queries with more than 1000 papers"
+            )
         pmids = command["pmids"] or sorted(members)
         if not pmids or not set(pmids) <= members:
             raise ValueError("Select papers belonging to a nonempty query")
         row = {
-            "request_id": str(uuid4()),
+            "request_id": request_id or str(uuid4()),
             "query_id": command["query_id"],
             "pmids": pmids,
             "status": "pending",
@@ -107,15 +121,13 @@ class PubmedService:
             "error": "",
             "outcomes": {},
         }
+        if request_id is not None:
+            return self.store.create_request(row)
         self.store.save("run_requests", [row])
         return row
 
     def requests(self) -> list[dict[str, Any]]:
-        return sorted(
-            self.store.rows("run_requests"),
-            key=lambda r: r["requested_at"],
-            reverse=True,
-        )[:100]
+        return self.store.recent_requests()
 
     def retry(self, request_id: str) -> dict[str, Any]:
         row = self.one("run_requests", request_id=request_id)

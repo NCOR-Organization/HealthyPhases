@@ -12,8 +12,9 @@ provenance and [LICENSE](LICENSE) for the retained upstream license.
    publication dates, sort order and a result limit (default 100, maximum 1000).
    Either publication date can be used alone; an empty bound leaves that end
    of the date range unrestricted.
-3. Review the results and click **Ingest this query**. The search itself saves
-   metadata only. The ingestion action creates a durable pending request.
+3. Review the results and click **Ingest previewed papers**, or choose
+   **Ingest all matching papers** for a full-query backfill. The search itself
+   saves metadata only. Ingestion creates durable pending work.
 4. Run the existing ABI Dagster daemon and code location. The
    `pubmed_run_request_sensor` picks up pending requests every 30 seconds and
    launches `pubmed_publish`. Requests wait safely while the daemon is stopped.
@@ -87,7 +88,8 @@ Datasets live in namespace `pubmed`:
 | Table | Key | Meaning |
 |---|---|---|
 | `schedules` | `schedule_id` | Opt-in recurring search settings, enabled state, next occurrence and last-run outcome |
-| `queries` | `query_id` | A saved, bounded search, its exact inputs, total result count and retrieval time |
+| `backfills` | `backfill_id` | Full-query discovery checkpoints, current publication batch and progress |
+| `queries` | `query_id` | Saved search inputs, initial result count and creation time; membership is fixed for previews and grows for backfills |
 | `papers` | `pmid` | Citation metadata, PMCID, DOI and authors |
 | `query_papers` | `query_id`, `pmid` | Query membership independent of artifact identity |
 | `artifacts` | `artifact_id` | Ready, immutable stored PDFs with SHA-256, source URL, selected PMC version and license |
@@ -100,7 +102,7 @@ locations use the ObjectStorageService prefix/key convention, not local OS paths
 Artifacts do not contain credentials. A PMID/PMCID is a literature identifier;
 SHA-256 is the actual file identity used for Phase v2 deduplication.
 
-Each saved search is a fresh query ID with fixed membership. The displayed limit
+Each interactive search is a fresh query ID with fixed membership. The displayed limit
 is a limit on matching PubMed records, including records without downloadable
 full text. Missing summaries fail the search rather than publishing a misleading
 partial selection. Queries are unmodified PubMed expressions; filters are optional.
@@ -162,5 +164,58 @@ Agent tests require a live engine/model and are opt-in with
 catalogs. Protobuf descriptor sets are checked in; `make proto` regenerates them
 with protoc and the repository's existing validation descriptors.
 
-Scheduling Phase v2 pipelines, periodic PubMed queries, marketplace publication,
-and deployment are intentionally left for later phases.
+Scheduling Phase v2 pipelines and marketplace publication remain later phases.
+Recurring PubMed queries and full-query backfills are supported independently.
+
+## Full-query ingestion
+
+Search as usual, then choose **Ingest all matching papers**. The confirmation
+shows the saved query and publication date filters. The preview limit is ignored;
+leave both dates empty to cover the query's full publication history. The
+**Full ingestions** page shows discovery and download counts and refreshes every
+10 seconds. This is an asynchronous, one-time operation; existing recurring
+schedules keep their configured search limits.
+
+The `pubmed_backfill_sensor` advances one ready backfill per tick (minimum 30
+seconds) through `pubmed_backfill`. Discovery splits non-overlapping numeric PMID
+ranges until each contains at most 200 records, avoiding PubMed's 10,000-result
+ESearch limit. NCBI describes this strategy in its
+[PubMed E-utilities update](https://ncbiinsights.ncbi.nlm.nih.gov/2022/11/22/updated-pubmed-eutilities-live/).
+Each run examines at most 20 partitions before saving its checkpoint and yielding.
+The initial full-query count is compared against the supported UID range
+(1 through 2,147,483,647); a mismatch fails visibly rather than omitting records.
+
+State lives in the additive `pubmed.backfills` dataset. The worker saves the exact
+PMIDs before retrieving summaries and submitting a download batch. Deterministic
+batch request IDs and conditional insertion prevent a resumed discovery job from
+resetting or duplicating a publication request. Existing `pubmed_publish` jobs
+handle the PDFs, including checksums, existing artifact reuse, and per-paper
+outcomes. Discovery waits for its current publication batch before continuing.
+
+An interrupted discovery job can be **resumed** from the saved ranges and IDs.
+Failures or cancellations before a job claims its checkpoint are also recoverable;
+stale runs cannot overwrite a later generation. Canceling a discovery job does not
+cancel a publication batch that has already been submitted. A download failure
+counts as failed work in the completed backfill; retry individual requests using
+the existing Ingestion requests view. A new full ingestion also reuses published
+PDFs while retrying acquisition for records without a usable artifact.
+
+Counts distinguish discovered records, processed records, published/reused PDFs,
+unavailable full text, and failed downloads. The initial count is an estimate:
+PubMed is a live index, not a point-in-time snapshot. The operation covers every
+partition as observed during traversal; later additions may require another run.
+Missing summaries, truncated partitions, and invalid identifiers stop discovery
+with an error. No operation promises PDFs for records without accessible full text.
+
+Each backfill has one aggregate query whose membership grows as batches are
+queued. Saved bounded searches retain their original membership. The backfill
+query can be used as a published-data source; any Phase v2 request still captures
+its own fixed artifact manifest. The paper preview is capped at 1,000 records,
+and normal manual download requests remain capped at 1,000. Phase v2's existing
+1,000-artifact manual manifest limit and separate execution remain unchanged.
+
+API: `POST /pubmed/api/backfills` with a saved `query_id`,
+`GET /pubmed/api/backfills`, and
+`POST /pubmed/api/backfills/{backfill_id}/resume`. Mutations use the same Nexus
+credentials as searches and other ingestion requests. Creating a backfill does
+not contact NCBI or download files in the HTTP request.

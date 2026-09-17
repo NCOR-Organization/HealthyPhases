@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Depends, HTTPException, Response
 from naas_abi_core.apps.api.abi_api_key_auth import require_abi_api_token
 
+from pubmed.application.pubmed_backfills import PubmedBackfills
 from pubmed.application.pubmed_schedules import PubmedSchedules
 from pubmed.domain.pubmed_errors import AcquisitionError, PublicationNotFound
 
@@ -12,6 +13,7 @@ from pubmed.domain.pubmed_errors import AcquisitionError, PublicationNotFound
 def router(service):
     api = APIRouter(prefix="/pubmed/api", tags=["pubmed"])
     schedules = PubmedSchedules(service)
+    backfills = PubmedBackfills(service)
 
     def call(action, *args):
         try:
@@ -26,6 +28,22 @@ def router(service):
     @api.post("/search", dependencies=[Depends(require_abi_api_token)])
     def search(body: Annotated[dict, Body()]):
         return call(service.search, body)
+
+    @api.post(
+        "/backfills", status_code=201, dependencies=[Depends(require_abi_api_token)]
+    )
+    def create_backfill(body: Annotated[dict, Body()]):
+        return call(backfills.create, body)
+
+    @api.get("/backfills")
+    def list_backfills():
+        return {"backfills": call(backfills.list)}
+
+    @api.post(
+        "/backfills/{backfill_id}/resume", dependencies=[Depends(require_abi_api_token)]
+    )
+    def resume_backfill(backfill_id: str):
+        return call(backfills.resume, backfill_id)
 
     @api.get("/schedules")
     def list_schedules():
@@ -58,7 +76,11 @@ def router(service):
 
     @api.get("/queries/{query_id}/papers")
     def papers(query_id: str):
-        return {"papers": call(service.papers, query_id)}
+        return {
+            "papers": call(service.papers, query_id),
+            "total": service.store.member_count(query_id),
+            "limit": 1000,
+        }
 
     @api.post(
         "/requests", status_code=201, dependencies=[Depends(require_abi_api_token)]

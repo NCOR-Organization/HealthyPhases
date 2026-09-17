@@ -117,3 +117,49 @@ def test_delete_retries_conflicts_preserves_other_schedules_and_removes_last_row
     assert remaining[0]["enabled"] is False
     scheduler.delete(second["schedule_id"])
     assert store.rows("schedules") == []
+
+
+def test_backfill_checkpoint_roundtrip_and_concurrent_claims(dataset):
+    from pubmed.application.pubmed_backfills import PubmedBackfills
+    from pubmed.tests.pubmed_backfills_test import RangeSource
+
+    store = PubmedDatasetStore(dataset)
+    store.ensure()
+    publisher = PubmedService(store, RangeSource(3), MemoryStorage())
+    query = publisher.search({"query": "solitude"})["query"]
+    backfills = PubmedBackfills(publisher)
+    created = backfills.create({"query_id": query["query_id"]})
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        results = list(
+            pool.map(
+                lambda run: backfills.execute(created["backfill_id"], 0, run),
+                ["one", "two"],
+            )
+        )
+    assert sum(row is not None for row in results) == 1
+    row = store.rows("backfills")[0]
+    assert row["status"] == "waiting" and row["discovered"] == 3
+    assert len(store.rows("run_requests")) == 1
+    publisher.execute(row["current_request_id"], "download")
+    row = backfills.execute(row["backfill_id"], row["generation"], "finish")
+    assert row["status"] == "succeeded" and row["published"] == 3
+    assert store.member_count(row["query_id"]) == 3
+    assert len(publisher.papers(row["query_id"])) == 3
+    store.ensure()
+    assert store.rows("backfills")[0]["completed"] == 3
+
+
+def test_conditional_request_insert_never_resets_an_existing_worker(dataset):
+    store = PubmedDatasetStore(dataset)
+    store.ensure()
+    publisher = PubmedService(store, FakeSource(), MemoryStorage())
+    query = publisher.search({"query": "solitude"})["query"]
+    from uuid import uuid4
+
+    request_id = str(uuid4())
+    payload = {"query_id": query["query_id"], "pmids": ["1"]}
+    first = publisher.submit(payload, request_id=request_id)
+    publisher.execute(first["request_id"], "owner")
+    again = publisher.submit(payload, request_id=request_id)
+    assert again["status"] == "succeeded" and again["run_id"] == "owner"
+    assert len(store.rows("run_requests")) == 1
