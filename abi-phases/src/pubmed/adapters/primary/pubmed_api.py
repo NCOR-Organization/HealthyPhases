@@ -84,6 +84,10 @@ def router(service):
         sort: str = "newest",
         page: int = 1,
         page_size: int = 50,
+        enrichment_status: str = "",
+        min_citations: int = 0,
+        topic: str = "",
+        institution: str = "",
     ):
         return call(
             service.browse_papers,
@@ -96,6 +100,10 @@ def router(service):
                 "sort": sort,
                 "page": page,
                 "page_size": page_size,
+                "enrichment_status": enrichment_status,
+                "min_citations": min_citations,
+                "topic": topic,
+                "institution": institution,
             },
         )
 

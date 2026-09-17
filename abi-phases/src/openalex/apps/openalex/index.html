@@ -1,0 +1,61 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>OpenAlex enrichment</title><style>
+:root{color-scheme:light dark;--bg:#f4f6fa;--panel:#fff;--ink:#172536;--muted:#596a7d;--line:#dce3ec;--accent:#175e72}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,sans-serif}main{max-width:1200px;margin:0 auto;padding:36px 24px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}h1{font-size:32px;letter-spacing:-1px;margin:0}h2{font-size:19px;margin:0 0 16px}p{margin:6px 0 16px;color:var(--muted)}.eyebrow{text-transform:uppercase;font-size:11px;letter-spacing:2px;color:var(--accent);font-weight:700}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin:18px 0}.row{display:flex;gap:16px;align-items:end;flex-wrap:wrap}.field{flex:1;min-width:150px}label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}input,select,button{font:inherit;border:1px solid var(--line);border-radius:7px;padding:10px 12px;background:var(--panel);color:var(--ink)}input,select{width:100%}button{cursor:pointer;font-weight:600}button.primary{background:var(--accent);color:white;border-color:var(--accent)}button:disabled{opacity:.5;cursor:wait}.search-row{display:flex;gap:12px;margin-bottom:18px}.search-row input{flex:1;min-width:0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid var(--line)}th{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}.scroll{overflow:auto}.muted,small{color:var(--muted)}small{display:block}a{color:var(--accent)}.pill{display:inline-block;font-size:12px;background:var(--bg);padding:3px 9px;border-radius:20px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}.status{min-height:24px;white-space:pre-wrap}.bad{color:#b42318}.ok{color:var(--accent)}details{max-width:560px}pre{white-space:pre-wrap;word-break:break-word;font-size:12px}footer{font-size:12px;color:var(--muted)}@media(prefers-color-scheme:dark){:root{--bg:#111a24;--panel:#192532;--ink:#e5edf6;--muted:#a7b6c8;--line:#334456;--accent:#6cc4cf}.bad{color:#ffaaa3}button.primary{color:#12202a}}@media(max-width:650px){main{padding:20px 12px}.card{padding:16px}header{align-items:start}.toolbar{align-items:start;flex-direction:column}}
+nav{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px}nav a{padding:9px 16px;border-radius:7px;text-decoration:none;border:1px solid var(--line)}nav a[aria-current="page"]{background:var(--accent);color:var(--panel)}[hidden]{display:none!important}.check{display:flex;gap:8px;align-items:center;margin:16px 0}.check input{width:auto}.schedule-options{margin-top:12px}.schedule-title{font-weight:600}.library-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:16px;margin-bottom:16px}.library-filters>div{min-width:0}.pager{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}.pager input{width:90px}.pager label{margin:0}.library-table td:first-child{min-width:240px;max-width:480px;overflow-wrap:anywhere}.library-table details{min-width:180px;max-width:320px}
+dialog{max-width:480px;border:1px solid var(--line);border-radius:12px;padding:24px;background:var(--panel);color:var(--ink)}dialog::backdrop{background:#0008}.dialog-actions{display:flex;gap:12px;justify-content:end}.danger{color:var(--ink);border-color:#b42318;margin-left:8px}
+</style></head><body><main><header><div><div class="eyebrow">Research workspace</div><h1>OpenAlex enrichment</h1><p>Extend your PubMed library with citation and research metadata.</p></div></header><section class="card"><h2>Enrich a saved query</h2><p>Processes all records saved for the query when you submit, including papers without PDFs. New records can be enriched in another request. Recent matches are reused.</p><form id="form"><label for="query">PubMed dataset</label><select id="query" required><option value="">Choose a saved query</option></select><label class="check"><input id="force" type="checkbox">Refresh recent matches too</label><button id="submit" class="primary">Queue enrichment</button><button id="refresh-queries" type="button">Refresh queries</button></form><p id="message" class="status" role="status"></p><p id="configuration" class="muted"></p></section><section class="card"><div class="toolbar"><h2>Enrichment requests</h2><button id="refresh">Refresh progress</button></div><p id="progress" class="status" role="status"></p><div class="scroll"><table><thead><tr><th>Query</th><th>Status</th><th>Progress</th><th>Actions</th></tr></thead><tbody id="requests"></tbody></table></div></section><footer>Metadata: OpenAlex. View enriched paper details and filter citations, topics and institutions in PubMed Library.</footer></main><script>
+const $ = id => document.getElementById(id);
+function apiBase() {
+  const from = (w) => { try { return w?.__NEXUS_RUNTIME_CONFIG__?.apiUrl || ''; } catch (_) { return ''; } };
+  return (from(window) || from(window.parent) || from(window.top)).replace(/\/$/, '');
+}
+function authHeaders() {
+  try { const token = JSON.parse(localStorage.getItem('nexus-auth') || '{}').state?.token; return token ? {Authorization: `Bearer ${token}`} : {}; } catch (_unavailable) { return {}; }
+}
+async function api(path, method = 'GET', body, module = 'openalex') {
+  const response = await fetch(`${apiBase()}/${module}/api${path}`, { method, credentials: 'include', headers: {...authHeaders(), ...(body === undefined ? {} : {'Content-Type':'application/json'})}, ...(body === undefined ? {} : {body:JSON.stringify(body)}) });
+  if (response.status === 204) return {};
+  const text = await response.text(); let data;
+  try { data = JSON.parse(text); } catch (_) { throw new Error('PubMed API is unavailable. Check the ABI connection.'); }
+  if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'The request failed. Check the inputs and retry.');
+  return data;
+}
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function message(id, text, bad = false) { $(id).textContent = text; $(id).className = `status ${bad ? 'bad' : 'ok'}`; }
+async function action(button, target, work) {
+  button.disabled = true;
+  try { await work(); } catch (error) { message(target, error.message, true); }
+  finally { button.disabled = false; }
+}
+
+let version = 0;
+async function queries() {
+  const selected = $('query').value, data = await api('/queries'); $('query').replaceChildren();
+  const empty = document.createElement('option'); empty.value = ''; empty.textContent = 'Choose a saved query'; $('query').append(empty);
+  for (const q of data.queries) { const option = document.createElement('option'); option.value = q.query_id; option.textContent = `${q.query} | ${new Date(q.created_at).toLocaleString()} | ${q.query_id.slice(0,8)}`; $('query').append(option); }
+  $('query').value = selected;
+  if (!data.queries.length) message('message','No saved PubMed queries. Search or ingest papers in PubMed Library first.');
+}
+async function submit() {
+  if (!$('query').value) throw new Error('Select a saved query first.');
+  const row = await api('/requests','POST',{query_id:$('query').value,force_refresh:$('force').checked});
+  message('message',`Queued ${row.total} saved records for enrichment. The orchestrator will process them in batches.`); await requests();
+}
+async function requests() {
+  const current = ++version, data = await api('/requests'); if (current !== version) return;
+  $('requests').replaceChildren();
+  for (const row of data.requests) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(row.query)}<small>${esc(new Date(row.created_at).toLocaleString())} | ${esc(row.request_id.slice(0,8))}</small></td><td>${esc(row.status)}<small class="bad">${esc(row.error)}</small></td><td>${esc(row.processed)} / ${esc(row.total)} checked<small>${esc(row.enriched)} enriched; ${esc(row.no_match)} unmatched; ${esc(row.ambiguous)} ambiguous; ${esc(row.cached)} cached</small></td><td></td>`;
+    if (row.status === 'failed') { const button = document.createElement('button'); button.textContent = 'Resume'; button.addEventListener('click',() => action(button,'progress',async () => { await api(`/requests/${encodeURIComponent(row.request_id)}/resume`,'POST'); await requests(); })); tr.lastElementChild.append(button); }
+    $('requests').append(tr);
+  }
+  message('progress',data.requests.length ? 'Updates every 10 seconds. Resume preserves progress and renews the HTTP request allowance.' : 'No enrichment requests yet.');
+}
+$('form').addEventListener('submit', e => { e.preventDefault(); action($('submit'),'message',submit); });
+$('refresh').addEventListener('click',() => action($('refresh'),'progress',requests));
+$('refresh-queries').addEventListener('click',() => action($('refresh-queries'),'message',queries));
+queries().catch(e => message('message',e.message,true));
+requests().catch(e => message('progress',e.message,true));
+api('/status').then(s => { $('configuration').textContent = `${s.api_key_configured ? 'API key configured.' : 'Using anonymous API access. Configure OPENALEX_API_KEY for a higher allowance.'} Cache: ${s.cache_days} days. HTTP allowance per request: ${s.request_budget}.`; }).catch(e => message('configuration',e.message,true));
+setInterval(() => { if (!document.hidden) requests().catch(e => message('progress',e.message,true)); },10000);
+</script></body></html>

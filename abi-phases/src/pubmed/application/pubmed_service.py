@@ -100,8 +100,18 @@ class PubmedService:
                 "papers": [
                     {
                         "last_ingested_at": row["last_ingested_at"],
+                        "openalex": {
+                            "status": row.get("oa_status") or "not_enriched",
+                            "work_id": row.get("oa_work_id") or "",
+                            "citation_count": row.get("oa_citation_count") or 0,
+                            "topics": row.get("oa_topics") or [],
+                            "institutions": row.get("oa_institutions") or [],
+                            "enriched_at": row.get("oa_enriched_at") or "",
+                        },
                         "paper": {
-                            k: v for k, v in row.items() if k != "last_ingested_at"
+                            k: v
+                            for k, v in row.items()
+                            if k != "last_ingested_at" and not k.startswith("oa_")
                         },
                         "artifacts": sorted(
                             by_pmid.get(row["pmid"], []),

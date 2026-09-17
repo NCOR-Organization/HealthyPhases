@@ -86,6 +86,33 @@ class PubmedDatasetStore:
 
     def browse_papers(self, filters):
         clauses = []
+        try:
+            self.dataset.describe("paper_enrichments", namespace="openalex")
+            enrichment_join = 'LEFT JOIN "openalex"."paper_enrichments" e ON e.pmid = p.pmid AND e.contract_version = 1 '
+            enrichment_columns = ", e.status AS oa_status, e.work_id AS oa_work_id, e.citation_count AS oa_citation_count, e.topics AS oa_topics, e.institutions AS oa_institutions, e.enriched_at AS oa_enriched_at "
+            status = filters.get("enrichment_status", "")
+            if status == "not_enriched":
+                clauses.append("e.pmid IS NULL")
+            elif status:
+                clauses.append(f"e.status = {literal(status)}")
+            if filters.get("min_citations"):
+                clauses.append(
+                    f"e.citation_count >= {int(filters['min_citations'])} AND e.work_id != ''"
+                )
+            for field, column in (("topic", "topics"), ("institution", "institutions")):
+                if filters.get(field, "").strip():
+                    clauses.append(
+                        f"contains(lower(CAST(e.{column} AS VARCHAR)), {literal(filters[field].strip().lower())})"
+                    )
+        except DatasetNotFoundError:
+            enrichment_join = ""
+            enrichment_columns = ""
+            if filters.get("enrichment_status") not in (
+                None,
+                "",
+                "not_enriched",
+            ) or any(filters.get(k) for k in ("min_citations", "topic", "institution")):
+                clauses.append("FALSE")
         if filters["status"] != "all":
             clauses.append(
                 "a.pmid IS "
@@ -128,10 +155,13 @@ class PubmedDatasetStore:
         offset = (int(filters["page"]) - 1) * limit
         # Count and page share one SQL snapshot, including an empty/out-of-range page.
         rows = self.dataset.query(
-            "WITH filtered AS (SELECT p.*, a.last_ingested_at FROM papers p "
+            "WITH filtered AS (SELECT p.*, a.last_ingested_at "
+            + enrichment_columns
+            + " FROM papers p "
             "LEFT JOIN (SELECT pmid, MAX(NULLIF(published_at, '')) AS last_ingested_at "
             "FROM artifacts WHERE status = 'ready' AND contract_version = 1 GROUP BY pmid) a "
             "ON a.pmid = p.pmid "
+            + enrichment_join
             + ("WHERE " + " AND ".join(clauses) if clauses else "")
             + ") "
             "SELECT counts.total, page.* FROM (SELECT COUNT(*) AS total FROM filtered) counts "

@@ -135,6 +135,9 @@ modules:
   - module: pubmed
     enabled: true
 
+  - module: openalex
+    enabled: true
+
 default_agent: 'abi_phases.phases ELOAgent'
 
 

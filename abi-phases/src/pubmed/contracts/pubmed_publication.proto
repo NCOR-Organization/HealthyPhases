@@ -23,11 +23,24 @@ message BrowsePapers {
   string sort = 6 [(buf.validate.field).string = {in: ["newest", "oldest", "title"]}];
   int32 page = 7 [(buf.validate.field).int32.gte = 1];
   int32 page_size = 8 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  string enrichment_status = 9 [(buf.validate.field).string = {in: ["", "enriched", "no_match", "ambiguous", "failed", "not_enriched"]}];
+  int32 min_citations = 10 [(buf.validate.field).int32.gte = 0];
+  string topic = 11 [(buf.validate.field).string.max_len = 300];
+  string institution = 12 [(buf.validate.field).string.max_len = 300];
+}
+message OpenalexSummary {
+  string status = 1;
+  string work_id = 2;
+  int32 citation_count = 3;
+  repeated string topics = 4;
+  repeated string institutions = 5;
+  string enriched_at = 6;
 }
 message LibraryPaper {
   PaperRecord paper = 1;
   repeated ArtifactRecord artifacts = 2;
   string last_ingested_at = 3;
+  OpenalexSummary openalex = 4;
 }
 message LibraryPage {
   repeated LibraryPaper papers = 1 [(buf.validate.field).repeated.max_items = 100];
