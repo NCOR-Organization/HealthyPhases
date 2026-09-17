@@ -14,13 +14,14 @@ dialog{max-width:480px;border:1px solid var(--line);border-radius:12px;padding:2
 <div class="row"><div class="field"><label for="start">Published from</label><input type="date" id="start"></div><div class="field"><label for="end">Published until</label><input type="date" id="end"></div><div class="field"><label for="sort">Sort results</label><select id="sort"><option value="relevance">Best match</option><option value="pub_date">Publication date</option></select></div><div class="field"><label for="limit">Maximum results</label><input id="limit" type="number" min="1" max="1000" value="100" required></div></div>
 </form><p id="message" class="status" role="status" aria-live="polite"></p></section>
 <section class="card"><div class="toolbar"><h2>Search results</h2><a href="#schedules">Schedule a query</a><button id="ingest" class="primary" disabled>Ingest previewed papers</button><button id="ingest-all" disabled>Ingest all matching papers</button></div>
-<div class="row"><div class="field"><label for="history">Previous searches</label><select id="history"><option value="">Choose a search</option></select></div><button id="refresh-history">Refresh searches</button><button id="browse-query" disabled>Browse downloaded papers</button></div>
+<div class="row"><div class="field"><label for="history">Previous searches</label><select id="history"><option value="">Choose a search</option></select></div><button id="refresh-history">Refresh searches</button><button id="browse-query" disabled>Browse downloaded papers</button><button id="enrich-query" hidden>Enrich with OpenAlex</button></div>
 <p id="summary">Run a search to preview its papers. Ingestion downloads available PDFs and publishes them for Phase v2.</p>
 <div class="scroll"><table><thead><tr><th>Paper</th><th>Published</th><th>Full text</th></tr></thead><tbody id="papers"></tbody></table></div></section>
 <section class="card"><div class="toolbar"><div><h2>Ingestion requests</h2><span class="muted">Submitted requests run when the orchestrator is available.</span></div><button id="refresh-requests">Refresh status</button></div><p id="request-message" class="status" role="status"></p><div class="scroll"><table><thead><tr><th>Request</th><th>Status</th><th>Progress</th><th>Details</th></tr></thead><tbody id="requests"></tbody></table></div></section>
 </div>
+<section id="enrichment-panel" class="card" hidden><div class="toolbar"><div><h2>OpenAlex enrichment</h2><p>Add citations, topics, affiliations, references and open-access locations to saved papers.</p></div><button id="refresh-enrichment">Refresh enrichment</button></div><p id="enrichment-message" class="status" role="status"></p><div class="scroll"><table><thead><tr><th>Query</th><th>Status</th><th>Progress</th><th>Actions</th></tr></thead><tbody id="enrichment-requests"></tbody></table></div></section>
 <section id="library-page" hidden><div class="card">
-<div class="toolbar"><div><h2>Paper library</h2><p>Browse papers across all saved searches and full ingestions.</p></div><button id="refresh-library">Refresh papers</button></div>
+<div class="toolbar"><div><h2>Paper library</h2><p>Browse papers across all saved searches and full ingestions.</p></div><button id="enrich-library" hidden>Enrich selected query</button><button id="refresh-library">Refresh papers</button></div>
 <form id="library-form"><div class="library-filters">
 <div><label for="library-search">Search your library</label><input id="library-search" maxlength="300" placeholder="Title, author, journal, PMID or DOI"></div>
 <div><label for="library-query">Saved query</label><select id="library-query"><option value="">All queries</option></select></div>
@@ -29,6 +30,8 @@ dialog{max-width:480px;border:1px solid var(--line);border-radius:12px;padding:2
 <div><label for="library-until">Ingested until (UTC)</label><input id="library-until" type="date"></div>
 <div><label for="library-sort">Sort by</label><select id="library-sort"><option value="newest">Newest ingestion first</option><option value="oldest">Oldest ingestion first</option><option value="title">Title A-Z</option></select></div>
 <div><label for="library-size">Papers per page</label><select id="library-size"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div>
+<div><label for="library-enrichment">OpenAlex status</label><select id="library-enrichment"><option value="">Any status</option><option value="enriched">Enriched</option><option value="not_enriched">Not enriched</option><option value="no_match">No exact match</option><option value="ambiguous">Ambiguous match</option><option value="failed">Refresh failed</option></select></div>
+<div><label for="library-citations">Minimum citations</label><input id="library-citations" type="number" min="0" max="2147483647" value="0"></div><div><label for="library-topic">OpenAlex topic</label><input id="library-topic" maxlength="300"></div><div><label for="library-institution">Institution</label><input id="library-institution" maxlength="300"></div>
 </div><div class="row"><button id="apply-library" class="primary">Apply filters</button><button id="clear-library" type="button">Clear filters</button></div></form>
 <p class="muted">Each paper appears once, even if it belongs to several queries. Ingestion dates refer to its latest published PDF; reusing the same PDF does not change that date. Date filters include the full UTC day.</p>
 <p id="library-summary" class="status" role="status" aria-live="polite"></p>
@@ -51,7 +54,9 @@ dialog{max-width:480px;border:1px solid var(--line);border-radius:12px;padding:2
 <div class="scroll"><table><thead><tr><th>Query</th><th>Status</th><th>Discovery</th><th>Downloads</th><th>Actions</th></tr></thead><tbody id="backfills"></tbody></table></div>
 <p>Interrupted discovery can be resumed here. Individual failed downloads can be retried under Ingestion requests. Phase v2 runs remain separate.</p></div></section>
 <footer>Literature metadata: NCBI PubMed. Available full text: NLM PubMed Central. Downloaded copies reflect the recorded retrieval time. Phase v2 pipeline runs are started manually.</footer>
-</main><dialog id="backfill-dialog" aria-labelledby="backfill-title"><h2 id="backfill-title">Ingest all matching papers?</h2><p id="backfill-description"></p><p>This searches beyond the preview limit and downloads every available PDF in batches. Published PDFs are reused; some records have no accessible full text.</p><p id="backfill-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-backfill" type="button">Cancel</button><button id="confirm-backfill" class="primary" type="button">Start full ingestion</button></div></dialog><dialog id="delete-schedule-dialog" aria-labelledby="delete-title"><h2 id="delete-title">Delete scheduled query?</h2><p id="delete-description"></p><p>Saved searches and downloaded papers will remain. Work already started may finish.</p><p id="delete-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-delete" type="button">Cancel</button><button id="confirm-delete" class="danger" type="button">Delete schedule</button></div></dialog><script>
+</main><dialog id="enrich-dialog" aria-labelledby="enrich-title"><h2 id="enrich-title">Enrich saved query</h2><p id="enrich-description"></p><p>Enriches every record currently saved for this query, including papers without a PDF. New papers discovered later can be enriched in another request.</p><label class="check"><input type="checkbox" id="enrich-force">Refresh recent matches too</label><p id="enrich-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-enrich">Cancel</button><button id="confirm-enrich" class="primary">Queue enrichment</button></div></dialog>
+<dialog id="paper-detail" aria-labelledby="detail-title" style="width:850px;max-width:90vw"><h2 id="detail-title">OpenAlex paper details</h2><div id="detail-content" role="status"></div><button id="close-detail">Close</button></dialog>
+<dialog id="backfill-dialog" aria-labelledby="backfill-title"><h2 id="backfill-title">Ingest all matching papers?</h2><p id="backfill-description"></p><p>This searches beyond the preview limit and downloads every available PDF in batches. Published PDFs are reused; some records have no accessible full text.</p><p id="backfill-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-backfill" type="button">Cancel</button><button id="confirm-backfill" class="primary" type="button">Start full ingestion</button></div></dialog><dialog id="delete-schedule-dialog" aria-labelledby="delete-title"><h2 id="delete-title">Delete scheduled query?</h2><p id="delete-description"></p><p>Saved searches and downloaded papers will remain. Work already started may finish.</p><p id="delete-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-delete" type="button">Cancel</button><button id="confirm-delete" class="danger" type="button">Delete schedule</button></div></dialog><script>
 const $ = (id) => document.getElementById(id);
 const state = { queryId: '', papers: [], queries: [], selectionVersion: 0, busy: false, schedules: [], deleteId: '', backfillQueryId: '', backfillsLoading: false, libraryPage: 1, libraryPages: 0, libraryVersion: 0, libraryFilters: null };
 function apiBase() {
@@ -61,8 +66,8 @@ function apiBase() {
 function authHeaders() {
   try { const token = JSON.parse(localStorage.getItem('nexus-auth') || '{}').state?.token; return token ? {Authorization: `Bearer ${token}`} : {}; } catch (_unavailable) { return {}; }
 }
-async function api(path, method = 'GET', body) {
-  const response = await fetch(`${apiBase()}/pubmed/api${path}`, { method, credentials: 'include', headers: {...authHeaders(), ...(body === undefined ? {} : {'Content-Type':'application/json'})}, ...(body === undefined ? {} : {body:JSON.stringify(body)}) });
+async function api(path, method = 'GET', body, module = 'pubmed') {
+  const response = await fetch(`${apiBase()}/${module}/api${path}`, { method, credentials: 'include', headers: {...authHeaders(), ...(body === undefined ? {} : {'Content-Type':'application/json'})}, ...(body === undefined ? {} : {body:JSON.stringify(body)}) });
   if (response.status === 204) return {};
   const text = await response.text(); let data;
   try { data = JSON.parse(text); } catch (_) { throw new Error('PubMed API is unavailable. Check the ABI connection.'); }
@@ -115,7 +120,7 @@ async function history() {
   $('library-query').value = libraryQuery;
 }
 function libraryFilters() {
-  return {search:$('library-search').value.trim(),query_id:$('library-query').value,status:$('library-status').value || 'published',ingested_from:$('library-from').value,ingested_until:$('library-until').value,sort:$('library-sort').value || 'newest',page_size:Number($('library-size').value || 50)};
+  return {search:$('library-search').value.trim(),query_id:$('library-query').value,status:$('library-status').value || 'published',ingested_from:$('library-from').value,ingested_until:$('library-until').value,sort:$('library-sort').value || 'newest',page_size:Number($('library-size').value || 50),enrichment_status:$('library-enrichment').value,min_citations:Number($('library-citations').value || 0),topic:$('library-topic').value.trim(),institution:$('library-institution').value.trim()};
 }
 function libraryPaging(loading = false) {
   for (const id of ['library-prev', 'library-prev-top']) $(id).disabled = loading || state.libraryPages === 0 || state.libraryPage <= 1;
@@ -143,6 +148,10 @@ async function library(page = state.libraryPage) {
       const files = artifacts.length ? `<details><summary>${artifacts.length} PDF ${artifacts.length === 1 ? 'version' : 'versions'}</summary>${artifacts.map(a => `<p><small>Object storage location</small><pre>${esc(a.storage_prefix)}/${esc(a.storage_key)}</pre><small>SHA-256</small><pre>${esc(a.content_sha256)}</pre></p>`).join('')}</details>` : '<span class="pill">Not downloaded</span>';
       const tr = document.createElement('tr');
       tr.innerHTML = `<td><a href="https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(p.pmid)}/" target="_blank" rel="noopener noreferrer">${esc(p.title || 'Untitled paper')}</a><small>${esc((p.authors || []).join(', '))}</small><small>${esc(p.journal)} &middot; PMID ${esc(p.pmid)}${p.doi ? ` &middot; DOI ${esc(p.doi)}` : ''}</small></td><td>${esc(p.publication_date || '-')}</td><td>${esc(localDate(row.last_ingested_at))}</td><td>${files}</td>`;
+      if (row.openalex && row.openalex.status !== 'not_enriched') {
+        const detail = document.createElement('button'); detail.textContent = row.openalex.work_id ? `OpenAlex: ${row.openalex.citation_count} citations${row.openalex.status === 'failed' ? ' (refresh failed)' : ''}` : `OpenAlex: ${row.openalex.status}`;
+        detail.addEventListener('click', () => paperDetail(p.pmid)); tr.firstElementChild.append(detail);
+      }
       $('library-papers').append(tr);
     }
   } catch (error) {
@@ -151,13 +160,15 @@ async function library(page = state.libraryPage) {
 }
 async function applyLibrary() { state.libraryFilters = libraryFilters(); await library(1); }
 async function clearLibrary() {
-  for (const id of ['library-search','library-query','library-from','library-until']) $(id).value = '';
-  $('library-status').value = 'published'; $('library-sort').value = 'newest'; $('library-size').value = '50';
+  for (const id of ['library-search','library-query','library-from','library-until','library-enrichment','library-topic','library-institution']) $(id).value = '';
+  $('library-status').value = 'published'; $('library-sort').value = 'newest'; $('library-size').value = '50'; $('library-citations').value = '0';
   await applyLibrary();
 }
 async function openLibrary(queryId) {
   await history();
   for (const id of ['library-search','library-from','library-until']) $(id).value = '';
+  for (const id of ['library-enrichment','library-topic','library-institution']) $(id).value = '';
+  $('library-citations').value = '0';
   $('library-query').value = queryId; $('library-status').value = 'published'; $('library-sort').value = 'newest';
   state.libraryFilters = libraryFilters(); state.libraryPage = 1;
   if (location.hash === '#library') await library(1); else location.hash = 'library';
@@ -304,4 +315,75 @@ $('refresh-history').addEventListener('click', () => action($('refresh-history')
 $('refresh-requests').addEventListener('click', () => action($('refresh-requests'), 'request-message', requests));
 history().catch((error) => message('message', error.message, true));
 requests().catch((error) => message('request-message', error.message, true));
+
+const oaApi = (path, method = 'GET', body) => api(path, method, body, 'openalex');
+let enrichmentQuery = '', detailVersion = 0, enrichmentVersion = 0;
+async function initializeEnrichment() {
+  try {
+    const status = await oaApi('/status');
+    if (!status.available) return;
+    for (const id of ['enrich-query','enrich-library','enrichment-panel']) $(id).hidden = false;
+    await enrichmentRequests();
+  } catch (_) { /* The PubMed library also works without the optional module. */ }
+}
+function openEnrichment(queryId) {
+  const query = state.queries.find(q => q.query_id === queryId);
+  if (!query) throw new Error('Select one saved query to enrich.');
+  enrichmentQuery = queryId;
+  $('enrich-description').textContent = `${query.query} | ${localDate(query.created_at)} | ${query.query_id.slice(0,8)}`;
+  $('enrich-force').checked = false; message('enrich-error', ''); $('enrich-dialog').showModal();
+}
+async function createEnrichment() {
+  if (!enrichmentQuery) return;
+  const row = await oaApi('/requests', 'POST', {query_id:enrichmentQuery,force_refresh:$('enrich-force').checked});
+  $('enrich-dialog').close(); enrichmentQuery = ''; await enrichmentRequests();
+  message('enrichment-message', `Queued enrichment of ${row.total} saved records. The orchestrator will process them in batches.`);
+}
+async function enrichmentRequests() {
+  const version = ++enrichmentVersion, data = await oaApi('/requests');
+  if (version !== enrichmentVersion) return;
+  $('enrichment-requests').replaceChildren();
+  for (const row of data.requests) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${esc(row.query)}<small>${esc(localDate(row.created_at))} | ${esc(row.request_id.slice(0,8))}</small></td><td>${esc(row.status)}<small class="bad">${esc(row.error)}</small></td><td>${esc(row.processed)} / ${esc(row.total)} checked<small>${esc(row.enriched)} enriched; ${esc(row.no_match)} unmatched; ${esc(row.ambiguous)} ambiguous; ${esc(row.cached)} cached</small></td><td></td>`;
+    if (row.status === 'failed') {
+      const resume = document.createElement('button'); resume.textContent = 'Resume';
+      resume.addEventListener('click', () => action(resume, 'enrichment-message', async () => { await oaApi(`/requests/${encodeURIComponent(row.request_id)}/resume`, 'POST'); await enrichmentRequests(); })); tr.lastElementChild.append(resume);
+    }
+    $('enrichment-requests').append(tr);
+  }
+  message('enrichment-message', data.requests.length ? 'Progress refreshes every 10 seconds. Resume preserves completed papers and renews the HTTP request allowance.' : 'Choose a saved query to enrich it. Recent matches are reused by default.');
+}
+function safeLink(url, label) {
+  if (!/^https?:\/\//i.test(url || '')) return esc(label);
+  return `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>`;
+}
+async function paperDetail(pmid) {
+  const version = ++detailVersion;
+  $('detail-title').textContent = `OpenAlex details - PMID ${pmid}`;
+  $('detail-content').textContent = 'Loading enrichment...'; $('paper-detail').showModal();
+  try {
+    const data = await oaApi(`/papers/${encodeURIComponent(pmid)}`);
+    if (version !== detailVersion) return;
+    const e = data.enrichment, w = data.work;
+    let content = `<p>Status: ${esc(e.status)}. Checked ${esc(localDate(e.checked_at))}.</p><p class="bad">${esc(e.error)}</p>`;
+    if (w) {
+      content += `<h3>${esc(w.title)}</h3><p>${safeLink(`https://openalex.org/${encodeURIComponent(w.work_id)}`,w.work_id)} | ${esc(w.citation_count)} citations | ${esc(w.oa_status || 'Access unknown')}</p><p>Matched by ${esc(e.matched_by)}. Metadata retrieved ${esc(localDate(w.fetched_at))}; source updated ${esc(w.source_updated_at || 'unknown')}.</p>`;
+      content += `<h3>Topics</h3><p>${esc((w.topics || []).map(t => t.name).join(', ') || 'None recorded')}</p><h3>Authors and affiliations</h3><ul>${(w.authorships || []).map(a => `<li>${esc(a.name)}: ${esc((a.institutions || []).map(i => `${i.name}${i.country_code ? ` (${i.country_code})` : ''}`).join(', ') || 'No affiliation recorded')}</li>`).join('')}</ul>`;
+      content += `<h3>Locations</h3><p>Links reported by OpenAlex. Availability and licensing depend on the source.</p><ul>${(w.locations || []).map(l => `<li>${esc(l.source_name || 'Source')} ${l.landing_page_url ? safeLink(l.landing_page_url,'Landing page') : ''} ${l.pdf_url ? safeLink(l.pdf_url,'PDF') : ''} ${esc(l.license)}</li>`).join('')}</ul><h3>References (${(w.referenced_work_ids || []).length})</h3><p>${(w.referenced_work_ids || []).map(id => safeLink(`https://openalex.org/${encodeURIComponent(id)}`,id)).join(', ') || 'None recorded'}</p>`;
+    } else if (e.candidate_ids?.length) content += `<p>Conflicting candidates: ${e.candidate_ids.map(id => safeLink(`https://openalex.org/${encodeURIComponent(id)}`,id)).join(', ')}</p>`;
+    $('detail-content').innerHTML = content;
+  } catch (error) { if (version === detailVersion) $('detail-content').textContent = error.message; }
+}
+$('enrich-query').addEventListener('click', () => action($('enrich-query'), 'message', () => openEnrichment(state.queryId)));
+$('enrich-library').addEventListener('click', () => action($('enrich-library'), 'library-summary', () => openEnrichment($('library-query').value)));
+$('cancel-enrich').addEventListener('click', () => $('enrich-dialog').close());
+$('enrich-dialog').addEventListener('close', () => { enrichmentQuery = ''; });
+$('confirm-enrich').addEventListener('click', () => action($('confirm-enrich'), 'enrich-error', createEnrichment));
+$('refresh-enrichment').addEventListener('click', () => action($('refresh-enrichment'), 'enrichment-message', enrichmentRequests));
+$('close-detail').addEventListener('click', () => $('paper-detail').close());
+$('paper-detail').addEventListener('close', () => { detailVersion++; });
+setInterval(() => { if (!$('enrichment-panel').hidden && !document.hidden) enrichmentRequests().catch(error => message('enrichment-message',error.message,true)); }, 10000);
+initializeEnrichment();
+
 </script></body></html>

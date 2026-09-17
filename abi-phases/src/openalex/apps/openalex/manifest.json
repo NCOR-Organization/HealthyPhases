@@ -1,0 +1,14 @@
+{
+  "name": "OpenAlex enrichment",
+  "description": "Enrich saved PubMed records with citations, topics, affiliations, references and open-access locations.",
+  "category": "application",
+  "url": "html:index.html",
+  "icon_emoji": "🔎",
+  "version": "0.1.0",
+  "author": "HealthyPhases",
+  "license": "MIT",
+  "keywords": ["openalex", "pubmed", "papers", "datasets"],
+  "tier": "community",
+  "maintainer": "HealthyPhases",
+  "pricing": {"type": "free", "price": 0}
+}

@@ -251,3 +251,9 @@ API: `POST /pubmed/api/backfills` with a saved `query_id`,
 `POST /pubmed/api/backfills/{backfill_id}/resume`. Mutations use the same Nexus
 credentials as searches and other ingestion requests. Creating a backfill does
 not contact NCBI or download files in the HTTP request.
+
+## Optional OpenAlex enrichment
+
+With the repo-local `openalex` module enabled, select a saved query and choose **Enrich with OpenAlex**. This enriches all currently saved records, including those without PDFs, in a separate dataset. It does not expand a preview into a full PubMed search; use full ingestion first when needed.
+
+The Papers page can filter OpenAlex status, minimum citation count, topic and institution and display source metadata, affiliations, references and open-access locations. Use **All discovered records** to view enriched papers without PDFs. PubMed metadata and downloaded artifacts remain the originals. See [OpenAlex operating guide](../openalex/README.md) for caching, request allowances and resumable Dagster jobs.

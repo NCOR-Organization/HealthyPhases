@@ -14,6 +14,7 @@ function app() {
       children: [], selectedOptions: [], options: [], attributes: {},
       replaceChildren() { this.children = []; this.options = []; this.innerHTML = ''; },
       append(child) { this.children.push(child); this.options.push(child); },
+      get firstElementChild() { if (!this.firstChild) this.firstChild = element(); return this.firstChild; },
       get lastElementChild() { if (!this.lastChild) this.lastChild = element(); return this.lastChild; },
       addEventListener() {}, focus() {}, showModal() { this.open = true; }, close() { this.open = false; },
       setAttribute(key, value) { this.attributes[key] = value; },
@@ -266,4 +267,23 @@ test('opening a query library clears stale filters and retains the exact query I
   assert.equal(context.location.hash, 'library');
   assert.equal($('library-query').value, 'full-query'); assert.equal($('library-search').value, '');
   assert.equal($('library-from').value, ''); assert.equal($('library-status').value, 'published');
+});
+
+test('OpenAlex enrichment uses the entire saved query and explicit refresh choice', async () => {
+  const {context,$}=app(); let sent;
+  context.fetch=async(url,options)=>{if(options.method==='POST'){sent=JSON.parse(options.body);return response({total:5000});}return response(url.endsWith('/queries') ? {queries:[{query_id:'saved',query:'Solitude',created_at:'2026-01-01'}]} : {requests:[]});};
+  await context.history();context.openEnrichment('saved');$('enrich-force').checked=true;await context.createEnrichment();
+  assert.deepEqual(sent,{query_id:'saved',force_refresh:true});assert.match($('enrichment-message').textContent,/5000/);
+});
+test('OpenAlex filter parameters reach server-side pagination', async () => {
+  const {context,$}=app(); $('library-topic').value='Mental health';$('library-institution').value='Paris';$('library-citations').value='50';$('library-enrichment').value='enriched';let url;
+  context.fetch=async(u)=>{url=u;return response({papers:[],total:0,total_pages:0,page:1,page_size:50});};await context.applyLibrary();
+  const params=new URLSearchParams(url.split('?')[1]);assert.equal(params.get('topic'),'Mental health');assert.equal(params.get('min_citations'),'50');assert.equal(params.get('enrichment_status'),'enriched');
+});
+test('OpenAlex detail escapes metadata and rejects executable source links', async () => {
+  const {context,$}=app();context.fetch=async()=>response({enrichment:{status:'enriched'},work:{work_id:'W1',title:'<script>bad</script>',citation_count:3,locations:[{landing_page_url:'javascript:alert(1)',pdf_url:'https://example.org/paper.pdf',source_name:'Library'}]}});
+  await context.paperDetail('1');const detail=$('detail-content').innerHTML;assert.match(detail,/&lt;script/);assert.doesNotMatch(detail,/javascript:/);assert.match(detail,/https:\/\/example.org\/paper.pdf/);
+});
+test('late OpenAlex paper details cannot replace the selected paper', async () => {
+  const {context,$}=app();let resolve;context.fetch=()=>new Promise(r=>{resolve=r;});const older=context.paperDetail('1');context.fetch=async()=>response({enrichment:{status:'no_match',error:'New paper has no match'}});await context.paperDetail('2');resolve(response({enrichment:{status:'no_match',error:'Old result'}}));await older;assert.match($('detail-content').innerHTML,/New paper/);
 });

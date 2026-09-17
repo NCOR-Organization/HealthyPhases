@@ -1,0 +1,114 @@
+syntax = "proto3";
+package openalex.v1;
+import "buf/validate/validate.proto";
+
+message EnrichQuery {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+  bool force_refresh = 2;
+}
+message Topic {
+  string id = 1;
+  string name = 2;
+  double score = 3;
+}
+message Institution {
+  string id = 1;
+  string name = 2;
+  string country_code = 3;
+}
+message Authorship {
+  string author_id = 1;
+  string name = 2;
+  string orcid = 3;
+  repeated Institution institutions = 4;
+}
+message Location {
+  string landing_page_url = 1;
+  string pdf_url = 2;
+  string source_name = 3;
+  string license = 4;
+  bool is_oa = 5;
+}
+message WorkRecord {
+  string work_id = 1 [(buf.validate.field).string.pattern = "^W[0-9]+$"];
+  string doi = 2;
+  string pmid = 3;
+  string title = 4;
+  int32 publication_year = 5;
+  int32 citation_count = 6 [(buf.validate.field).int32.gte = 0];
+  repeated string referenced_work_ids = 7;
+  repeated string related_work_ids = 8;
+  repeated Topic topics = 9;
+  repeated Authorship authorships = 10;
+  repeated Location locations = 11;
+  bool is_oa = 12;
+  string oa_status = 13;
+  string oa_url = 14;
+  string source_updated_at = 15;
+  string fetched_at = 16;
+  int32 contract_version = 17 [(buf.validate.field).int32.const = 1];
+}
+// Public projection: consumers may join by PMID without importing this module.
+message PaperEnrichment {
+  string pmid = 1 [(buf.validate.field).string.pattern = "^[1-9][0-9]*$"];
+  string input_doi = 2;
+  string status = 3 [(buf.validate.field).string = {in: ["enriched", "no_match", "ambiguous", "failed"]}];
+  string work_id = 4;
+  string matched_by = 5;
+  string checked_at = 6;
+  string enriched_at = 7;
+  string error = 8;
+  repeated string candidate_ids = 9;
+  int32 citation_count = 10 [(buf.validate.field).int32.gte = 0];
+  repeated string topics = 11;
+  repeated string institutions = 12;
+  repeated string countries = 13;
+  int32 contract_version = 14 [(buf.validate.field).int32.const = 1];
+}
+message RequestRecord {
+  string request_id = 1 [(buf.validate.field).string.uuid = true];
+  string query_id = 2 [(buf.validate.field).string.uuid = true];
+  string query = 3;
+  int64 source_snapshot = 4 [(buf.validate.field).int64.gte = 0];
+  int32 total = 5 [(buf.validate.field).int32.gte = 0];
+  string cursor_pmid = 6;
+  bool force_refresh = 7;
+  string status = 8 [(buf.validate.field).string = {in: ["pending", "running", "succeeded", "partial", "failed"]}];
+  int32 generation = 9 [(buf.validate.field).int32.gte = 0];
+  string run_id = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  string finished_at = 13;
+  string error = 14;
+  int32 processed = 15 [(buf.validate.field).int32.gte = 0];
+  int32 enriched = 16 [(buf.validate.field).int32.gte = 0];
+  int32 no_match = 17 [(buf.validate.field).int32.gte = 0];
+  int32 ambiguous = 18 [(buf.validate.field).int32.gte = 0];
+  int32 cached = 19 [(buf.validate.field).int32.gte = 0];
+  int32 http_attempts = 20 [(buf.validate.field).int32.gte = 0];
+  int32 budget_used = 21 [(buf.validate.field).int32.gte = 0];
+  int32 request_budget = 22 [(buf.validate.field).int32.gt = 0];
+}
+message ResultRecord {
+  string request_id = 1 [(buf.validate.field).string.uuid = true];
+  string pmid = 2 [(buf.validate.field).string.pattern = "^[1-9][0-9]*$"];
+  string status = 3 [(buf.validate.field).string = {in: ["enriched", "no_match", "ambiguous"]}];
+  bool cached = 4;
+}
+message ServiceStatus {
+  bool available = 1;
+  bool api_key_configured = 2;
+  int32 request_budget = 3;
+  int32 cache_days = 4;
+}
+message RequestList { repeated RequestRecord requests = 1; }
+message PaperDetail {
+  PaperEnrichment enrichment = 1;
+  WorkRecord work = 2;
+}
+message QueryOption {
+  string query_id = 1;
+  string query = 2;
+  string created_at = 3;
+}
+message QueryList { repeated QueryOption queries = 1; }
