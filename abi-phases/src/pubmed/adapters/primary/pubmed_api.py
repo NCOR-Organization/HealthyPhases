@@ -74,6 +74,31 @@ def router(service):
     def queries():
         return {"queries": service.queries()}
 
+    @api.get("/papers")
+    def browse_papers(
+        search: str = "",
+        query_id: str = "",
+        status: str = "published",
+        ingested_from: str = "",
+        ingested_until: str = "",
+        sort: str = "newest",
+        page: int = 1,
+        page_size: int = 50,
+    ):
+        return call(
+            service.browse_papers,
+            {
+                "search": search,
+                "query_id": query_id,
+                "status": status,
+                "ingested_from": ingested_from,
+                "ingested_until": ingested_until,
+                "sort": sort,
+                "page": page,
+                "page_size": page_size,
+            },
+        )
+
     @api.get("/queries/{query_id}/papers")
     def papers(query_id: str):
         return {

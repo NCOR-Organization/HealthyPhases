@@ -69,6 +69,56 @@ class PubmedService:
             self.store.rows("queries"), key=lambda r: r["created_at"], reverse=True
         )
 
+    def browse_papers(self, payload: dict[str, Any]) -> dict[str, Any]:
+        filters = validate(
+            "BrowsePapers",
+            {
+                "status": "published",
+                "sort": "newest",
+                "page": 1,
+                "page_size": 50,
+                **payload,
+            },
+        )
+        start, end = [
+            date.fromisoformat(filters[k]) if filters[k] else None
+            for k in ("ingested_from", "ingested_until")
+        ]
+        if start and end and start > end:
+            raise ValueError("Ingested from must not be after ingested until")
+        if filters["query_id"]:
+            self.one("queries", query_id=filters["query_id"])
+        total, rows = self.store.browse_papers(filters)
+        artifacts = self.store.rows_for_pmids("artifacts", [p["pmid"] for p in rows])
+        by_pmid: dict[str, list[dict]] = {}
+        for artifact in artifacts:
+            if artifact["status"] == "ready" and artifact["contract_version"] == 1:
+                by_pmid.setdefault(artifact["pmid"], []).append(artifact)
+        return validate(
+            "LibraryPage",
+            {
+                "papers": [
+                    {
+                        "last_ingested_at": row["last_ingested_at"],
+                        "paper": {
+                            k: v for k, v in row.items() if k != "last_ingested_at"
+                        },
+                        "artifacts": sorted(
+                            by_pmid.get(row["pmid"], []),
+                            key=lambda a: (a["published_at"], a["artifact_id"]),
+                            reverse=True,
+                        ),
+                    }
+                    for row in rows
+                ],
+                "total": total,
+                "page": filters["page"],
+                "page_size": filters["page_size"],
+                "total_pages": (total + filters["page_size"] - 1)
+                // filters["page_size"],
+            },
+        )
+
     def one(self, table: str, **filters: str) -> dict[str, Any]:
         rows = self.store.rows(table, **filters)
         if not rows:

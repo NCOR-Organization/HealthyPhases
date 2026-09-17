@@ -27,7 +27,7 @@ function app() {
     getElementById(id) { if (!elements.has(id)) elements.set(id, element()); return elements.get(id); },
     querySelectorAll() { return []; }, createElement: element,
   };
-  const context = vm.createContext({ document, location: { hash: '' },
+  const context = vm.createContext({ document, location: { hash: '' }, URLSearchParams,
     window: { addEventListener() {} }, setInterval() {},
     // Catalog initialization stays pending; each test controls its API responses.
     fetch: () => new Promise(() => {}),
@@ -190,4 +190,80 @@ test('full ingestion refresh does not overlap slow requests', async () => {
   context.fetch = () => { calls++; return new Promise(resolve => { finish = resolve; }); };
   const first = context.backfills(); await context.backfills();
   assert.equal(calls, 1); finish(response({backfills:[]})); await first;
+});
+
+const libraryResult = (page = 1, total = 1205, papers = [{paper:{pmid:'1',title:'Paper'},artifacts:[]}]) => ({page,page_size:50,total,total_pages:Math.ceil(total / 50),papers});
+
+test('library navigation defaults to downloaded papers and supports pages beyond 1000', async () => {
+  const { context, $ } = app(); const calls = [];
+  context.fetch = async url => { calls.push(url); return response(libraryResult(Number(new URL('http://local' + url).searchParams.get('page')))); };
+  context.location.hash = '#library'; context.showPage();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal($('library-page').hidden, false); assert.equal($('search-page').hidden, true);
+  assert.equal(new URL('http://local' + calls[0]).searchParams.get('status'), 'published');
+  assert.equal($('library-prev').disabled, true); assert.equal($('library-next').disabled, false);
+  await context.library(25);
+  assert.match($('library-summary').textContent, /1201-1201 of 1205/);
+  assert.equal($('library-page-label').textContent, 'Page 25 of 25');
+  assert.equal($('library-prev').disabled, false); assert.equal($('library-next').disabled, true);
+});
+
+test('library filters reset pagination and page navigation preserves applied filters', async () => {
+  const { context, $ } = app(); const calls = [];
+  context.fetch = async url => { calls.push(new URL('http://local' + url).searchParams); return response(libraryResult()); };
+  $('library-search').value = 'O\'Brien & solitude'; $('library-query').value = 'query-id';
+  $('library-from').value = '2026-01-01'; $('library-until').value = '2026-09-17';
+  $('library-sort').value = 'title'; $('library-size').value = '100';
+  await context.applyLibrary();
+  assert.equal(calls[0].get('page'), '1'); assert.equal(calls[0].get('search'), "O'Brien & solitude");
+  assert.equal(calls[0].get('query_id'), 'query-id'); assert.equal(calls[0].get('page_size'), '100');
+  assert.equal(calls[0].get('ingested_until'), '2026-09-17');
+  $('library-search').value = 'unapplied draft'; await context.library(2);
+  assert.equal(calls[1].get('search'), "O'Brien & solitude");
+  await context.clearLibrary();
+  assert.equal(calls[2].get('page'), '1'); assert.equal(calls[2].get('search'), '');
+  assert.equal(calls[2].get('query_id'), ''); assert.equal(calls[2].get('status'), 'published');
+});
+
+test('late library results cannot overwrite newer filters or errors', async () => {
+  const { context, $ } = app(); let finish;
+  context.fetch = () => new Promise(resolve => { finish = resolve; });
+  const slow = context.library();
+  context.fetch = async () => response(libraryResult(1, 1, [{paper:{pmid:'2',title:'Current selection'},artifacts:[]}]));
+  await context.applyLibrary(); finish(response(libraryResult())); await slow;
+  assert.match($('library-papers').children[0].innerHTML, /Current selection/);
+  context.fetch = async () => { throw new Error('Dataset unavailable'); };
+  await context.library();
+  assert.equal($('library-papers').children.length, 0);
+  assert.match($('library-summary').textContent, /Dataset unavailable/);
+  assert.equal($('library-next').disabled, true);
+});
+
+test('library handles empty results and clamps a page after the result set shrinks', async () => {
+  const { context, $ } = app(); const pages = [];
+  context.fetch = async url => { const page = Number(new URL('http://local' + url).searchParams.get('page')); pages.push(page); return response(libraryResult(page, 1, page === 1 ? [{paper:{pmid:'1'},artifacts:[]}] : [])); };
+  await context.library(25);
+  assert.deepEqual(pages, [25, 1]);
+  context.fetch = async () => response(libraryResult(1, 0, [])); await context.library();
+  assert.match($('library-summary').textContent, /No papers match/);
+  assert.equal($('library-prev').disabled, true); assert.equal($('library-next').disabled, true);
+});
+
+test('library escapes metadata and storage locations without starting jobs', async () => {
+  const { context, $ } = app(); let method;
+  context.fetch = async (_url, options) => { method = options.method; return response(libraryResult(1, 1, [{paper:{pmid:'1',title:'<img onerror=x>',authors:['<script>'],doi:'<svg>'},artifacts:[{storage_prefix:'<b>',storage_key:'<img>',content_sha256:'<script>'}]}])); };
+  await context.library();
+  const markup = $('library-papers').children[0].innerHTML;
+  assert.match(markup, /&lt;img/); assert.match(markup, /&lt;script/); assert.doesNotMatch(markup, /<img|<script|<svg/);
+  assert.equal(method, 'GET');
+});
+
+test('opening a query library clears stale filters and retains the exact query ID', async () => {
+  const { context, $ } = app();
+  context.fetch = async () => response({queries:[{query_id:'full-query',query:'solitude',created_at:'2026-09-17'}]});
+  $('library-search').value = 'old filter'; $('library-from').value = '2026-09-01';
+  await context.openLibrary('full-query');
+  assert.equal(context.location.hash, 'library');
+  assert.equal($('library-query').value, 'full-query'); assert.equal($('library-search').value, '');
+  assert.equal($('library-from').value, ''); assert.equal($('library-status').value, 'published');
 });
