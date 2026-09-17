@@ -1,4 +1,5 @@
 from types import SimpleNamespace
+from uuid import uuid4
 
 import pytest
 
@@ -31,6 +32,67 @@ def test_absent_publisher_is_available_as_an_empty_optional_source(dataset):
     catalog = PubmedCatalog(dataset)
     assert catalog.queries() == {"available": False, "queries": []}
     assert catalog.artifacts("anything") == []
+
+
+def test_query_summaries_count_distinct_papers_and_scope_ingestion_dates(dataset):
+    publisher, request, _engine = setup(dataset)
+    store = publisher.store
+    completed = publisher.one("run_requests", request_id=request["request_id"])
+    store.save(
+        "run_requests", [dict(completed, finished_at="2026-01-01T10:00:00+00:00")]
+    )
+    # Versions and repeated requests must not multiply the number of papers.
+    artifact = store.rows("artifacts")[0]
+    store.save("artifacts", [dict(artifact, artifact_id="another-version")])
+    for status, finished in [
+        ("partial", "2026-01-02T10:00:00+00:00"),
+        ("failed", "2026-01-03T10:00:00+00:00"),
+        ("pending", ""),
+    ]:
+        store.save(
+            "run_requests",
+            [
+                dict(
+                    completed,
+                    request_id=str(uuid4()),
+                    status=status,
+                    finished_at=finished,
+                )
+            ],
+        )
+    shared = publisher.search({"query": "solitude"})["query"]
+    publisher.source.search = lambda parameters: (1, [{"pmid": "3", "pmcid": "PMC3"}])
+    unpublished = publisher.search({"query": "solitude"})["query"]
+    summaries = {q["query_id"]: q for q in PubmedCatalog(dataset).queries()["queries"]}
+    assert summaries[request["query_id"]]["published_paper_count"] == 2
+    assert (
+        summaries[request["query_id"]]["last_ingested_at"]
+        == "2026-01-02T10:00:00+00:00"
+    )
+    assert summaries[shared["query_id"]]["published_paper_count"] == 2
+    assert summaries[shared["query_id"]]["last_ingested_at"] == ""
+    assert summaries[unpublished["query_id"]]["published_paper_count"] == 0
+    assert summaries[unpublished["query_id"]]["last_ingested_at"] == ""
+
+    # A later ingestion that reuses PDFs still has its own completion date.
+    reuse = publisher.submit({"query_id": shared["query_id"]})
+    reused = publisher.execute(reuse["request_id"], "reuse-run")
+    store.save("run_requests", [dict(reused, finished_at="2026-02-01T10:00:00+00:00")])
+    summaries = {q["query_id"]: q for q in PubmedCatalog(dataset).queries()["queries"]}
+    assert (
+        summaries[shared["query_id"]]["last_ingested_at"] == "2026-02-01T10:00:00+00:00"
+    )
+    assert len(publisher.source.calls) == 2
+
+
+def test_query_summary_contract_rejects_negative_paper_counts():
+    from phases_v2.app.contracts.app_validation import validate_command
+
+    with pytest.raises(ValueError):
+        validate_command(
+            "PubmedQuerySummary",
+            {"query_id": str(uuid4()), "published_paper_count": -1},
+        )
 
 
 def test_manual_manifest_does_not_expand_with_later_publication(dataset):

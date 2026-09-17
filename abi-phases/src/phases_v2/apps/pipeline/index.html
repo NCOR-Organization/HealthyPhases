@@ -341,8 +341,14 @@
   async function loadPubmed() {
     try {
       const data = await get('/sources/pubmed');
-      fill($('pubmed-query'), [{query_id: '', query: 'Choose a query'}, ...data.queries], 'query_id', (q) => q.query);
-      message('pubmed-message', data.available ? 'Choose a query and preview its published papers.' : 'No PubMed dataset is published in this deployment.');
+      const selection = $('pubmed-query').value;
+      fill($('pubmed-query'), [{query_id: '', query: 'Choose a query'}, ...data.queries], 'query_id', (q) => {
+        if (!q.query_id) return q.query;
+        const count = q.published_paper_count ?? 0;
+        const ingestion = q.last_ingested_at ? `Last ingestion: ${date(q.last_ingested_at)}` : 'No completed ingestion';
+        return `${q.query} | ${count} published ${count === 1 ? 'paper' : 'papers'} | ${ingestion}`;
+      }, [selection]);
+      message('pubmed-message', data.available ? 'Counts show distinct papers with published PDFs. Dates show the last completed ingestion in your local timezone.' : 'No PubMed dataset is published in this deployment.');
     } catch (error) { message('pubmed-message', error.message, 'bad'); }
   }
   function sourceChanged() {

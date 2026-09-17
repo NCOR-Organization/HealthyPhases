@@ -145,3 +145,23 @@ test('PubMed preview shows only published artifacts and escapes paper titles', a
   assert.match($('documents').children[0].innerHTML, /&lt;img/);
   assert.match($('documents-summary').textContent, /1 published artifact/);
 });
+
+test('PubMed query options show paper counts and local ingestion dates while retaining selection', async () => {
+  const { context, $ } = app();
+  const timestamp = '2026-09-17T10:30:00+00:00';
+  $('pubmed-query').value = 'full-query';
+  context.fetch = async () => response({available:true, queries:[
+    {query_id:'preview-query',query:'solitude',published_paper_count:1,last_ingested_at:''},
+    {query_id:'full-query',query:'solitude',published_paper_count:350,last_ingested_at:timestamp},
+    {query_id:'empty-query',query:'<img onerror=x>',published_paper_count:0,last_ingested_at:''},
+  ]});
+  await context.loadPubmed();
+  const options = $('pubmed-query').options;
+  assert.equal(options[0].textContent, 'Choose a query');
+  assert.equal(options[1].textContent, 'solitude | 1 published paper | No completed ingestion');
+  assert.equal(options[2].textContent, `solitude | 350 published papers | Last ingestion: ${new Date(timestamp).toLocaleString()}`);
+  assert.equal(options[2].selected, true);
+  assert.equal(options[1].selected, false);
+  assert.equal(options[3].textContent, '<img onerror=x> | 0 published papers | No completed ingestion');
+  assert.equal(options[3].innerHTML, '');
+});

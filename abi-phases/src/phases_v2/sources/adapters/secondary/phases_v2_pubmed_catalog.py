@@ -1,7 +1,9 @@
 """Read the public PubMed v1 datasets without importing the publisher."""
 
+from google.protobuf.json_format import MessageToDict
 from naas_abi_core.services.dataset.DatasetPort import DatasetNotFoundError
 
+from phases_v2.app.contracts.app_validation import validate_command
 from phases_v2.sql import literal
 
 
@@ -13,13 +15,29 @@ class PubmedCatalog:
         try:
             self.dataset.describe("queries", namespace="pubmed")
             rows = self.dataset.query(
-                "SELECT query_id, query, created_at, total FROM queries "
-                "WHERE contract_version = 1 ORDER BY created_at DESC",
+                "SELECT q.query_id, q.query, q.created_at, q.total, "
+                "COALESCE(p.published_paper_count, 0) AS published_paper_count, "
+                "COALESCE(r.last_ingested_at, '') AS last_ingested_at "
+                "FROM queries q LEFT JOIN ("
+                "SELECT m.query_id, COUNT(DISTINCT a.pmid) AS published_paper_count "
+                "FROM query_papers m JOIN artifacts a ON a.pmid = m.pmid "
+                "JOIN papers p ON p.pmid = a.pmid "
+                "WHERE a.status = 'ready' AND a.contract_version = 1 "
+                "GROUP BY m.query_id) p ON p.query_id = q.query_id "
+                "LEFT JOIN (SELECT query_id, MAX(NULLIF(finished_at, '')) "
+                "AS last_ingested_at FROM run_requests "
+                "WHERE status IN ('succeeded', 'partial') GROUP BY query_id) r "
+                "ON r.query_id = q.query_id "
+                "WHERE q.contract_version = 1 ORDER BY q.created_at DESC, q.query_id",
                 namespace="pubmed",
             ).rows
         except DatasetNotFoundError:
             return {"available": False, "queries": []}
-        return {"available": True, "queries": rows}
+        return MessageToDict(
+            validate_command("PubmedQueryList", {"available": True, "queries": rows}),
+            preserving_proto_field_name=True,
+            always_print_fields_with_no_presence=True,
+        )
 
     def artifacts(self, query_id):
         try:

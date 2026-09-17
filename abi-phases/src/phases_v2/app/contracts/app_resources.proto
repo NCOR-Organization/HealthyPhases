@@ -17,6 +17,19 @@ message SubmitPubmedRun {
   repeated string prompt_ids = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 100, unique: true, items: {string: {min_len: 1}}}];
   string model_id = 4 [(buf.validate.field).string.min_len = 1];
 }
+message PubmedQuerySummary {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+  string query = 2;
+  string created_at = 3;
+  int32 total = 4 [(buf.validate.field).int32.gte = 0];
+  int32 published_paper_count = 5 [(buf.validate.field).int32.gte = 0];
+  // Latest successful or partially successful publication request completion.
+  string last_ingested_at = 6;
+}
+message PubmedQueryList {
+  bool available = 1;
+  repeated PubmedQuerySummary queries = 2;
+}
 message SourceArtifact {
   string artifact_id = 1 [(buf.validate.field).string.min_len = 1];
   string storage_prefix = 2 [(buf.validate.field).string.min_len = 1];
