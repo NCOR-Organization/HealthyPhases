@@ -477,6 +477,12 @@ Run backend and browser-logic regressions with `make test` (or run
 The pipeline app offers **Object storage** and **PubMed dataset** sources.
 Choose a saved PubMed query to preview its successfully published PDF artifacts,
 then select chunker, prompt versions and model and click **Request run**.
+Each query option includes its distinct published-paper count and last completed
+ingestion date in the browser's local timezone. Multiple PDF versions count as one
+paper. The date is the latest successful or partially successful PubMed publication
+request for that query, including runs that reused PDFs. Pending or failed requests
+do not advance it; queries without such a completed request show "No completed
+ingestion". Refreshing queries preserves the selected query.
 The source is the public contract version 1 in the `pubmed` dataset namespace;
 Phase v2 has no Python dependency on the publisher implementation.
 
