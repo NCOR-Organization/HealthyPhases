@@ -84,6 +84,72 @@ class PubmedDatasetStore:
             namespace=NAMESPACE,
         ).rows
 
+    def browse_papers(self, filters):
+        clauses = []
+        if filters["status"] != "all":
+            clauses.append(
+                "a.pmid IS "
+                + ("NOT NULL" if filters["status"] == "published" else "NULL")
+            )
+        if filters["query_id"]:
+            clauses.append(
+                "EXISTS (SELECT 1 FROM query_papers m WHERE m.pmid = p.pmid "
+                f"AND m.query_id = {literal(filters['query_id'])})"
+            )
+        if filters["search"].strip():
+            # Literal substring search: percent/underscore are not SQL wildcards.
+            needle = literal(filters["search"].strip().lower())
+            clauses.append(
+                "("
+                + " OR ".join(
+                    f"contains(lower(COALESCE(CAST(p.{column} AS VARCHAR), '')), {needle})"
+                    for column in (
+                        "title",
+                        "authors",
+                        "journal",
+                        "pmid",
+                        "pmcid",
+                        "doi",
+                    )
+                )
+                + ")"
+            )
+        for key, operator in (("ingested_from", ">="), ("ingested_until", "<=")):
+            if filters[key]:
+                clauses.append(
+                    f"SUBSTR(a.last_ingested_at, 1, 10) {operator} {literal(filters[key])}"
+                )
+        order = {
+            "newest": "last_ingested_at DESC NULLS LAST, pmid",
+            "oldest": "last_ingested_at ASC NULLS LAST, pmid",
+            "title": "lower(title), pmid",
+        }[filters["sort"]]
+        limit = int(filters["page_size"])
+        offset = (int(filters["page"]) - 1) * limit
+        # Count and page share one SQL snapshot, including an empty/out-of-range page.
+        rows = self.dataset.query(
+            "WITH filtered AS (SELECT p.*, a.last_ingested_at FROM papers p "
+            "LEFT JOIN (SELECT pmid, MAX(NULLIF(published_at, '')) AS last_ingested_at "
+            "FROM artifacts WHERE status = 'ready' AND contract_version = 1 GROUP BY pmid) a "
+            "ON a.pmid = p.pmid "
+            + ("WHERE " + " AND ".join(clauses) if clauses else "")
+            + ") "
+            "SELECT counts.total, page.* FROM (SELECT COUNT(*) AS total FROM filtered) counts "
+            f"LEFT JOIN (SELECT * FROM filtered ORDER BY {order} LIMIT {limit} OFFSET {offset}) page "
+            f"ON TRUE ORDER BY {order}",
+            namespace=NAMESPACE,
+        ).rows
+        total = rows[0]["total"]
+        return total, [
+            {
+                k: (v or "") if k == "last_ingested_at" else v
+                for k, v in row.items()
+                if k != "total"
+            }
+            for row in rows
+            if row["pmid"] is not None
+        ]
+
     def members(self, query_id, pmids=None, limit=1001):
         clause = f"query_id = {literal(query_id)}"
         if pmids is not None:

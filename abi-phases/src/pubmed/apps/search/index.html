@@ -3,22 +3,39 @@
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PubMed Library</title>
 <style>
 :root{color-scheme:light dark;--bg:#f4f6fa;--panel:#fff;--ink:#172536;--muted:#596a7d;--line:#dce3ec;--accent:#175e72}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 system-ui,sans-serif}main{max-width:1200px;margin:0 auto;padding:36px 24px}header{display:flex;justify-content:space-between;align-items:center;gap:20px;margin-bottom:28px}h1{font-size:32px;letter-spacing:-1px;margin:0}h2{font-size:19px;margin:0 0 16px}p{margin:6px 0 16px;color:var(--muted)}.eyebrow{text-transform:uppercase;font-size:11px;letter-spacing:2px;color:var(--accent);font-weight:700}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;margin:18px 0}.row{display:flex;gap:16px;align-items:end;flex-wrap:wrap}.field{flex:1;min-width:150px}label{display:block;font-size:13px;font-weight:600;margin-bottom:6px}input,select,button{font:inherit;border:1px solid var(--line);border-radius:7px;padding:10px 12px;background:var(--panel);color:var(--ink)}input,select{width:100%}button{cursor:pointer;font-weight:600}button.primary{background:var(--accent);color:white;border-color:var(--accent)}button:disabled{opacity:.5;cursor:wait}.search-row{display:flex;gap:12px;margin-bottom:18px}.search-row input{flex:1;min-width:0}table{border-collapse:collapse;width:100%;font-size:14px}th,td{text-align:left;vertical-align:top;padding:12px;border-bottom:1px solid var(--line)}th{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:var(--muted)}.scroll{overflow:auto}.muted,small{color:var(--muted)}small{display:block}a{color:var(--accent)}.pill{display:inline-block;font-size:12px;background:var(--bg);padding:3px 9px;border-radius:20px}.toolbar{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:16px}.status{min-height:24px;white-space:pre-wrap}.bad{color:#b42318}.ok{color:var(--accent)}details{max-width:560px}pre{white-space:pre-wrap;word-break:break-word;font-size:12px}footer{font-size:12px;color:var(--muted)}@media(prefers-color-scheme:dark){:root{--bg:#111a24;--panel:#192532;--ink:#e5edf6;--muted:#a7b6c8;--line:#334456;--accent:#6cc4cf}.bad{color:#ffaaa3}button.primary{color:#12202a}}@media(max-width:650px){main{padding:20px 12px}.card{padding:16px}header{align-items:start}.toolbar{align-items:start;flex-direction:column}}
-nav{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px}nav a{padding:9px 16px;border-radius:7px;text-decoration:none;border:1px solid var(--line)}nav a[aria-current="page"]{background:var(--accent);color:var(--panel)}[hidden]{display:none!important}.check{display:flex;gap:8px;align-items:center;margin:16px 0}.check input{width:auto}.schedule-options{margin-top:12px}.schedule-title{font-weight:600}
+nav{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:24px}nav a{padding:9px 16px;border-radius:7px;text-decoration:none;border:1px solid var(--line)}nav a[aria-current="page"]{background:var(--accent);color:var(--panel)}[hidden]{display:none!important}.check{display:flex;gap:8px;align-items:center;margin:16px 0}.check input{width:auto}.schedule-options{margin-top:12px}.schedule-title{font-weight:600}.library-filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:16px;margin-bottom:16px}.library-filters>div{min-width:0}.pager{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:18px}.pager input{width:90px}.pager label{margin:0}.library-table td:first-child{min-width:240px;max-width:480px;overflow-wrap:anywhere}.library-table details{min-width:180px;max-width:320px}
 dialog{max-width:480px;border:1px solid var(--line);border-radius:12px;padding:24px;background:var(--panel);color:var(--ink)}dialog::backdrop{background:#0008}.dialog-actions{display:flex;gap:12px;justify-content:end}.danger{color:var(--ink);border-color:#b42318;margin-left:8px}
 </style></head>
 <body><main>
 <header><div><div class="eyebrow">Research workspace</div><h1>PubMed Library</h1><p>Find papers. Build a reusable research library.</p></div><span class="pill">PubMed + PMC</span></header>
-<nav aria-label="PubMed pages"><a id="nav-search" href="#search" aria-current="page">Search papers</a><a id="nav-schedules" href="#schedules">Scheduled queries</a><a id="nav-backfills" href="#backfills">Full ingestions</a></nav>
+<nav aria-label="PubMed pages"><a id="nav-search" href="#search" aria-current="page">Search papers</a><a id="nav-library" href="#library">Papers</a><a id="nav-schedules" href="#schedules">Scheduled queries</a><a id="nav-backfills" href="#backfills">Full ingestions</a></nav>
 <div id="search-page"><section class="card"><h2>Search the literature</h2><form id="search-form">
 <label for="query">PubMed query</label><div class="search-row"><input id="query" required maxlength="2000" placeholder='e.g. solitude AND mental health' autocomplete="off"><button class="primary" id="search">Search</button></div>
 <div class="row"><div class="field"><label for="start">Published from</label><input type="date" id="start"></div><div class="field"><label for="end">Published until</label><input type="date" id="end"></div><div class="field"><label for="sort">Sort results</label><select id="sort"><option value="relevance">Best match</option><option value="pub_date">Publication date</option></select></div><div class="field"><label for="limit">Maximum results</label><input id="limit" type="number" min="1" max="1000" value="100" required></div></div>
 </form><p id="message" class="status" role="status" aria-live="polite"></p></section>
 <section class="card"><div class="toolbar"><h2>Search results</h2><a href="#schedules">Schedule a query</a><button id="ingest" class="primary" disabled>Ingest previewed papers</button><button id="ingest-all" disabled>Ingest all matching papers</button></div>
-<div class="row"><div class="field"><label for="history">Previous searches</label><select id="history"><option value="">Choose a search</option></select></div><button id="refresh-history">Refresh searches</button></div>
+<div class="row"><div class="field"><label for="history">Previous searches</label><select id="history"><option value="">Choose a search</option></select></div><button id="refresh-history">Refresh searches</button><button id="browse-query" disabled>Browse downloaded papers</button></div>
 <p id="summary">Run a search to preview its papers. Ingestion downloads available PDFs and publishes them for Phase v2.</p>
 <div class="scroll"><table><thead><tr><th>Paper</th><th>Published</th><th>Full text</th></tr></thead><tbody id="papers"></tbody></table></div></section>
 <section class="card"><div class="toolbar"><div><h2>Ingestion requests</h2><span class="muted">Submitted requests run when the orchestrator is available.</span></div><button id="refresh-requests">Refresh status</button></div><p id="request-message" class="status" role="status"></p><div class="scroll"><table><thead><tr><th>Request</th><th>Status</th><th>Progress</th><th>Details</th></tr></thead><tbody id="requests"></tbody></table></div></section>
 </div>
+<section id="library-page" hidden><div class="card">
+<div class="toolbar"><div><h2>Paper library</h2><p>Browse papers across all saved searches and full ingestions.</p></div><button id="refresh-library">Refresh papers</button></div>
+<form id="library-form"><div class="library-filters">
+<div><label for="library-search">Search your library</label><input id="library-search" maxlength="300" placeholder="Title, author, journal, PMID or DOI"></div>
+<div><label for="library-query">Saved query</label><select id="library-query"><option value="">All queries</option></select></div>
+<div><label for="library-status">Papers to show</label><select id="library-status"><option value="published">Downloaded papers</option><option value="all">All discovered records</option><option value="unpublished">Not downloaded</option></select></div>
+<div><label for="library-from">Ingested from (UTC)</label><input id="library-from" type="date"></div>
+<div><label for="library-until">Ingested until (UTC)</label><input id="library-until" type="date"></div>
+<div><label for="library-sort">Sort by</label><select id="library-sort"><option value="newest">Newest ingestion first</option><option value="oldest">Oldest ingestion first</option><option value="title">Title A-Z</option></select></div>
+<div><label for="library-size">Papers per page</label><select id="library-size"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select></div>
+</div><div class="row"><button id="apply-library" class="primary">Apply filters</button><button id="clear-library" type="button">Clear filters</button></div></form>
+<p class="muted">Each paper appears once, even if it belongs to several queries. Ingestion dates refer to its latest published PDF; reusing the same PDF does not change that date. Date filters include the full UTC day.</p>
+<p id="library-summary" class="status" role="status" aria-live="polite"></p>
+<div class="pager" aria-label="Top paper pagination"><button id="library-prev-top" type="button" disabled>Previous</button><span id="library-page-label-top">Page 1</span><button id="library-next-top" type="button" disabled>Next</button></div>
+<div class="scroll"><table class="library-table"><thead><tr><th>Paper</th><th>Published</th><th>Last ingested</th><th>Files</th></tr></thead><tbody id="library-papers"></tbody></table></div>
+<form id="library-pagination" class="pager" aria-label="Paper pagination"><button id="library-prev" type="button" disabled>Previous</button><span id="library-page-label">Page 1</span><button id="library-next" type="button" disabled>Next</button><label for="library-page-number">Go to page</label><input id="library-page-number" type="number" min="1" value="1" required><button id="library-go" disabled>Go</button></form>
+</div></section>
 <section id="schedules-page" hidden>
 <div class="card"><div class="toolbar"><div><h2>Scheduled queries</h2><p>Repeat saved searches and optionally download new papers into your PubMed library.</p></div><button id="refresh-schedules">Refresh schedules</button></div>
 <p>Times are shown in your local timezone. Disabling stops future runs; work already started can finish. Re-enabling starts a fresh interval.</p>
@@ -36,7 +53,7 @@ dialog{max-width:480px;border:1px solid var(--line);border-radius:12px;padding:2
 <footer>Literature metadata: NCBI PubMed. Available full text: NLM PubMed Central. Downloaded copies reflect the recorded retrieval time. Phase v2 pipeline runs are started manually.</footer>
 </main><dialog id="backfill-dialog" aria-labelledby="backfill-title"><h2 id="backfill-title">Ingest all matching papers?</h2><p id="backfill-description"></p><p>This searches beyond the preview limit and downloads every available PDF in batches. Published PDFs are reused; some records have no accessible full text.</p><p id="backfill-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-backfill" type="button">Cancel</button><button id="confirm-backfill" class="primary" type="button">Start full ingestion</button></div></dialog><dialog id="delete-schedule-dialog" aria-labelledby="delete-title"><h2 id="delete-title">Delete scheduled query?</h2><p id="delete-description"></p><p>Saved searches and downloaded papers will remain. Work already started may finish.</p><p id="delete-error" class="status bad" role="alert"></p><div class="dialog-actions"><button id="cancel-delete" type="button">Cancel</button><button id="confirm-delete" class="danger" type="button">Delete schedule</button></div></dialog><script>
 const $ = (id) => document.getElementById(id);
-const state = { queryId: '', papers: [], queries: [], selectionVersion: 0, busy: false, schedules: [], deleteId: '', backfillQueryId: '', backfillsLoading: false };
+const state = { queryId: '', papers: [], queries: [], selectionVersion: 0, busy: false, schedules: [], deleteId: '', backfillQueryId: '', backfillsLoading: false, libraryPage: 1, libraryPages: 0, libraryVersion: 0, libraryFilters: null };
 function apiBase() {
   const from = (w) => { try { return w?.__NEXUS_RUNTIME_CONFIG__?.apiUrl || ''; } catch (_) { return ''; } };
   return (from(window) || from(window.parent) || from(window.top)).replace(/\/$/, '');
@@ -68,6 +85,7 @@ function renderPapers(papers) {
   }
   $('ingest').disabled = !papers.length;
   $('ingest-all').disabled = !state.queryId;
+  $('browse-query').disabled = !state.queryId;
 }
 async function search() {
   const version = ++state.selectionVersion;
@@ -90,6 +108,59 @@ async function history() {
   const placeholder = document.createElement('option'); placeholder.value = ''; placeholder.textContent = 'Choose a search'; $('schedule-query').append(placeholder);
   for (const q of state.queries) { const option = document.createElement('option'); option.value = q.query_id; option.textContent = `${q.query} (${q.start_date || 'any start'} to ${q.end_date || 'any end'}) - ${new Date(q.created_at).toLocaleString()}`; $('schedule-query').append(option); }
   $('schedule-query').value = selected;
+  const libraryQuery = $('library-query').value;
+  $('library-query').replaceChildren();
+  const allQueries = document.createElement('option'); allQueries.value = ''; allQueries.textContent = 'All queries'; $('library-query').append(allQueries);
+  for (const q of state.queries) { const option = document.createElement('option'); option.value = q.query_id; option.textContent = `${q.query} | ${localDate(q.created_at)} | ${q.query_id.slice(0,8)}`; $('library-query').append(option); }
+  $('library-query').value = libraryQuery;
+}
+function libraryFilters() {
+  return {search:$('library-search').value.trim(),query_id:$('library-query').value,status:$('library-status').value || 'published',ingested_from:$('library-from').value,ingested_until:$('library-until').value,sort:$('library-sort').value || 'newest',page_size:Number($('library-size').value || 50)};
+}
+function libraryPaging(loading = false) {
+  for (const id of ['library-prev', 'library-prev-top']) $(id).disabled = loading || state.libraryPages === 0 || state.libraryPage <= 1;
+  for (const id of ['library-next', 'library-next-top']) $(id).disabled = loading || state.libraryPage >= state.libraryPages;
+  $('library-go').disabled = loading || state.libraryPages <= 1;
+}
+async function library(page = state.libraryPage) {
+  if (!state.libraryFilters) state.libraryFilters = libraryFilters();
+  const version = ++state.libraryVersion;
+  libraryPaging(true); $('library-papers').replaceChildren(); message('library-summary', 'Loading papers...');
+  try {
+    const params = new URLSearchParams({...state.libraryFilters,page});
+    const data = await api(`/papers?${params}`);
+    if (version !== state.libraryVersion) return;
+    if (data.total_pages > 0 && page > data.total_pages) return library(data.total_pages);
+    state.libraryPage = data.total ? data.page : 1; state.libraryPages = data.total_pages;
+    $('library-page-label').textContent = data.total ? `Page ${data.page} of ${data.total_pages}` : 'Page 1 of 1';
+    $('library-page-label-top').textContent = $('library-page-label').textContent;
+    $('library-page-number').value = data.total ? data.page : 1;
+    $('library-page-number').max = Math.max(1, data.total_pages);
+    const first = (data.page - 1) * data.page_size + 1;
+    message('library-summary', data.total ? `Showing ${first}-${first + data.papers.length - 1} of ${data.total} papers.` : 'No papers match these filters. Try clearing filters or wait for ingestion to publish PDFs.');
+    for (const row of data.papers) {
+      const p = row.paper, artifacts = row.artifacts || [];
+      const files = artifacts.length ? `<details><summary>${artifacts.length} PDF ${artifacts.length === 1 ? 'version' : 'versions'}</summary>${artifacts.map(a => `<p><small>Object storage location</small><pre>${esc(a.storage_prefix)}/${esc(a.storage_key)}</pre><small>SHA-256</small><pre>${esc(a.content_sha256)}</pre></p>`).join('')}</details>` : '<span class="pill">Not downloaded</span>';
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td><a href="https://pubmed.ncbi.nlm.nih.gov/${encodeURIComponent(p.pmid)}/" target="_blank" rel="noopener noreferrer">${esc(p.title || 'Untitled paper')}</a><small>${esc((p.authors || []).join(', '))}</small><small>${esc(p.journal)} &middot; PMID ${esc(p.pmid)}${p.doi ? ` &middot; DOI ${esc(p.doi)}` : ''}</small></td><td>${esc(p.publication_date || '-')}</td><td>${esc(localDate(row.last_ingested_at))}</td><td>${files}</td>`;
+      $('library-papers').append(tr);
+    }
+  } catch (error) {
+    if (version === state.libraryVersion) { state.libraryPages = 0; message('library-summary', error.message, true); }
+  } finally { if (version === state.libraryVersion) libraryPaging(); }
+}
+async function applyLibrary() { state.libraryFilters = libraryFilters(); await library(1); }
+async function clearLibrary() {
+  for (const id of ['library-search','library-query','library-from','library-until']) $(id).value = '';
+  $('library-status').value = 'published'; $('library-sort').value = 'newest'; $('library-size').value = '50';
+  await applyLibrary();
+}
+async function openLibrary(queryId) {
+  await history();
+  for (const id of ['library-search','library-from','library-until']) $(id).value = '';
+  $('library-query').value = queryId; $('library-status').value = 'published'; $('library-sort').value = 'newest';
+  state.libraryFilters = libraryFilters(); state.libraryPage = 1;
+  if (location.hash === '#library') await library(1); else location.hash = 'library';
 }
 async function chooseQuery() {
   const version = ++state.selectionVersion;
@@ -185,7 +256,7 @@ async function backfills() {
       if (row.initialized) {
         const view = document.createElement('button'); view.textContent = 'View papers';
         view.addEventListener('click', () => action(view, 'backfill-status', async () => {
-          await history(); $('history').value = row.query_id; await chooseQuery(); location.hash = 'search';
+          await openLibrary(row.query_id);
         })); tr.lastElementChild.append(view);
       }
       $('backfills').append(tr);
@@ -202,15 +273,28 @@ setInterval(() => { if (location.hash === '#backfills') backfills().catch(error 
 function showPage() {
   const scheduled = location.hash === '#schedules';
   const full = location.hash === '#backfills';
+  const browsing = location.hash === '#library';
+  $('library-page').hidden = !browsing;
+  $('nav-library').setAttribute('aria-current', browsing ? 'page' : 'false');
+  if (browsing) library();
   $('backfills-page').hidden = !full;
   $('nav-backfills').setAttribute('aria-current', full ? 'page' : 'false');
   if (full) backfills().catch(error => message('backfill-status', error.message, true));
-  $('search-page').hidden = scheduled || full; $('schedules-page').hidden = !scheduled;
-  $('nav-search').setAttribute('aria-current', scheduled || full ? 'false' : 'page'); $('nav-schedules').setAttribute('aria-current', scheduled ? 'page' : 'false');
+  $('search-page').hidden = scheduled || full || browsing; $('schedules-page').hidden = !scheduled;
+  $('nav-search').setAttribute('aria-current', scheduled || full || browsing ? 'false' : 'page'); $('nav-schedules').setAttribute('aria-current', scheduled ? 'page' : 'false');
   if (scheduled) { if (state.queryId) $('schedule-query').value = state.queryId; schedules().catch(error => message('schedule-status',error.message,true)); }
 }
 $('schedule-form').addEventListener('submit', event => { event.preventDefault(); action($('save-schedule'), 'schedule-message', createSchedule); });
 $('refresh-schedules').addEventListener('click', () => action($('refresh-schedules'), 'schedule-status', schedules));
+$('library-form').addEventListener('submit', event => { event.preventDefault(); action($('apply-library'), 'library-summary', applyLibrary); });
+$('clear-library').addEventListener('click', () => action($('clear-library'), 'library-summary', clearLibrary));
+$('refresh-library').addEventListener('click', () => action($('refresh-library'), 'library-summary', async () => { await history(); await library(); }));
+$('library-prev').addEventListener('click', () => library(state.libraryPage - 1));
+$('library-next').addEventListener('click', () => library(state.libraryPage + 1));
+$('library-prev-top').addEventListener('click', () => library(state.libraryPage - 1));
+$('library-next-top').addEventListener('click', () => library(state.libraryPage + 1));
+$('library-pagination').addEventListener('submit', event => { event.preventDefault(); library(Number($('library-page-number').value)); });
+$('browse-query').addEventListener('click', () => action($('browse-query'), 'message', () => openLibrary(state.queryId)));
 window.addEventListener('hashchange', showPage);
 showPage();
 $('search-form').addEventListener('submit', (event) => { event.preventDefault(); action($('search'), 'message', search); });

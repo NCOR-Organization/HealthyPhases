@@ -42,6 +42,38 @@ is additive and idempotent. Existing legacy objects under `pubmed/pdfs` remain;
 new artifacts use `pubmed/papers/<PMCID>/<SHA256>.pdf`. No automatic backfill of
 legacy files or dataset schema migration is performed.
 
+## Browse the paper library
+
+Open **Papers** to browse the entire saved library with server-side pagination.
+The default is **Downloaded papers**: distinct PMIDs with published PDFs, even
+when several saved queries or PDF versions refer to the same paper. Choose
+**All discovered records** or **Not downloaded** to include metadata-only records.
+Not downloaded includes records that are waiting for ingestion, failed, or have
+no accessible PDF; it is not a promise that a PDF is available.
+
+Filter by title, author, journal, PMID, PMCID or DOI using a case-insensitive
+literal text search, choose a saved query, and optionally set ingestion-date
+bounds. Click **Apply filters** to start again at page one. Sort by newest/oldest
+ingestion or title, choose 25/50/100 papers per page, and use **Previous**, **Next**
+or **Go to page** to reach the full result set. There is no total-paper browse cap.
+**View papers** in Full ingestions and **Browse downloaded papers** on a saved
+search open this page with the exact query selected.
+
+The ingestion date here is the latest PDF publication timestamp for a paper.
+Reusing an existing PDF does not change its timestamp. Date bounds include the
+whole UTC day; displayed timestamps use the browser's local timezone. Expand
+**PDF versions** to inspect the object storage locations and checksums. Browsing
+never schedules downloads or Phase v2 processing. The library is live: use
+**Refresh papers** to see newly published records; records may move between pages
+as ingestion continues.
+
+`GET /pubmed/api/papers` accepts `search`, `query_id`, `status`
+(`published`, `unpublished`, `all`), `ingested_from`, `ingested_until`, `sort`
+(`newest`, `oldest`, `title`), `page` (1-based), and `page_size` (1-100).
+Its Protobuf-validated response includes the page, matching-paper count, page
+count, citation metadata and published artifact references. Count and page rows
+are selected together in one dataset query. No dataset schema migration is needed.
+
 ## Scheduled queries
 
 Open **Scheduled queries** in PubMed Library to view recurring searches and enable

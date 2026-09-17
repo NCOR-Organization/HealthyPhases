@@ -14,6 +14,28 @@ message Submit {
   string query_id = 1 [(buf.validate.field).string.uuid = true];
   repeated string pmids = 2 [(buf.validate.field).repeated = {max_items: 1000, unique: true, items: {string: {pattern: "^[0-9]+$"}}}];
 }
+message BrowsePapers {
+  string search = 1 [(buf.validate.field).string.max_len = 300];
+  string query_id = 2 [(buf.validate.field).string.pattern = "^$|^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"];
+  string status = 3 [(buf.validate.field).string = {in: ["published", "unpublished", "all"]}];
+  string ingested_from = 4 [(buf.validate.field).string.pattern = "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"];
+  string ingested_until = 5 [(buf.validate.field).string.pattern = "^$|^[0-9]{4}-[0-9]{2}-[0-9]{2}$"];
+  string sort = 6 [(buf.validate.field).string = {in: ["newest", "oldest", "title"]}];
+  int32 page = 7 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 8 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+}
+message LibraryPaper {
+  PaperRecord paper = 1;
+  repeated ArtifactRecord artifacts = 2;
+  string last_ingested_at = 3;
+}
+message LibraryPage {
+  repeated LibraryPaper papers = 1 [(buf.validate.field).repeated.max_items = 100];
+  int32 total = 2 [(buf.validate.field).int32.gte = 0];
+  int32 page = 3 [(buf.validate.field).int32.gte = 1];
+  int32 page_size = 4 [(buf.validate.field).int32 = {gte: 1, lte: 100}];
+  int32 total_pages = 5 [(buf.validate.field).int32.gte = 0];
+}
 message ScheduleCreate {
   string query_id = 1 [(buf.validate.field).string.uuid = true];
   string name = 2 [(buf.validate.field).string = {min_len: 1, max_len: 120, pattern: "\\S"}];

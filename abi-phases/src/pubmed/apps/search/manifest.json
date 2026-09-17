@@ -1,10 +1,10 @@
 {
   "name": "PubMed Library",
-  "description": "Search biomedical literature, ingest full query results, schedule recurring queries, and publish new papers.",
+  "description": "Search PubMed, ingest full queries, browse and filter your paper library, and schedule recurring searches.",
   "category": "application",
   "url": "html:index.html",
   "icon_emoji": "📚",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "HealthyPhases",
   "license": "MIT",
   "keywords": ["pubmed", "papers", "research", "datasets"],
