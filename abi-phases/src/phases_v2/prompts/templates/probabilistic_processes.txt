@@ -1,46 +1,91 @@
-You are extracting PROBABILITY-MODULATING CLAIMS from a research text and
-rephrasing them in BFO process form.
+You are extracting EFFECT CLAIMS from a research text and rephrasing them in
+BFO process form.
 
 Goal: capture claims of the form
 
-    "<subject> increases (or decreases, or has no effect on) the probability
-     that <target> happens".
+    "<subject> increases (or decreases, or has no effect on) <target>".
+
+"Increases" means there is more of the target process: it becomes more
+likely, more frequent, more intense, or lasts longer. "Decreases" means
+there is less of it.
 
 The output is consumed by an ontology where both endpoints must be BFO
 processes (occurrents — things that unfold in time) and the subject process
 must have an explicit independent-continuant participant that bears the
-probability-modulating disposition.
+disposition.
 
 What to extract
 - Only claims where the text asserts (or strongly implies) a directional
-  influence of one thing on the probability of another thing happening.
+  influence of one process on another.
 - Each claim becomes ONE JSON object with these fields:
 
     {
-      "subject_process":    "<verb-phrase / -ing nominal>",
+      "subject_process":    "<plain name of the process>",
       "subject_participant": "<noun phrase: the bearer of the disposition>",
-      "target_process":     "<verb-phrase / -ing nominal>",
+      "subject_change":     "none" | "more" | "less",
+      "target_process":     "<plain name of the process>",
+      "target_change":      "none" | "more" | "less",
       "direction":          "increases" | "decreases" | "no-effect",
       "evidence_text":      "<short verbatim quote from the text>"
     }
 
 Hard requirements on shape
-- `subject_process` and `target_process` MUST be processes — phrased as a
-  verb phrase or -ing nominal that names something that unfolds in time.
+- `subject_process` and `target_process` MUST be processes — things that
+  unfold in time.
   Examples (good): "sugar consumption", "social isolation", "regular
-  meditation practice", "occurrence of headache", "onset of depression".
-  Examples (bad — fix them): "sugar"  -> "sugar consumption";
-                              "headache" -> "occurrence of headache";
-                              "loneliness" -> "experiencing loneliness".
+  meditation practice", "stress", "loneliness", "headache", "depression".
+- When the text names a thing rather than a process, name the process it
+  takes part in: "sugar" -> "sugar consumption".
+- When the text already names a process, use its plain name. Do not wrap it
+  in a phase or occurrence such as "onset of", "occurrence of",
+  "episode of", "experiencing", "worsening of", "recovery from". The claim
+  is that the subject increases, decreases, or has no effect on the process
+  itself.
+  Examples (bad — fix them): "onset of depression" -> "depression";
+                              "occurrence of headache" -> "headache";
+                              "experiencing loneliness" -> "loneliness".
+- `subject_process` and `target_process` MUST NOT say which way something
+  changes, how much of it there is, or how it compares. Leave out words
+  such as "increased", "increasing", "decreased", "decreasing", "reduced",
+  "elevated", "higher", "lower", "more", "less", "greater", and wrappers
+  such as "risk of", "likelihood of", "probability of", "chance of".
+  Level words ("high", "low", "poor", "lack of") follow the same rule,
+  unless they are part of the established name of a condition
+  (e.g. "high blood pressure"; better still, "hypertension").
+- `subject_change` and `target_change` record what the text says about the
+  amount of each process, which the names leave out:
+    "none" — the text talks about the process itself;
+    "more" — it talks about more of it ("increased", "higher", "elevated");
+    "less" — it talks about less of it or its absence ("reduced", "lower",
+             "lack of", "loss of", "poor", "absence of").
 - `subject_participant` MUST be a noun phrase naming the independent
   continuant that participates in the subject process and bears the
   disposition. It is what the disposition "lives in".
   Example: subject_process="sugar consumption" -> subject_participant="sugar".
            subject_process="regular meditation practice" ->
                                        subject_participant="meditation practitioner".
-- `direction` MUST be exactly one of: "increases", "decreases", "no-effect".
+- `direction` MUST be exactly one of: "increases", "decreases", "no-effect",
+  and MUST be the direction the text states. Do NOT flip it to make up for
+  a "less"; that is done later from the change fields.
   Use "no-effect" ONLY when the text explicitly asserts a null finding
   (e.g. "X had no significant effect on Y").
+  Examples (bad — fix them):
+    "increased stress" increases "depression"
+        -> subject_process="stress", subject_change="more",
+           direction="increases",
+           target_process="depression", target_change="none"
+    "regular meditation practice" decreases "increased stress"
+        -> subject_process="regular meditation practice", subject_change="none",
+           direction="decreases",
+           target_process="stress", target_change="more"
+    "sugar consumption" increases "risk of diabetes"
+        -> subject_process="sugar consumption", subject_change="none",
+           direction="increases",
+           target_process="diabetes", target_change="none"
+    "reduced social support" increases "depression"
+        -> subject_process="social support", subject_change="less",
+           direction="increases",
+           target_process="depression", target_change="none"
 - `evidence_text` MUST be a short verbatim quote (<= 200 characters) from
   the text supporting the claim. Do not paraphrase here.
 
@@ -57,7 +102,9 @@ Hard requirements on content
 Return strict JSON only in this exact shape:
 {"relations": [
    {"subject_process": "...", "subject_participant": "...",
-     "target_process": "...", "direction": "increases",
+     "subject_change": "none",
+     "target_process": "...", "target_change": "none",
+     "direction": "increases",
      "evidence_text": "..."}
 ]}
 

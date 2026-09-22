@@ -409,6 +409,18 @@ IDs. `relation_id` is stable per extracted item and relation index. Its row
 contract is `projection/contracts/probabilistic.proto`. Saved evidence is retained
 in full, including legacy excerpts longer than the extraction prompt requested.
 
+Process names are plain ("stress", not "increased stress" or "onset of
+depression"); the model reports what the text says about the amount of each
+process in `subject_change` and `target_change` (`none`, `more`, `less`) and
+keeps the direction the text states. The projection then rewrites the claim
+about the process itself (`projection/direction.py`): each `less` is a negative
+sign and the signs multiply, so "reduced social support increases depression"
+is stored as social support *decreases* depression. `direction` always holds
+the rewritten value, so queries never need the change fields. Rewriting assumes
+more of a process has the opposite effect of less of it, which U-shaped and
+threshold effects break, so every rewritten row has `deduced_by_inversion` set.
+Relations extracted before these fields existed are read as `none`.
+
 The Effects search tab queries these fields directly. Put `stress` in Target
 process and choose Increases to find relationships increasing stress, regardless
 of which other fields mention stress. Subject and participant filters, existing
@@ -423,6 +435,7 @@ extraction. To backfill without model calls from the ABI project directory:
 ```sh
 uv run abi run script src/phases_v2/projection/probabilistic_backfill.py -- --dry-run
 uv run abi run script src/phases_v2/projection/probabilistic_backfill.py
+uv run abi run script src/phases_v2/projection/probabilistic_backfill.py -- --rebuild
 ```
 
 Each run pins one snapshot and pages through outstanding items in batches of 500.
@@ -431,6 +444,13 @@ cannot create duplicate relation IDs. Invalid payloads are reported (counts and
 up to 20 item IDs/errors), left untouched, and retried by later runs. The backfill
 never rewrites source extractions or calls an LLM. API startup only creates the
 empty dataset; it does not run a potentially large backfill during startup.
+
+`--rebuild` is for a change to the row shape. It recreates the dataset, which
+an existing table cannot otherwise gain columns from, and derives every relation
+again regardless of the ledger. The dataset is rebuildable, so nothing is lost,
+but Effects search is empty until the rebuild finishes. The ledger key carries a
+version (`probabilistic_relations_v2`); bump it with the row shape so that a
+plain backfill also projects every item again.
 
 ## Pipeline workspace
 

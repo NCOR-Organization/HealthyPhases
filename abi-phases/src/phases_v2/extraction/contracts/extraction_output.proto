@@ -51,6 +51,14 @@ message Relation {
     in: ["increases", "decreases", "no-effect"]
   }];
   string evidence_text = 5 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  // What the text says about the amount of each process, which the process
+  // names leave out. The projection turns "less" into an inverted direction.
+  string subject_change = 6 [(buf.validate.field).string = {
+    in: ["none", "more", "less"]
+  }];
+  string target_change = 7 [(buf.validate.field).string = {
+    in: ["none", "more", "less"]
+  }];
 }
 message RelationsOutput {
   repeated Relation relations = 1 [(buf.validate.field).repeated.max_items = 8];

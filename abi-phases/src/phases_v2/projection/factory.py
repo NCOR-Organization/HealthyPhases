@@ -76,7 +76,9 @@ def refresh_vector_metadata(engine) -> int:
     )
 
 
-def project_to_relations(engine, *, dry_run: bool = False, paper_ids=None):
+def project_to_relations(
+    engine, *, dry_run: bool = False, paper_ids=None, reproject: bool = False
+):
     from phases_v2.projection.adapters.secondary.ProbabilisticContractValidator import (
         validate_relation,
     )
@@ -89,4 +91,18 @@ def project_to_relations(engine, *, dry_run: bool = False, paper_ids=None):
         validate_relation,
         dry_run=dry_run,
         paper_ids=paper_ids,
+        reproject=reproject,
     )
+
+
+def rebuild_relations(engine):
+    """Recreate ``probabilistic_relations`` and derive every row again.
+
+    For a change to the row shape: the old table cannot take the new columns,
+    and the ledger already records every item. Reads saved extractions only;
+    no model is called.
+    """
+    from phases_v2.datasets.store import recreate
+
+    recreate(engine.services.dataset, "probabilistic_relations")
+    return project_to_relations(engine, reproject=True)

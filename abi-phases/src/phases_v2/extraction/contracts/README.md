@@ -26,6 +26,12 @@ relying on provider-specific strict-schema support. Successful `raw_response`
 contains the serialized validated arguments; failed calls retain the complete
 LangChain message when one was returned. There is no silent text fallback.
 
-Prompt text and IDs remain unchanged to preserve successful-work deduplication.
-On rerun, failed rows receive fresh model calls and are overwritten by the usual
-upsert. Old failed text is not repaired, and successes are not deleted.
+Prompt IDs derive from prompt text, and successful-work deduplication keys on
+them. On rerun, failed rows receive fresh model calls and are overwritten by the
+usual upsert. Old failed text is not repaired, and successes are not deleted.
+Editing a prompt's text gives it a new ID, so every chunk becomes outstanding
+for that prompt again, while extractions made with the old text are kept.
+
+`Relation.subject_change` and `target_change` were added after relations were
+first extracted. They are required in new tool calls; the probabilistic
+projection reads their absence in older saved items as `none`.

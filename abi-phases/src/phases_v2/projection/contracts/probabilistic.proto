@@ -16,4 +16,7 @@ message ProbabilisticRelation {
   string target_process = 11 [(buf.validate.field).string.min_len = 1];
   string direction = 12 [(buf.validate.field).string = {in: ["increases", "decreases", "no-effect"]}];
   string evidence_text = 13 [(buf.validate.field).string.min_len = 1];
+  string subject_change = 14 [(buf.validate.field).string = {in: ["none", "more", "less"]}];
+  string target_change = 15 [(buf.validate.field).string = {in: ["none", "more", "less"]}];
+  bool deduced_by_inversion = 16;
 }

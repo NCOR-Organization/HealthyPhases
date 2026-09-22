@@ -7,10 +7,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from phases_v2.ports import RowStore
+from phases_v2.projection.direction import normalize
 from phases_v2.sql import in_list, literal
 from phases_v2.structured_text import canonical_payload_text
 
-TARGET = "probabilistic_relations_v1"
+TARGET = "probabilistic_relations_v2"
 RELATION_FIELDS = (
     "subject_process",
     "subject_participant",
@@ -18,6 +19,8 @@ RELATION_FIELDS = (
     "direction",
     "evidence_text",
 )
+# Absent from relations extracted before the prompt asked for them.
+CHANGE_FIELDS = ("subject_change", "target_change")
 SOURCE_FIELDS = (
     "item_id",
     "extraction_id",
@@ -44,8 +47,13 @@ def project_relations(
     batch_size: int = 500,
     dry_run: bool = False,
     paper_ids: list[str] | None = None,
+    reproject: bool = False,
 ) -> BackfillReport:
-    """Read one pinned snapshot; commit rows before recording their item IDs."""
+    """Read one pinned snapshot; commit rows before recording their item IDs.
+
+    ``reproject`` also derives items the ledger already records. Rows upsert on
+    ``relation_id``, so it rewrites them rather than duplicating them.
+    """
     if not 1 <= batch_size <= 5000:
         raise ValueError("batch_size must be between 1 and 5000")
     scope = (
@@ -54,6 +62,12 @@ def project_relations(
         else (
             f"AND ei.paper_id IN {in_list(paper_ids)} " if paper_ids else "AND FALSE "
         )
+    )
+    pending = (
+        ""
+        if reproject
+        else "AND NOT EXISTS (SELECT 1 FROM projections done "
+        f"WHERE done.target = {literal(TARGET)} AND done.key = ei.item_id) "
     )
     report = BackfillReport()
     cursor = ""
@@ -65,8 +79,7 @@ def project_relations(
             "JOIN prompts p ON p.prompt_id = ei.prompt_id "
             "WHERE e.status = 'succeeded' AND p.output_key = 'relations' "
             f"{scope}AND ei.item_id > {literal(cursor)} "
-            "AND NOT EXISTS (SELECT 1 FROM projections done "
-            f"WHERE done.target = {literal(TARGET)} AND done.key = ei.item_id) "
+            f"{pending}"
             f"ORDER BY ei.item_id LIMIT {batch_size}"
         )
         if not batch:
@@ -93,6 +106,11 @@ def project_relations(
                         raise ValueError("Relation is not an object")
                     row = {key: item[key] for key in SOURCE_FIELDS}
                     row.update({key: relation.get(key) for key in RELATION_FIELDS})
+                    changes = {key: relation.get(key, "none") for key in CHANGE_FIELDS}
+                    row.update(changes)
+                    row.update(
+                        normalize(relation.get("direction"), **changes)._asdict()
+                    )
                     row.update(
                         relation_id=hashlib.sha256(
                             f"{item['item_id']}:{index}".encode()
