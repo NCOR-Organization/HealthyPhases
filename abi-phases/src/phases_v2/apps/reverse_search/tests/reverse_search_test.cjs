@@ -52,9 +52,9 @@ test('single relations, arrays, and extraction envelopes render typed directed g
   }
 });
 
-test('all three directions are explicit without relying on color', () => {
+test('all five directions are explicit without relying on color', () => {
   const { context } = app();
-  for (const [direction, label] of [['increases', 'Increases'], ['decreases', 'Decreases'], ['no-effect', 'Neutral (no effect)']]) {
+  for (const [direction, label] of [['increases', 'Increases'], ['decreases', 'Decreases'], ['no-effect', 'No effect'], ['prevents-increase', 'Prevents increase'], ['prevents-decrease', 'Prevents decrease']]) {
     const rendered = context.renderExtraction(JSON.stringify({ ...relation, direction }), '');
     assert.ok(rendered.includes(label));
     assert.ok(rendered.includes(`relation-edge ${direction}`));
@@ -162,4 +162,23 @@ test('distinct relations from one extraction remain visible across pages', () =>
   context.renderHits({ query: '', mode: 'effects', hits: [{ ...hit, relation_id: 'r1' }] });
   context.renderHits({ query: '', mode: 'effects', hits: [{ ...hit, relation_id: 'r1' }, { ...hit, relation_id: 'r2' }] }, true);
   assert.equal(document.getElementById('results').children.length, 2);
+});
+
+
+test('source decrease remains visible when searching for an increase', () => {
+  const { context } = app();
+  const rendered = context.renderExtraction(JSON.stringify({ ...relation,
+    subject_process: 'social support', subject_change: 'decreases',
+    target_process: 'stress', direction: 'increases' }), 'stress');
+  assert.match(rendered, /Decrease in social support/);
+  assert.match(rendered, /<strong>Increases<\/strong>/);
+  assert.doesNotMatch(rendered, /probability of/);
+});
+
+test('source prevention is not confused with an unspecified source', () => {
+  const { context } = app();
+  for (const [effect, label] of [['prevents-increase', 'Prevention of increase in'], ['prevents-decrease', 'Prevention of decrease in'], ['no-effect', 'No effect on']]) {
+    const rendered = context.renderExtraction(JSON.stringify({ ...relation, subject_change: effect }), '');
+    assert.ok(rendered.includes(label));
+  }
 });

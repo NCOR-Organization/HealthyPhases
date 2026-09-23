@@ -282,9 +282,8 @@ def test_a_claim_about_less_of_a_process_is_stored_about_the_process(corpus):
         {
             **RELATION,
             "subject_process": "social support",
-            "subject_change": "less",
+            "subject_change": "decreases",
             "target_process": "depression",
-            "target_change": "none",
             "direction": "increases",
         },
     )
@@ -294,11 +293,10 @@ def test_a_claim_about_less_of_a_process_is_stored_about_the_process(corpus):
     [row] = rows.query("SELECT * FROM probabilistic_relations WHERE item_id = 'less'")
     assert (row["subject_process"], row["direction"], row["target_process"]) == (
         "social support",
-        "decreases",
+        "increases",
         "depression",
     )
-    assert (row["subject_change"], row["target_change"]) == ("less", "none")
-    assert row["deduced_by_inversion"] is True
+    assert row["subject_change"] == "decreases"
 
 
 def test_relations_extracted_before_the_change_fields_are_stored_as_stated(corpus):
@@ -308,10 +306,7 @@ def test_relations_extracted_before_the_change_fields_are_stored_as_stated(corpu
 
     relations = rows.query("SELECT * FROM probabilistic_relations")
     assert len(relations) == 6
-    assert {
-        (r["subject_change"], r["target_change"], r["deduced_by_inversion"])
-        for r in relations
-    } == {("none", "none", False)}
+    assert {r["subject_change"] for r in relations} == {"none"}
     assert {r["direction"] for r in relations} == {
         "increases",
         "decreases",
@@ -326,7 +321,7 @@ def test_items_projected_by_the_previous_version_are_projected_again(corpus):
         "projections",
         [
             {
-                "target": "probabilistic_relations_v1",
+                "target": "probabilistic_relations_v2",
                 "key": f"i{i}",
                 "projected_at": datetime.now(UTC),
             }
@@ -357,9 +352,8 @@ def test_rebuild_replaces_a_table_left_on_the_previous_schema(corpus):
 
     assert rebuild_relations(engine).projected == 6
     assert {
-        r["deduced_by_inversion"]
-        for r in rows.query("SELECT * FROM probabilistic_relations")
-    } == {False}
+        r["subject_change"] for r in rows.query("SELECT * FROM probabilistic_relations")
+    } == {"none"}
 
 
 def test_rebuild_rederives_relations_the_ledger_already_records(corpus):
@@ -386,16 +380,16 @@ def test_backfill_rows_execute_protovalidate_rules(changes):
         validate_relation(_contract_row(**changes))
 
 
-def test_a_deduced_row_satisfies_the_contract():
-    validate_relation(_contract_row(subject_change="less", deduced_by_inversion=True))
+def test_a_qualified_prevention_row_satisfies_the_contract():
+    validate_relation(
+        _contract_row(subject_change="decreases", direction="prevents-increase")
+    )
 
 
 def _contract_row(**changes) -> dict:
     return {
         **RELATION,
         "subject_change": "none",
-        "target_change": "none",
-        "deduced_by_inversion": False,
         **changes,
         "relation_id": "r",
         "item_id": "i",
@@ -414,3 +408,56 @@ def test_relation_projection_preserves_selected_paper_scope(corpus):
     assert project_to_relations(engine, paper_ids=["other"]).examined == 0
     assert rows.query("SELECT COUNT(*) AS n FROM probabilistic_relations")[0]["n"] == 0
     assert project_to_relations(engine, paper_ids=["p"]).projected == 6
+
+
+@pytest.mark.parametrize("direction", ["prevents-increase", "prevents-decrease"])
+def test_prevention_effects_are_searchable_with_source_qualification(corpus, direction):
+    engine, rows = corpus
+    _add_item(
+        rows,
+        "prevent",
+        {**RELATION, "subject_change": "decreases", "direction": direction},
+    )
+    project_to_relations(engine)
+    [row] = rows.query(
+        "SELECT * FROM probabilistic_relations WHERE item_id = 'prevent'"
+    )
+    assert row["direction"] == direction
+    assert row["subject_change"] == "decreases"
+    app = FastAPI()
+    register(
+        app, SearchService(FakeSemanticIndex(), DatasetExtractedItemsAdapter(rows))
+    )
+    client = TestClient(app)
+    response = client.get(
+        f"{PREFIX}/effects", params={"q": "stress", "direction": direction}
+    )
+    assert response.status_code == 200, response.text
+    [hit] = response.json()["hits"]
+    assert hit["subject_change"] == "decreases"
+    assert json.loads(hit["extracted_text"])["subject_change"] == "decreases"
+    exported = client.get(
+        f"{PREFIX}/export",
+        params={"mode": "effects", "q": "stress", "direction": direction},
+    )
+    [record] = list(csv.DictReader(io.StringIO(exported.content.decode("utf-8-sig"))))
+    assert record["subject_change"] == "decreases"
+    assert record["direction"] == direction
+
+
+def test_legacy_double_encoded_target_decrease_is_not_inverted(corpus):
+    engine, rows = corpus
+    _add_item(
+        rows,
+        "double",
+        {
+            **RELATION,
+            "direction": "decreases",
+            "subject_change": "more",
+            "target_change": "less",
+        },
+    )
+    project_to_relations(engine)
+    [row] = rows.query("SELECT * FROM probabilistic_relations WHERE item_id = 'double'")
+    assert row["direction"] == "decreases"
+    assert row["subject_change"] == "increases"

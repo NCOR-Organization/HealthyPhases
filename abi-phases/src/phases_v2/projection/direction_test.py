@@ -1,67 +1,35 @@
-"""A claim about more or less of a process, read as a claim about the process."""
+"""The two endpoint qualifications must never be multiplied."""
 
 import pytest
 
-from phases_v2.projection.direction import normalize
+from phases_v2.projection.direction import CHANGES, DIRECTIONS, qualify
+
+
+@pytest.mark.parametrize("direction", DIRECTIONS)
+@pytest.mark.parametrize("source", CHANGES)
+def test_source_and_target_effects_are_preserved_independently(direction, source):
+    assert qualify(direction, source) == {
+        "direction": direction,
+        "subject_change": source,
+    }
+
+
+@pytest.mark.parametrize(("old", "new"), [("less", "decreases"), ("more", "increases")])
+def test_legacy_source_qualification_does_not_reverse_target(old, new):
+    assert qualify("increases", old) == {
+        "direction": "increases",
+        "subject_change": new,
+    }
+
+
+def test_unspecified_source_is_distinct_from_no_effect():
+    assert qualify("decreases")["subject_change"] == "none"
+    assert qualify("decreases", "no-effect")["subject_change"] == "no-effect"
 
 
 @pytest.mark.parametrize(
-    ("stated", "expected"),
-    [
-        pytest.param(
-            ("decreases", "none", "none"),
-            ("decreases", False),
-            id="social support decreases depression",
-        ),
-        pytest.param(
-            ("increases", "more", "none"),
-            ("increases", False),
-            id="increased stress increases depression",
-        ),
-        pytest.param(
-            ("increases", "less", "none"),
-            ("decreases", True),
-            id="reduced social support increases depression",
-        ),
-        pytest.param(
-            ("decreases", "less", "none"),
-            ("increases", True),
-            id="lack of exercise decreases wellbeing",
-        ),
-        pytest.param(
-            ("decreases", "none", "less"),
-            ("increases", True),
-            id="exercise decreases loss of muscle mass",
-        ),
-        pytest.param(
-            ("decreases", "less", "less"),
-            ("decreases", True),
-            id="lack of sleep decreases loss of appetite",
-        ),
-        pytest.param(
-            ("no-effect", "less", "none"),
-            ("no-effect", True),
-            id="reduced screen time has no effect on anxiety",
-        ),
-    ],
+    "direction,source", [("unknown", "none"), ("increases", "fewer")]
 )
-def test_the_signs_multiply_into_one_direction(stated, expected):
-    assert normalize(*stated) == expected
-
-
-def test_a_relation_without_change_fields_is_read_as_stated():
-    # Extractions made before the prompt asked for the change fields.
-    assert normalize("increases") == ("increases", False)
-
-
-@pytest.mark.parametrize(
-    ("stated", "named"),
-    [
-        (("uncertain", "none", "none"), "direction"),
-        (("increases", "fewer", "none"), "subject_change"),
-        (("increases", "none", ""), "target_change"),
-    ],
-)
-def test_an_unknown_value_is_rejected_by_name(stated, named):
-    with pytest.raises(ValueError, match=named):
-        normalize(*stated)
+def test_unknown_effect_is_rejected(direction, source):
+    with pytest.raises(ValueError):
+        qualify(direction, source)

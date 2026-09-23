@@ -14,9 +14,9 @@ message ProbabilisticRelation {
   string subject_process = 9 [(buf.validate.field).string.min_len = 1];
   string subject_participant = 10 [(buf.validate.field).string.min_len = 1];
   string target_process = 11 [(buf.validate.field).string.min_len = 1];
-  string direction = 12 [(buf.validate.field).string = {in: ["increases", "decreases", "no-effect"]}];
+  string direction = 12 [(buf.validate.field).string = {in: ["increases", "decreases", "no-effect", "prevents-increase", "prevents-decrease"]}];
   string evidence_text = 13 [(buf.validate.field).string.min_len = 1];
-  string subject_change = 14 [(buf.validate.field).string = {in: ["none", "more", "less"]}];
-  string target_change = 15 [(buf.validate.field).string = {in: ["none", "more", "less"]}];
-  bool deduced_by_inversion = 16;
+  string subject_change = 14 [(buf.validate.field).string = {in: ["none", "increases", "decreases", "no-effect", "prevents-increase", "prevents-decrease"]}];
+  reserved 15, 16;
+  reserved "target_change", "deduced_by_inversion";
 }

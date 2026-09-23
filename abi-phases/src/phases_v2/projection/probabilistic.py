@@ -7,11 +7,11 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 from phases_v2.ports import RowStore
-from phases_v2.projection.direction import normalize
+from phases_v2.projection.direction import qualify
 from phases_v2.sql import in_list, literal
 from phases_v2.structured_text import canonical_payload_text
 
-TARGET = "probabilistic_relations_v2"
+TARGET = "probabilistic_relations_v3"
 RELATION_FIELDS = (
     "subject_process",
     "subject_participant",
@@ -19,8 +19,6 @@ RELATION_FIELDS = (
     "direction",
     "evidence_text",
 )
-# Absent from relations extracted before the prompt asked for them.
-CHANGE_FIELDS = ("subject_change", "target_change")
 SOURCE_FIELDS = (
     "item_id",
     "extraction_id",
@@ -106,10 +104,11 @@ def project_relations(
                         raise ValueError("Relation is not an object")
                     row = {key: item[key] for key in SOURCE_FIELDS}
                     row.update({key: relation.get(key) for key in RELATION_FIELDS})
-                    changes = {key: relation.get(key, "none") for key in CHANGE_FIELDS}
-                    row.update(changes)
                     row.update(
-                        normalize(relation.get("direction"), **changes)._asdict()
+                        qualify(
+                            relation.get("direction"),
+                            relation.get("subject_change", "none"),
+                        )
                     )
                     row.update(
                         relation_id=hashlib.sha256(

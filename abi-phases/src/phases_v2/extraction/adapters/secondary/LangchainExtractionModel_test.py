@@ -137,7 +137,6 @@ RELATION = {
     "subject_participant": "isolated person",
     "subject_change": "none",
     "target_process": "loneliness",
-    "target_change": "none",
     "direction": "increases",
     "evidence_text": "Social isolation increases loneliness.",
 }
@@ -153,7 +152,7 @@ def test_valid_relation_is_preserved_as_an_object():
     "changes",
     [
         {"direction": "perhaps"},
-        {"evidence_text": "x" * 201},
+        {"evidence_text": "x" * 2001},
         {"subject_process": ""},
         {"target_process": None},
         {"subject_change": "fewer"},
@@ -167,7 +166,7 @@ def test_relation_proto_validation_rejects_invalid_fields(changes):
         LangchainExtractionModel(_StubChat(_message(args)), "relations").complete("x")
 
 
-@pytest.mark.parametrize("missing", ["subject_change", "target_change"])
+@pytest.mark.parametrize("missing", ["subject_change", "direction"])
 def test_a_relation_must_state_what_the_text_says_about_each_amount(missing):
     # The projection reads a relation as stated unless told otherwise, so a
     # silently omitted "less" would store the opposite claim.
@@ -233,3 +232,36 @@ def test_real_langchain_client_sends_forced_tool_and_parses_arguments():
         assert json.loads(
             LangchainExtractionModel(chat, "what").complete("Extract")
         ) == {"what": ["fresh claim"]}
+
+
+@pytest.mark.parametrize("direction", ["prevents-increase", "prevents-decrease"])
+@pytest.mark.parametrize(
+    "subject_change",
+    ["none", "decreases", "prevents-increase", "prevents-decrease", "no-effect"],
+)
+def test_prevention_and_source_effects_survive_tool_validation(
+    direction, subject_change
+):
+    args = {
+        "relations": [
+            RELATION | {"direction": direction, "subject_change": subject_change}
+        ]
+    }
+    model = LangchainExtractionModel(_StubChat(_message(args)), "relations")
+    assert json.loads(model.complete("x")) == args
+
+
+@pytest.mark.parametrize("length", [201, 358, 2000])
+def test_full_evidence_is_preserved_without_truncation(length):
+    evidence = "A" * (length - 1) + "."
+    args = {"relations": [RELATION | {"evidence_text": evidence}]}
+    model = LangchainExtractionModel(_StubChat(_message(args)), "relations")
+    assert json.loads(model.complete("x")) == args
+
+
+def test_evidence_length_limit_in_provider_schema_matches_runtime_contract():
+    schema = ExtractionToolSchema("relations")
+    evidence = schema.parameters["properties"]["relations"]["items"]["properties"][
+        "evidence_text"
+    ]
+    assert evidence["maxLength"] == 2000

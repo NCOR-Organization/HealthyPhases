@@ -409,17 +409,37 @@ IDs. `relation_id` is stable per extracted item and relation index. Its row
 contract is `projection/contracts/probabilistic.proto`. Saved evidence is retained
 in full, including legacy excerpts longer than the extraction prompt requested.
 
-Process names are plain ("stress", not "increased stress" or "onset of
-depression"); the model reports what the text says about the amount of each
-process in `subject_change` and `target_change` (`none`, `more`, `less`) and
-keeps the direction the text states. The projection then rewrites the claim
-about the process itself (`projection/direction.py`): each `less` is a negative
-sign and the signs multiply, so "reduced social support increases depression"
-is stored as social support *decreases* depression. `direction` always holds
-the rewritten value, so queries never need the change fields. Rewriting assumes
-more of a process has the opposite effect of less of it, which U-shaped and
-threshold effects break, so every rewritten row has `deduced_by_inversion` set.
-Relations extracted before these fields existed are read as `none`.
+Process names remain generic ("stress", not "increased stress"). Each relation
+has two independent qualifications: `subject_change` describes the source and
+`direction` describes the target effect. Both accept `increases`, `decreases`,
+`no-effect`, `prevents-increase`, and `prevents-decrease`; `subject_change` also
+accepts `none` when the source is unqualified. `none` is not `no-effect`.
+For example, "reduced social support increases stress" is stored as source
+`social support`, source change `decreases`, target `stress`, direction
+`increases`. Searching for increases in stress shows **Decrease in social
+support**, not unqualified social support. No signs are multiplied or flipped.
+Prevention of an increase is not a decrease, and prevention of a decrease is
+not an increase. Unsupported negation or a nonsignificant result is not a null
+effect. Ambiguous claims are omitted; this schema does not represent every
+nested linguistic construction or prove causal influence from association.
+
+Old extractions without `subject_change` use `none`. Legacy experimental
+`more`/`less` source values map to `increases`/`decreases`; the old `target_change`
+field is ignored because it duplicated the target effect. Rebuild from raw
+saved extractions, not from previously inverted projection rows. This preserves
+the raw claim; it does not repair semantic errors in old model responses.
+The projection ledger is now `probabilistic_relations_v3`. A deployment of an
+older table **must run `--rebuild` before serving Effects search or projection**
+to add `subject_change` and remove obsolete `target_change`/`deduced_by_inversion`
+columns. Coordinate that rebuild with ongoing extraction/search activity.
+Re-extraction with the new prompt creates a new content-addressed prompt ID;
+old evidence remains available under its original prompt ID.
+
+Group evidence by both process names, source change, and target effect; omitting
+the source change would conflate contradictory claims. Count distinct papers,
+not repeated chunks, while checking for shared studies and cited evidence;
+different papers are not necessarily independent support. Cross-paper scoring and
+canonical synonym resolution are separate work, not part of this extraction change.
 
 The Effects search tab queries these fields directly. Put `stress` in Target
 process and choose Increases to find relationships increasing stress, regardless
@@ -449,7 +469,7 @@ empty dataset; it does not run a potentially large backfill during startup.
 an existing table cannot otherwise gain columns from, and derives every relation
 again regardless of the ledger. The dataset is rebuildable, so nothing is lost,
 but Effects search is empty until the rebuild finishes. The ledger key carries a
-version (`probabilistic_relations_v2`); bump it with the row shape so that a
+version (`probabilistic_relations_v3`); bump it with the row shape so that a
 plain backfill also projects every item again.
 
 ## Pipeline workspace
@@ -521,3 +541,8 @@ published dataset, not by relaxing the collection root restriction.
 
 PubMed requests carry a `dataset:pubmed:<query_id>` source marker. If their
 manifest is missing, the job fails instead of treating the source as a prefix.
+### Deployment and reviewed pilot for qualified effects
+
+See [effects rollout](effects_rollout.md) for the pause/rebuild/verify sequence,
+rollback considerations, and the distinction between extracted claims and reviewed
+support. Do not expose mixed old/new schemas during the rebuild.
