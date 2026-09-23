@@ -60,6 +60,9 @@ class SearchHit:
     target_process: str | None = None
     direction: str | None = None
     evidence_text: str | None = None
+    review_status: str = "unreviewed"
+    review_id: str | None = None
+    reviewer_kind: str | None = None
 
     @classmethod
     def build(

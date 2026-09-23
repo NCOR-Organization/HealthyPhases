@@ -543,6 +543,10 @@ PubMed requests carry a `dataset:pubmed:<query_id>` source marker. If their
 manifest is missing, the job fails instead of treating the source as a prefix.
 ### Deployment and reviewed pilot for qualified effects
 
+Effects now require a current approval through the [review gate](review/README.md).
+The bounded second-model reviewer may approve automatically; failed or uncertain
+reviews remain excluded. Raw keyword/semantic views retain unreviewed extractions.
+
 See [effects rollout](effects_rollout.md) for the pause/rebuild/verify sequence,
 rollback considerations, and the distinction between extracted claims and reviewed
 support. Do not expose mixed old/new schemas during the rebuild.

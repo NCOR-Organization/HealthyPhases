@@ -182,9 +182,28 @@ def project_relations_op(context: dg.OpExecutionContext, after: dict) -> dict:
 
     from phases_v2.projection.factory import project_to_relations
 
-    report = project_to_relations(_engine(), paper_ids=after.get("paper_ids"))
+    engine = _engine()
+    report = project_to_relations(engine, paper_ids=after.get("paper_ids"))
     context.log.info(f"Structured relations: {asdict(report)}")
-    return {**asdict(report), "paper_ids": after.get("paper_ids")}
+    configuration = engine.modules["phases_v2"].configuration
+    reviewer = getattr(configuration, "effects_review_model", "")
+    result = {**asdict(report), "paper_ids": after.get("paper_ids")}
+    if reviewer:
+        from phases_v2.review.review_automation import automatic_review
+        from phases_v2.review.review_factory import model_for, service_for
+
+        reviewed = automatic_review(
+            service_for(engine),
+            model_for(engine, reviewer),
+            reviewer,
+            limit=configuration.effects_review_limit,
+            paper_ids=after.get("paper_ids"),
+        )
+        context.log.info(f"Effects review: {reviewed}")
+        if reviewed["errors"]:
+            raise dg.Failure(f"Effects review failed: {reviewed['errors']}")
+        result["review"] = reviewed
+    return result
 
 
 @dg.op

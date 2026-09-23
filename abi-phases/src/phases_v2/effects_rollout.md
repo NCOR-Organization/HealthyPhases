@@ -63,7 +63,7 @@ Review source qualifications, target effects, generic process names, participant
 conditions and evidence. Keep accepted claims, rejected claims and uncertain
 claims distinct in the pilot report. Do not silently repair quotes or turn
 uncertainty into no-effect. A model output passing schema validation is not a
-review approval. Routine production review queues are not implemented by this PR.
+review approval. The follow-up [review gate](review/README.md) now controls Effects visibility and supports bounded model review.
 
 Keep counts descriptive: group on source process, source change, target process
 and target effect; count distinct paper IDs, not repeated chunks. Report exact
@@ -111,6 +111,6 @@ Decision: this representation can proceed to supervised use, but unattended
 bulk extraction should remain off. Next acceptance work is an explicit review
 gate, exact evidence-span validation, and regression cases derived from these
 failures, followed by a separately held-out paper evaluation. Any such gate must
-keep abstention distinct from no-effect. This PR does not implement that gate or
+keep abstention distinct from no-effect. The follow-up [review gate](review/README.md) implements that gate; it does not
 claim an exhaustive BFO representation. Do not silently replace the evaluated
 prompt and reuse these results as evidence for the replacement.

@@ -42,6 +42,8 @@ class PhasesV2Configuration(ModuleConfiguration):
     papers_root: str = "phases_v2"
     openai_api_key: SecretStr | None = None
     extraction_workers: int = Field(default=20, ge=1, strict=True)
+    effects_review_model: str = ""
+    effects_review_limit: int = Field(default=25, ge=1, le=200, strict=True)
 
 
 class ABIModule(BaseModule[PhasesV2Configuration]):

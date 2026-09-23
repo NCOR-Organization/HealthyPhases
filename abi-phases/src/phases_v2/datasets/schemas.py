@@ -247,7 +247,28 @@ SOURCE_MANIFESTS = _spec(
     primary_key=("request_id",),
 )
 
+EFFECT_REVIEWS = _spec(
+    "effect_reviews",
+    (
+        ("event_id", "string"),
+        ("relation_id", "string"),
+        ("fingerprint", "string"),
+        ("previous_event_id", "string"),
+        ("decision", "string"),
+        ("reviewer", "string"),
+        ("reviewer_kind", "string"),
+        ("reviewer_model", "string"),
+        ("reviewer_prompt", "string"),
+        ("reviewer_response", "string"),
+        ("note", "string"),
+        ("policy", "string"),
+        ("reviewed_at", "timestamp"),
+    ),
+    primary_key=("event_id",),
+)
+
 DATASETS: tuple[DatasetSpec, ...] = (
+    EFFECT_REVIEWS,
     SOURCE_MANIFESTS,
     INPUT_COLLECTIONS,
     PAPERS,

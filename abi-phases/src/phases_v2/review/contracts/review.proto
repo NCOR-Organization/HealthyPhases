@@ -1,0 +1,27 @@
+syntax = "proto3";
+package phases_v2.review.v1;
+import "buf/validate/validate.proto";
+
+// Operator-supplied decisions, never model approval instructions.
+message ReviewDecision {
+  string relation_id = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  string fingerprint = 2 [(buf.validate.field).string.pattern = "^[a-f0-9]{64}$"];
+  string previous_event_id = 3 [(buf.validate.field).string.max_len = 200];
+  string decision = 4 [(buf.validate.field).string = {in: ["approved", "rejected", "uncertain"]}];
+  string note = 5 [(buf.validate.field).string = {min_len: 1, max_len: 4000}];
+}
+message ReviewBatch {
+  string reviewer = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  repeated ReviewDecision decisions = 2 [(buf.validate.field).repeated = {min_items: 1, max_items: 200}];
+}
+
+message ModelReview {
+  string decision = 1 [(buf.validate.field).string = {in: ["approved", "rejected", "uncertain"]}];
+  string reason = 2 [(buf.validate.field).string = {min_len: 1, max_len: 4000}];
+  string source_qualification = 3 [(buf.validate.field).string = {in: ["pass", "fail", "uncertain"]}];
+  string target_effect = 4 [(buf.validate.field).string = {in: ["pass", "fail", "uncertain"]}];
+  string asserted_finding = 5 [(buf.validate.field).string = {in: ["pass", "fail", "uncertain"]}];
+  string endpoints = 6 [(buf.validate.field).string = {in: ["pass", "fail", "uncertain"]}];
+  string conditions = 7 [(buf.validate.field).string = {in: ["pass", "fail", "uncertain"]}];
+  string participant = 8 [(buf.validate.field).string = {in: ["pass", "fail", "uncertain"]}];
+}
