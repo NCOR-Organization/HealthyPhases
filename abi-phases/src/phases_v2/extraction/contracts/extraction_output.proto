@@ -48,9 +48,15 @@ message Relation {
   string subject_participant = 2 [(buf.validate.field).string.min_len = 1];
   string target_process = 3 [(buf.validate.field).string.min_len = 1];
   string direction = 4 [(buf.validate.field).string = {
-    in: ["increases", "decreases", "no-effect"]
+    in: ["increases", "decreases", "no-effect", "prevents-increase", "prevents-decrease"]
   }];
-  string evidence_text = 5 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  string evidence_text = 5 [(buf.validate.field).string = {min_len: 1, max_len: 2000}];
+  // Source qualification only. Direction is the target effect; never multiply them.
+  string subject_change = 6 [(buf.validate.field).string = {
+    in: ["none", "increases", "decreases", "no-effect", "prevents-increase", "prevents-decrease"]
+  }];
+  reserved 7;
+  reserved "target_change";
 }
 message RelationsOutput {
   repeated Relation relations = 1 [(buf.validate.field).repeated.max_items = 8];

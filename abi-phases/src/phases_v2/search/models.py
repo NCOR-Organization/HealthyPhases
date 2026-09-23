@@ -55,6 +55,7 @@ class SearchHit:
 
     relation_id: str | None = None
     subject_process: str | None = None
+    subject_change: str | None = None
     subject_participant: str | None = None
     target_process: str | None = None
     direction: str | None = None

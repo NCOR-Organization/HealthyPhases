@@ -52,6 +52,48 @@ def test_rendering_substitutes_the_chunk_and_leaves_the_json_example_intact():
     assert "{{" not in rendered
 
 
+def _probabilistic():
+    return next(t for t in declared_prompts() if t.name == "probabilistic_processes")
+
+
+def test_probabilistic_prompt_keeps_direction_out_of_the_process_names():
+    # Direction belongs in the `direction` field only. A process named
+    # "increased stress" states it a second time, and a claim like
+    # "meditation decreases increased stress" can no longer be read reliably.
+    for modifier in ("increased", "decreased", "reduced", "elevated", "risk of"):
+        assert f'"{modifier}"' in _probabilistic().template, modifier
+
+
+def test_probabilistic_prompt_names_the_process_itself_not_a_phase_of_it():
+    # The claim is that the subject increases, decreases, or has no effect on
+    # the process. "onset of depression" narrows that to its start, and
+    # "experiencing stress" splits "stress" into a second node.
+    for wrapper in ("onset of", "occurrence of", "experiencing"):
+        assert f'"{wrapper}"' in _probabilistic().template, wrapper
+
+
+def test_probabilistic_prompt_examples_obey_its_own_naming_rules():
+    # The corrected examples are what the model imitates most closely. A fix
+    # that still says "onset of depression" undoes the rule written above it.
+    fixes = [
+        line.split("->", 1)[1].lower()
+        for line in _probabilistic().template.splitlines()
+        if "->" in line
+    ]
+
+    assert fixes
+    for fix in fixes:
+        for banned in (
+            "increased",
+            "reduced",
+            "risk of",
+            "onset of",
+            "occurrence of",
+            "experiencing",
+        ):
+            assert banned not in fix, fix
+
+
 def test_rendering_is_unfazed_by_braces_in_the_chunk_text():
     # Substitution rather than formatting: a chunk quoting JSON or LaTeX must
     # not be able to raise or reformat the prompt around it.

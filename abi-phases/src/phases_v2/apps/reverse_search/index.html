@@ -151,7 +151,7 @@
     <div id="effects-controls" hidden>
       <p class="lede">Filter the extracted relationship itself. Leave fields blank to browse all effects.</p>
       <div class="controls">
-        <label>Direction <select id="effect-direction"><option value="">Any direction</option><option value="increases">Increases</option><option value="decreases">Decreases</option><option value="no-effect">Neutral (no effect)</option></select></label>
+        <label>Direction <select id="effect-direction"><option value="">Any direction</option><option value="increases">Increases</option><option value="decreases">Decreases</option><option value="no-effect">No effect</option><option value="prevents-increase">Prevents increase</option><option value="prevents-decrease">Prevents decrease</option></select></label>
         <label>From / subject <input id="effect-subject" type="text" placeholder="e.g. meditation"></label>
         <label>Participant <input id="effect-participant" type="text" placeholder="e.g. older adults"></label>
       </div>
@@ -376,7 +376,8 @@
       const valid = (r) => r && typeof r === 'object'
         && ['subject_process', 'subject_participant', 'target_process'].every(
           (key) => typeof r[key] === 'string' && r[key].trim())
-        && ['increases', 'decreases', 'no-effect'].includes(r.direction)
+        && ['increases', 'decreases', 'no-effect', 'prevents-increase', 'prevents-decrease'].includes(r.direction)
+        && (r.subject_change == null || ['none', 'more', 'less', 'increases', 'decreases', 'no-effect', 'prevents-increase', 'prevents-decrease'].includes(r.subject_change))
         && (r.evidence_text == null || typeof r.evidence_text === 'string');
       return relations.length && relations.every(valid) ? relations : [];
     }
@@ -385,17 +386,18 @@
       const node = (role, type, text) => `<div class="graph-node">
         <span class="node-role">${role}</span><span class="node-type">${type}</span>
         <div class="node-text">${highlight(text, query, mode)}</div></div>`;
-      const direction = { increases: 'Increases', decreases: 'Decreases', 'no-effect': 'Neutral (no effect)' }[r.direction];
+      const direction = { increases: 'Increases', decreases: 'Decreases', 'no-effect': 'No effect', 'prevents-increase': 'Prevents increase', 'prevents-decrease': 'Prevents decrease' }[r.direction];
+      const sourceChange = { none: '', increases: 'Increase in', decreases: 'Decrease in', more: 'Increase in', less: 'Decrease in', 'no-effect': 'No effect on', 'prevents-increase': 'Prevention of increase in', 'prevents-decrease': 'Prevention of decrease in' }[r.subject_change || 'none'];
+      const subject = sourceChange ? `${sourceChange} ${r.subject_process}` : r.subject_process;
       return `<figure class="relation">
-        <figcaption>Probability-modulating claim${total > 1 ? ` ${index + 1} of ${total}` : ''}</figcaption>
+        <figcaption>Effect claim${total > 1 ? ` ${index + 1} of ${total}` : ''}</figcaption>
         <div class="participant-branch">
           ${node('Participant / disposition bearer', 'Independent continuant', r.subject_participant)}
           <span class="participant-link">participates in</span>
         </div>
         <div class="relation-flow">
-          ${node('From / subject', 'Process', r.subject_process)}
+          ${node('From / subject', 'Process', subject)}
           <div class="relation-edge ${r.direction}"><strong>${direction}</strong>
-            ${r.direction === 'no-effect' ? 'on the probability of' : 'the probability of'}
             <span class="edge-arrow" aria-hidden="true"></span></div>
           ${node('To / target', 'Process', r.target_process)}
         </div>

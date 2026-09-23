@@ -171,6 +171,7 @@ PROBABILISTIC_RELATIONS = _spec(
         ("model_id", "string"),
         ("subject_process", "string"),
         ("subject_participant", "string"),
+        ("subject_change", "string"),
         ("target_process", "string"),
         ("direction", "string"),
         ("evidence_text", "string"),

@@ -37,6 +37,7 @@ CSV_COLUMNS = [
     "chunk_text",
     "relation_id",
     "subject_process",
+    "subject_change",
     "subject_participant",
     "target_process",
     "direction",

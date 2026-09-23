@@ -158,6 +158,7 @@ class DatasetExtractedItemsAdapter:
         )
         fields = (
             "subject_process",
+            "subject_change",
             "subject_participant",
             "target_process",
             "direction",

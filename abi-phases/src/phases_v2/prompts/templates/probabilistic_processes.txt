@@ -1,64 +1,94 @@
-You are extracting PROBABILITY-MODULATING CLAIMS from a research text and
-rephrasing them in BFO process form.
+Extract effect claims supported by the research text. Keep generic process
+names and preserve the source qualification separately from the target effect.
+Do not calculate a net sign or invert a claim.
 
-Goal: capture claims of the form
+Return {"relations": [...]} with 0 to 8 objects, each containing exactly:
+- subject_process: the generic source process name.
+- subject_participant: the noun phrase for the independent continuant that
+  participates in the source process and bears the claimed disposition.
+- subject_change: "none", "increases", "decreases", "no-effect",
+  "prevents-increase", or "prevents-decrease".
+- target_process: the generic target process name.
+- direction: "increases", "decreases", "no-effect", "prevents-increase",
+  or "prevents-decrease". This is the effect on the target, stated ONCE.
+- evidence_text: one contiguous, verbatim passage from the supplied text,
+  at most 2000 characters. Do not insert ellipses, repair wording, or paraphrase.
 
-    "<subject> increases (or decreases, or has no effect on) the probability
-     that <target> happens".
+Meaning of the fields
+- subject_change describes ONLY the source qualification explicitly stated:
+  increased/higher/more source = increases; reduced/lower/less source = decreases.
+  Use none when no source change is stated. None is NOT no-effect.
+  Source prevention labels apply only if prevention on the source itself is
+  explicitly what influences the target. Do not invent a source change.
+- direction describes the target effect. Increases/decreases can concern the
+  amount, likelihood, frequency, intensity, or duration of the target process;
+  preserve the paper's qualification in the evidence rather than invent a metric.
+- prevents-increase means stopping the target from increasing, NOT decreasing it.
+- prevents-decrease means stopping the target from decreasing, NOT increasing it.
+- no-effect requires an explicit claim of no effect. A nonsignificant result,
+  "does not increase", "does not decrease", or missing evidence is not enough.
+- Do not output target_change: that would encode the target effect twice.
+- Neither a reduced source nor a prevention label ever flips direction.
 
-The output is consumed by an ontology where both endpoints must be BFO
-processes (occurrents — things that unfold in time) and the subject process
-must have an explicit independent-continuant participant that bears the
-probability-modulating disposition.
+Naming
+Use plain processes such as "social support", "stress", "depression",
+"social interaction", and "laughter". Keep meaningful context such as
+"laughter with friends" versus "laughter alone"; do not collapse these into
+laughter causing itself. Both endpoints should describe what unfolds, not an
+anatomical location, test instrument, or paper/study.
+Remove amount words from the names: "increased", "decreased", "reduced",
+"elevated", "higher", "lower", "more", "less", "lack of".
+Do not introduce wrappers such as "risk of", "onset of", "occurrence of",
+"experiencing", "improvement in", or "reduction in" into a generic name.
+"experiencing stress" -> "stress"
+"reduced social support" -> "social support"
+Do not remove the identity of a process: "lung volume reduction surgery" is
+an intervention name, not a source decrease. Do not strip clinically meaningful
+qualifiers such as "high-arousal negative emotions" merely because they say high.
 
-What to extract
-- Only claims where the text asserts (or strongly implies) a directional
-  influence of one thing on the probability of another thing happening.
-- Each claim becomes ONE JSON object with these fields:
+Examples (field order: source, source change, target effect, target)
+"Support reduces stress."
+  social support | none | decreases | stress
+"Reduced social support increases stress."
+  social support | decreases | increases | stress
+"More social support was associated with less negative affect."
+  social support | increases | decreases | negative affect
+"Less social support was associated with more negative affect."
+  social support | decreases | increases | negative affect
+"Support prevents an increase in stress."
+  social support | none | prevents-increase | stress
+"Support prevents a decrease in stress."
+  social support | none | prevents-decrease | stress
+"Preventing a decrease in social support reduces stress."
+  social support | prevents-decrease | decreases | stress
+"Preventing an increase in stress improves sleep."
+  stress | prevents-increase | increases | sleep
+"Support does not increase stress."
+  OMIT: no increase does not establish no effect, decrease, or prevention.
+"The intervention inhibited the reduction of stress."
+  OMIT if the text does not establish prevention; weaker inhibition is ambiguous.
 
-    {
-      "subject_process":    "<verb-phrase / -ing nominal>",
-      "subject_participant": "<noun phrase: the bearer of the disposition>",
-      "target_process":     "<verb-phrase / -ing nominal>",
-      "direction":          "increases" | "decreases" | "no-effect",
-      "evidence_text":      "<short verbatim quote from the text>"
-    }
+Grounding
+- Extract asserted effects or explicitly signed associations. Do not upgrade
+  association to proof of causation; preserve the associative wording in evidence.
+- For an association, keep the predictor/source orientation stated by the text.
+  Do not infer direction from "associated with" or "significant" alone.
+- A symptom or diagnostic test detecting a condition does not cause that condition.
+- Do not infer effects from reference titles, fictional narratives, hypotheses,
+  proposed mechanisms without a supported claim, or descriptions of procedures.
+- Preserve the distinction between source and target; do not swap them to fit.
+- If the two generic processes and these fields cannot preserve the claim
+  (e.g. an essential threshold, nested negation, or unclear direction), OMIT it.
+  An empty list is preferable to an invented or inverted relationship.
 
-Hard requirements on shape
-- `subject_process` and `target_process` MUST be processes — phrased as a
-  verb phrase or -ing nominal that names something that unfolds in time.
-  Examples (good): "sugar consumption", "social isolation", "regular
-  meditation practice", "occurrence of headache", "onset of depression".
-  Examples (bad — fix them): "sugar"  -> "sugar consumption";
-                              "headache" -> "occurrence of headache";
-                              "loneliness" -> "experiencing loneliness".
-- `subject_participant` MUST be a noun phrase naming the independent
-  continuant that participates in the subject process and bears the
-  disposition. It is what the disposition "lives in".
-  Example: subject_process="sugar consumption" -> subject_participant="sugar".
-           subject_process="regular meditation practice" ->
-                                       subject_participant="meditation practitioner".
-- `direction` MUST be exactly one of: "increases", "decreases", "no-effect".
-  Use "no-effect" ONLY when the text explicitly asserts a null finding
-  (e.g. "X had no significant effect on Y").
-- `evidence_text` MUST be a short verbatim quote (<= 200 characters) from
-  the text supporting the claim. Do not paraphrase here.
-
-Hard requirements on content
-- Do NOT invent claims that are not supported by the text.
-- Do NOT extract claims about the study itself (e.g. "the authors find...").
-  State the claim as a general proposition about the world.
-- If the direction is uncertain or hedged so heavily that you cannot pick
-  one of the three options, DROP the claim entirely.
-- Use the most specific phrasing the text supports.
-- Output 0 to 8 claims. If the text contains no such claim, return an
-  empty list.
-
-Return strict JSON only in this exact shape:
+Example output:
 {"relations": [
-   {"subject_process": "...", "subject_participant": "...",
-     "target_process": "...", "direction": "increases",
-     "evidence_text": "..."}
+  {"subject_process": "social support",
+   "subject_participant": "person providing support",
+   "subject_change": "decreases",
+   "target_process": "stress",
+   "direction": "increases",
+   "evidence_text": "Reduced social support increases stress."}
 ]}
 
 Text:

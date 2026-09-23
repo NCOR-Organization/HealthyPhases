@@ -26,6 +26,29 @@ relying on provider-specific strict-schema support. Successful `raw_response`
 contains the serialized validated arguments; failed calls retain the complete
 LangChain message when one was returned. There is no silent text fallback.
 
-Prompt text and IDs remain unchanged to preserve successful-work deduplication.
-On rerun, failed rows receive fresh model calls and are overwritten by the usual
-upsert. Old failed text is not repaired, and successes are not deleted.
+Prompt IDs derive from prompt text, and successful-work deduplication keys on
+them. On rerun, failed rows receive fresh model calls and are overwritten by the
+usual upsert. Old failed text is not repaired, and successes are not deleted.
+Editing a prompt's text gives it a new ID, so every chunk becomes outstanding
+for that prompt again, while extractions made with the old text are kept.
+
+`Relation.subject_change` is required in new tool calls. It is `none` (source
+unqualified) or one of the same five effects accepted by `direction`: increases,
+decreases, no-effect, prevents-increase, prevents-decrease. Direction is the
+single target effect; there is no `target_change` and no sign arithmetic.
+The removed target-change field number/name are reserved in Protobuf. The
+projection accepts old source amount labels and absent source qualification;
+new model responses must use the exact new contract. Shape validation cannot
+verify whether prevention, causality, or absence of effect is supported.
+
+Offline regeneration can reuse the dependency descriptors already checked in:
+`protoc -I src --descriptor_set_in=<existing extraction_output.pb>
+--include_imports --descriptor_set_out=<temporary output.pb> <contract.proto>`.
+Replace the corresponding checked-in descriptor after compilation. Regenerate
+extraction, projection, and search descriptors together for this change.
+
+Evidence may contain up to 2,000 characters so complete supporting sentences
+fit without forced paraphrase or truncation. This is a bounded payload limit,
+not an evidence-quality threshold. The prompt text changes with the limit,
+producing a new prompt ID. Projection/search preserve full evidence, including
+older excerpts. Exact quotation and semantic support require separate checks.

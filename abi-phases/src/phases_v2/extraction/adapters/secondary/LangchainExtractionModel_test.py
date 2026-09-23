@@ -5,6 +5,9 @@ import json
 import pytest
 from langchain_core.messages import AIMessage
 
+from phases_v2.extraction.adapters.secondary.extraction_tool_schema import (
+    ExtractionToolSchema,
+)
 from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
     LangchainExtractionModel,
 )
@@ -114,6 +117,16 @@ class TestLangchainExtractionModel(ExtractionModelContract):
         ).complete("x")
         assert json.loads(result) == args
 
+    @pytest.mark.parametrize("prompt", declared_prompts())
+    def test_each_declared_prompt_asks_for_every_field_its_schema_requires(
+        self, prompt
+    ):
+        # A required field the prompt never mentions fails every call.
+        schema = ExtractionToolSchema(prompt.output_key).parameters
+        items = schema["properties"][prompt.output_key]["items"]
+        for field in items.get("properties", {}):
+            assert f'"{field}"' in prompt.template, (prompt.name, field)
+
     def test_provider_error_is_preserved(self):
         with pytest.raises(ModelFailed, match="503"):
             LangchainExtractionModel(_StubChat(RuntimeError("503"))).complete("x")
@@ -122,7 +135,8 @@ class TestLangchainExtractionModel(ExtractionModelContract):
 RELATION = {
     "subject_process": "social isolation",
     "subject_participant": "isolated person",
-    "target_process": "experiencing loneliness",
+    "subject_change": "none",
+    "target_process": "loneliness",
     "direction": "increases",
     "evidence_text": "Social isolation increases loneliness.",
 }
@@ -138,9 +152,11 @@ def test_valid_relation_is_preserved_as_an_object():
     "changes",
     [
         {"direction": "perhaps"},
-        {"evidence_text": "x" * 201},
+        {"evidence_text": "x" * 2001},
         {"subject_process": ""},
         {"target_process": None},
+        {"subject_change": "fewer"},
+        {"target_change": ""},
         {"extra": "no"},
     ],
 )
@@ -148,6 +164,17 @@ def test_relation_proto_validation_rejects_invalid_fields(changes):
     args = {"relations": [RELATION | changes]}
     with pytest.raises(ModelFailed):
         LangchainExtractionModel(_StubChat(_message(args)), "relations").complete("x")
+
+
+@pytest.mark.parametrize("missing", ["subject_change", "direction"])
+def test_a_relation_must_state_what_the_text_says_about_each_amount(missing):
+    # The projection reads a relation as stated unless told otherwise, so a
+    # silently omitted "less" would store the opposite claim.
+    relation = {key: value for key, value in RELATION.items() if key != missing}
+    with pytest.raises(ModelFailed):
+        LangchainExtractionModel(
+            _StubChat(_message({"relations": [relation]})), "relations"
+        ).complete("x")
 
 
 def test_missing_relation_fields_and_too_many_relations_are_rejected():
@@ -205,3 +232,36 @@ def test_real_langchain_client_sends_forced_tool_and_parses_arguments():
         assert json.loads(
             LangchainExtractionModel(chat, "what").complete("Extract")
         ) == {"what": ["fresh claim"]}
+
+
+@pytest.mark.parametrize("direction", ["prevents-increase", "prevents-decrease"])
+@pytest.mark.parametrize(
+    "subject_change",
+    ["none", "decreases", "prevents-increase", "prevents-decrease", "no-effect"],
+)
+def test_prevention_and_source_effects_survive_tool_validation(
+    direction, subject_change
+):
+    args = {
+        "relations": [
+            RELATION | {"direction": direction, "subject_change": subject_change}
+        ]
+    }
+    model = LangchainExtractionModel(_StubChat(_message(args)), "relations")
+    assert json.loads(model.complete("x")) == args
+
+
+@pytest.mark.parametrize("length", [201, 358, 2000])
+def test_full_evidence_is_preserved_without_truncation(length):
+    evidence = "A" * (length - 1) + "."
+    args = {"relations": [RELATION | {"evidence_text": evidence}]}
+    model = LangchainExtractionModel(_StubChat(_message(args)), "relations")
+    assert json.loads(model.complete("x")) == args
+
+
+def test_evidence_length_limit_in_provider_schema_matches_runtime_contract():
+    schema = ExtractionToolSchema("relations")
+    evidence = schema.parameters["properties"]["relations"]["items"]["properties"][
+        "evidence_text"
+    ]
+    assert evidence["maxLength"] == 2000
