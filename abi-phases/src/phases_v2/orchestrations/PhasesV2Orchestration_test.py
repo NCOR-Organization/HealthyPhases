@@ -360,6 +360,53 @@ def test_pipeline_carries_selected_paper_ids_to_each_stage(monkeypatch):
         assert operation.call_args.kwargs["paper_ids"] == ["selected"]
 
 
+@pytest.mark.parametrize("failed", [False, True])
+def test_configured_review_is_bounded_scoped_and_surfaces_failure(monkeypatch, failed):
+    from phases_v2.orchestrations.PhasesV2Orchestration import project_relations_op
+    from phases_v2.projection.probabilistic import BackfillReport
+
+    engine = SimpleNamespace(
+        modules={
+            "phases_v2": SimpleNamespace(
+                configuration=SimpleNamespace(
+                    effects_review_model="reviewer", effects_review_limit=7
+                )
+            )
+        }
+    )
+    monkeypatch.setattr(
+        "phases_v2.orchestrations.PhasesV2Orchestration._engine", lambda: engine
+    )
+    monkeypatch.setattr(
+        "phases_v2.projection.factory.project_to_relations",
+        lambda *a, **k: BackfillReport(),
+    )
+    monkeypatch.setattr(
+        "phases_v2.review.review_factory.model_for", lambda *a: "model-port"
+    )
+    monkeypatch.setattr(
+        "phases_v2.review.review_factory.service_for", lambda *a: "service"
+    )
+    review = Mock(
+        return_value={"errors": {"r": "timeout"} if failed else {}, "approved": 1}
+    )
+    monkeypatch.setattr("phases_v2.review.review_automation.automatic_review", review)
+    with dg.build_op_context() as context:
+        if failed:
+            with pytest.raises(dg.Failure, match="review failed"):
+                project_relations_op(context, after={"paper_ids": ["selected"]})
+        else:
+            assert (
+                project_relations_op(context, after={"paper_ids": ["selected"]})[
+                    "review"
+                ]["approved"]
+                == 1
+            )
+    review.assert_called_once_with(
+        "service", "model-port", "reviewer", limit=7, paper_ids=["selected"]
+    )
+
+
 def test_missing_pubmed_manifest_cannot_fall_back_to_a_storage_scan(monkeypatch):
     from phases_v2.orchestrations.PhasesV2Orchestration import (
         RunConfig,

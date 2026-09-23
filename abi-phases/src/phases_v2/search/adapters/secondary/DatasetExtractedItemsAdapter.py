@@ -18,6 +18,7 @@ from naas_abi_core import logger
 from naas_abi_core.services.object_storage.ObjectStoragePort import Exceptions
 
 from phases_v2.ports import RowStore
+from phases_v2.review.review_queries import LATEST_JOIN, approved_sql
 from phases_v2.search.models import ItemLocation, SearchHit
 from phases_v2.search.paths import matches_path, parent_paths, source_folder
 from phases_v2.search.search_keywords import exact_pattern, is_exact, tokenize
@@ -129,7 +130,7 @@ class DatasetExtractedItemsAdapter:
         models=None,
         paths=None,
     ) -> tuple[list[SearchHit], int]:
-        filters = []
+        filters = [approved_sql()]
         if direction:
             filters.append(f"r.direction = {literal(direction)}")
         for column, query in (
@@ -151,7 +152,11 @@ class DatasetExtractedItemsAdapter:
             filters.append(f"e.model_id IN {in_list(models)}")
         if paths:
             filters.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
-        source = _FROM + " JOIN probabilistic_relations r ON r.item_id = ei.item_id "
+        source = (
+            _FROM
+            + " JOIN probabilistic_relations r ON r.item_id = ei.item_id "
+            + LATEST_JOIN
+        )
         where = " WHERE " + " AND ".join(filters) if filters else ""
         total = int(
             self._query(f"SELECT COUNT(*) AS total {source} {where}")[0]["total"]
@@ -166,7 +171,8 @@ class DatasetExtractedItemsAdapter:
         )
         columns = ", ".join(f"r.{field}" for field in fields)
         rows = self._query(
-            f"SELECT {_COLUMNS}, r.relation_id, {columns} {source} {where} "
+            f"SELECT {_COLUMNS}, r.relation_id, review.event_id AS review_id, "
+            f"review.reviewer_kind, {columns} {source} {where} "
             f"ORDER BY p.file_name, c.seq, r.relation_id LIMIT {int(limit)} OFFSET {int(offset)}"
         )
         hits = []
@@ -180,6 +186,9 @@ class DatasetExtractedItemsAdapter:
                         location=_row_to_location(row),
                     ),
                     relation_id=row["relation_id"],
+                    review_status="approved",
+                    review_id=row["review_id"],
+                    reviewer_kind=row["reviewer_kind"],
                     **relation,
                 )
             )

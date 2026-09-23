@@ -149,7 +149,7 @@
     </div>
 
     <div id="effects-controls" hidden>
-      <p class="lede">Filter the extracted relationship itself. Leave fields blank to browse all effects.</p>
+      <p class="lede">Browse reviewed effects. Only approved claims with matching source evidence appear here. Approval is not proof of causation.</p>
       <div class="controls">
         <label>Direction <select id="effect-direction"><option value="">Any direction</option><option value="increases">Increases</option><option value="decreases">Decreases</option><option value="no-effect">No effect</option><option value="prevents-increase">Prevents increase</option><option value="prevents-decrease">Prevents decrease</option></select></label>
         <label>From / subject <input id="effect-subject" type="text" placeholder="e.g. meditation"></label>
@@ -471,6 +471,7 @@
       const download = h.paper_id
         ? '<button class="download" type="button">Download paper</button><span class="download-status" role="status"></span>' : '';
       card.innerHTML = `
+        <div class="meta">${h.review_status === 'approved' ? 'Approved review (' + escapeHtml(h.reviewer_kind || 'reviewer') + ')' : 'Raw extraction — not a reviewed effect'}</div>
         ${renderExtraction(h.extracted_text, data.query, data.mode)}
         <div class="meta">${prompt}${model}${paper}${where ? `<span>· ${where}</span>` : ""}${score}${download}</div>
         ${source}${context}${extractionPrompt}${raw}`;

@@ -42,6 +42,9 @@ CSV_COLUMNS = [
     "target_process",
     "direction",
     "evidence_text",
+    "review_status",
+    "review_id",
+    "reviewer_kind",
 ]
 
 
@@ -101,7 +104,17 @@ def build_router(service: SearchService) -> APIRouter:
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         options = {key: value for key, value in filters.items() if key != "snapshot"}
-        scoped, snapshot = service.read_view(filters["snapshot"])
+        scoped, snapshot = service.read_view(
+            None if mode == "effects" else filters["snapshot"]
+        )
+        if (
+            mode == "effects"
+            and filters["snapshot"] is not None
+            and filters["snapshot"] != snapshot
+        ):
+            raise HTTPException(
+                status_code=409, detail="Effects data or reviews changed. Refresh the search."
+            )
         return scoped, snapshot, options
 
     def unavailable(error):

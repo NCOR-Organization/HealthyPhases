@@ -23,6 +23,8 @@ from phases_v2.projection.adapters.secondary.ProbabilisticContractValidator impo
 )
 from phases_v2.projection.factory import project_to_relations, rebuild_relations
 from phases_v2.projection.probabilistic import project_relations
+from phases_v2.review.contracts.review_validation import validate_batch
+from phases_v2.review.review_service import ReviewService
 from phases_v2.search.adapters.secondary.DatasetExtractedItemsAdapter import (
     DatasetExtractedItemsAdapter,
 )
@@ -66,7 +68,14 @@ def corpus(tmp_path):
     )
     rows.write_rows(
         "chunks",
-        [{"chunk_id": "c", "paper_id": "p", "seq": 1, "text": "Exact source chunk"}],
+        [
+            {
+                "chunk_id": "c",
+                "paper_id": "p",
+                "seq": 1,
+                "text": RELATION["evidence_text"],
+            }
+        ],
     )
     rows.write_rows(
         "prompts",
@@ -185,6 +194,7 @@ def test_retry_after_ledger_failure_does_not_duplicate_relations(corpus):
 def test_effects_filters_target_fields_paginate_and_export(corpus):
     engine, rows = corpus
     project_to_relations(engine)
+    _approve_fixture(rows)
     app = FastAPI()
     register(
         app, SearchService(FakeSemanticIndex(), DatasetExtractedItemsAdapter(rows))
@@ -203,7 +213,7 @@ def test_effects_filters_target_fields_paginate_and_export(corpus):
     first = first_response.json()
     assert first["total"] == 2
     assert first["hits"][0]["target_process"] == RELATION["target_process"]
-    assert first["hits"][0]["chunk_text"] == "Exact source chunk"
+    assert first["hits"][0]["chunk_text"] == RELATION["evidence_text"]
     second = client.get(
         f"{PREFIX}/effects",
         params={
@@ -419,6 +429,7 @@ def test_prevention_effects_are_searchable_with_source_qualification(corpus, dir
         {**RELATION, "subject_change": "decreases", "direction": direction},
     )
     project_to_relations(engine)
+    _approve_fixture(rows)
     [row] = rows.query(
         "SELECT * FROM probabilistic_relations WHERE item_id = 'prevent'"
     )
@@ -461,3 +472,22 @@ def test_legacy_double_encoded_target_decrease_is_not_inverted(corpus):
     [row] = rows.query("SELECT * FROM probabilistic_relations WHERE item_id = 'double'")
     assert row["direction"] == "decreases"
     assert row["subject_change"] == "increases"
+
+
+def _approve_fixture(rows):
+    service = ReviewService(rows, validate_batch)
+    service.decide(
+        {
+            "reviewer": "test-fixture",
+            "decisions": [
+                {
+                    "relation_id": r["relation_id"],
+                    "fingerprint": r["fingerprint"],
+                    "previous_event_id": r["previous_event_id"],
+                    "decision": "approved",
+                    "note": "Fixture approval for query mapping test",
+                }
+                for r in service.queue()
+            ],
+        }
+    )

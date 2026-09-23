@@ -42,6 +42,8 @@ dev = ["pytest>=9.1.1", "ruff>=0.16.3"]
 "phases_v2.app.contracts" = ["*.proto", "*.pb"]
 
 "phases_v2.projection.contracts" = ["*.proto", "*.pb"]
+"phases_v2.review.contracts" = ["*.proto", "*.pb"]
+"phases_v2.review" = ["review_prompt.txt", "README.md"]
 
 "pubmed" = ["LICENSE", "UPSTREAM.md", "README.md", "apps/search/*", "contracts/*.proto", "contracts/*.pb", "ontologies/*.ttl"]
 
