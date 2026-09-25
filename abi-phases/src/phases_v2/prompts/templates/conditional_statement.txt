@@ -15,6 +15,15 @@ What to extract
 - Each sentence must stand on its own, with no pronouns referring to the
   surrounding text ("this", "these", "the authors", "the study"). Resolve
   references to concrete concepts.
+- <X> and <Y> must EACH be understandable on their own: the two halves are
+  also stored and compared separately. Name the subject explicitly in both
+  halves. <Y> must never lean on a pronoun or back-reference to <X> ("they",
+  "it", "their", "that child", "these individuals", "this"); repeat the noun
+  phrase from <X> instead.
+    Bad:  "If children are socially withdrawn, then they tend to be rejected
+           by peers."
+    Good: "If children are socially withdrawn, then socially withdrawn
+           children tend to be rejected by peers."
 
 Hard requirements
 - Do NOT copy sentences verbatim from the text — rephrase as general claims.
