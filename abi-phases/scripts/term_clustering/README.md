@@ -109,3 +109,67 @@ Known limitations of this spike:
 - OpenAlex topics are not joined yet; the join is
   `phases_v2.papers.storage_key -> pubmed.artifacts.storage_key -> pmid ->
   openalex.paper_enrichments`.
+
+## Incremental assignment (2026-09-25)
+
+Question: can papers ingested daily be attached to existing terms without
+re-clustering everything? `incremental.py` simulates it: the 26 papers are put
+in a fixed random order, the first 16 are clustered once and every cluster
+becomes a term (centroid, per-term radius, member list), then the remaining 10
+papers arrive one at a time and each new half is either assigned to a term or
+left in a pool. Decisions are scored against the full 26-paper clustering.
+`stability.py` measures how far that target can be trusted.
+
+```sh
+uv run scripts/term_clustering/incremental.py --initial-papers 16 --update-centroids
+uv run scripts/term_clustering/stability.py --seeds 42 1 2
+```
+
+Calibration first. Three full runs with different seeds agree on 90-98% of the
+points they both cluster (ARI 0.84-0.91), so the reference is stable at the
+cluster level. Each run leaves 30-34% as noise, and only about 60% of points
+are clustered in every run: membership at cluster edges is soft, and any
+incremental design has to treat it as provisional.
+
+Assignment results, 16 initial papers (162 terms, covering 65% of the
+concepts the full corpus ends up with), 5,735 arriving halves:
+
+| rule | assigned | precision | recall | wrong term | absorbed |
+|---|---|---|---|---|---|
+| centroid, p90 radius | 3,057 | 56% | 64% | 222 | 782 |
+| centroid, max radius | 4,799 | 47% | 87% | 404 | 1,419 |
+| centroid, p90 + 0.05 margin over runner-up | 1,585 | 72% | 42% | 49 | 314 |
+| 8 of 10 nearest members agree | 1,690 | 65% | 42% | 62 | 431 |
+| fixed cosine distance 0.15 | 184 | 86% | 7% | 19 | 5 |
+
+Every rule sits on the same trade-off curve; the k-nearest-member vote does
+not beat the centroid, and moving centroids with each assignment changes
+nothing. The dominant error is *absorbed*: a half whose concept has no term
+yet is assigned to the nearest existing term. Among halves whose concept does
+have a term, assignment is right 85-95% of the time (p90: 1,301 correct vs
+222 wrong; with margin: 933 vs 49). The problem is novelty detection, not
+assignment, and novelty is a function of corpus coverage: at 16 papers, 35%
+of concepts were still unknown.
+
+Discovery on the pool alone recovered a third of the missing concepts and
+re-created 40-46 fragments of terms that already existed. Clustering the pool
+together with a 30% sample of existing members lets 30 of those fragments
+attach to their term, but the recovery rate stays at a third.
+
+What this means for the design:
+
+- Daily assignment is provisional and should use a conservative rule (margin
+  or member vote): it is right about 95% of the time when it fires, and what
+  it leaves in the pool is not lost.
+- The authoritative structure comes from periodic re-discovery (weekly, or
+  after every N papers) over the pool, the recent assignments and a sample of
+  existing members, with **id reconciliation** by member overlap: existing
+  terms keep their ids, new clusters get new ids, and a named term that splits
+  or merges is flagged for review rather than changed. While a full re-cluster
+  takes minutes (it does up to a few thousand papers), the periodic job can
+  simply be a full run followed by reconciliation.
+- Human decisions (a name, a definition, an accept/reject) attach to the term
+  id and survive re-clustering; membership refreshes underneath them and the
+  app shows edge members as such.
+- Coverage grows with the corpus, so the share of provisional assignments that
+  later move should fall; the 200+ paper rerun is the first real measurement.
