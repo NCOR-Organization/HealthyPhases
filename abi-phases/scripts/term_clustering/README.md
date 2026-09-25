@@ -173,3 +173,68 @@ What this means for the design:
   app shows edge members as such.
 - Coverage grows with the corpus, so the share of provisional assignments that
   later move should fall; the 200+ paper rerun is the first real measurement.
+
+## BFO proposal (2026-09-25)
+
+Question: can the clusters and their relations be turned into a BFO 2020
+module with real axioms, generically (nothing corpus-specific in code or
+prompts) and importing only `bfo-core`? `bfo_proposal.py` categorises every
+cluster under BFO (kind, category, label, Aristotelian definition, rationale)
+and turns each strong relation into an OWL restriction through a small pattern
+library, with the pattern enforced against the two categories afterwards.
+`bfo_check.py` runs the structural checks and HermiT.
+
+```sh
+OPENAI_API_KEY=... uv run scripts/term_clustering/bfo_proposal.py --min-papers-edge 3
+OPENAI_API_KEY=... uv run scripts/term_clustering/bfo_proposal.py --min-papers-edge 3 \
+    --quality-change-as-process --out-name bfo_b
+uv run scripts/term_clustering/bfo_check.py --dir storage/spikes/term_clustering/bfo
+```
+
+Tendencies are the central problem: "If X, then Y tends to happen" is not a
+universal, so `X SubClassOf r some Y` would be false. The module uses BFO's
+disposition instead: bearers of X bear a disposition realized in Y. Every
+bearer has the disposition, not every disposition is realized. Increases and
+decreases are two disposition subclasses defined in the module; direction and
+support are annotations, since OWL cannot express probability.
+
+Two runs on 195 clusters and the 50 relations with 3+ papers (`gpt-4.1`):
+
+| | strict (A) | quality change as process (B) |
+|---|---|---|
+| domain entities | 98 | 142 |
+| set aside: comparative / measurement / mixed / other | 65 / 28 / 3 / 1 | 24 / 27 / 1 / 1 |
+| categories | 35 quality, 31 process, 16 disposition, 10 object aggregate, 3 role, 2 GDC, 1 function | 82 process, 37 quality, 11 disposition, 6 object aggregate, 3 role, 2 GDC, 1 function |
+| axioms from 50 relations | 2 | 24 (23 disposition, 1 subclass) |
+| structural problems / consistent | 0 / yes | 0 / yes |
+
+The difference is one modelling decision. In this corpus the consequent of a
+claim is very often a change in degree ("higher positive affect", "decrease in
+loneliness"). Run A treats those clusters as comparative statements and sets
+them aside, so 40 of the 50 relations have no class at one end and 6 more
+target a quality, which cannot realize a disposition. Run B models "increase
+in X" as a process in which a bearer's quality X changes (the OBO convention,
+BFO-conformant), and lets a disposition targeting a quality be realized in the
+process of coming to bear it. The strict run is the baseline that shows what
+the corpus supports without that concession; the ontologist decides.
+
+What run B writes reads like the findings: spending time alone bears a
+probability-increasing disposition realized in self-reflection and creativity
+(6 papers); scarcity of social relationships, in experience of loneliness (4);
+social withdrawal, in peer rejection and victimization (4); engagement in
+solitude, in decrease in high-arousal affect (3). Relations whose sentences
+disagree on direction are written with a plain disposition and flagged
+contested (4 of 24), and 4 relations were refused by the model as inconsistent
+or purely correlational.
+
+For review (the sheet is `review.md` in each output directory):
+
+- category calls to argue with: "mutual friendship" and "social relations" as
+  object aggregates, an attachment style as a role rather than a disposition;
+- duplicate concepts across categories ("solitude" as a quality and
+  "experience of solitude" as a process, joined by a trivial axiom) and among
+  change processes ("decrease in high-arousal affect" twice): the merge and
+  hierarchy steps of the term registry are where these belong;
+- "age" as the bearer of dispositions ("age inheres in some bearer of a
+  disposition realized in increase in time spent alone") is BFO-valid but
+  reads oddly; a life-stage class may be the better subject.
