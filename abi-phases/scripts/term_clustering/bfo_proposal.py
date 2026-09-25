@@ -248,13 +248,16 @@ def intersection(g: Graph, *members) -> BNode:
     return node
 
 
-def build_axiom(g: Graph, T: Namespace, ax: dict, src: URIRef, dst: URIRef, src_cat: str) -> tuple[URIRef, URIRef, object, str]:
-    """Add the axiom to ``g``; return (subject, predicate, object, manchester rendering)."""
+def build_expression(g: Graph, T: Namespace, ax: dict, dst: URIRef, src_cat: str) -> tuple[object, str]:
+    """The class expression the source is a subclass of, and its Manchester rendering.
+
+    Called twice per axiom on purpose: OWLAPI consumes an anonymous expression
+    once, so the axiom annotation must point at its own structurally identical
+    copy rather than share the blank node with the subClassOf triple (this is
+    what Protégé writes too)."""
     p = ax["pattern"]
-    if p == "subclass":
-        g.add((src, RDFS.subClassOf, dst)); return src, RDFS.subClassOf, dst, f"{ax['src_label']} SubClassOf {ax['dst_label']}"
-    if p == "equivalent":
-        g.add((src, OWL.equivalentClass, dst)); return src, OWL.equivalentClass, dst, f"{ax['src_label']} EquivalentTo {ax['dst_label']}"
+    if p in ("subclass", "equivalent"):
+        return dst, f"'{ax['dst_label']}'"
     if p == "disposition":
         # Plain BFO: a disposition realized only in the target process. The
         # empirical direction is an annotation on the axiom, never a class.
@@ -273,17 +276,24 @@ def build_axiom(g: Graph, T: Namespace, ax: dict, src: URIRef, dst: URIRef, src_
             filler, text = restriction(g, REL["has participant"], restriction(g, REL["bearer of"], realizable)), f"'has participant' some ('bearer of' some {inner})"
         else:
             filler, text = restriction(g, REL["inheres in"], restriction(g, REL["bearer of"], realizable)), f"'inheres in' some ('bearer of' some {inner})"
-        g.add((src, RDFS.subClassOf, filler)); return src, RDFS.subClassOf, filler, f"'{ax['src_label']}' SubClassOf {text}"
+        return filler, text
     if p == "quality_attribution":
-        filler = restriction(g, REL["bearer of"], dst); g.add((src, RDFS.subClassOf, filler))
-        return src, RDFS.subClassOf, filler, f"'{ax['src_label']}' SubClassOf 'bearer of' some '{ax['dst_label']}'"
+        return restriction(g, REL["bearer of"], dst), f"'bearer of' some '{ax['dst_label']}'"
     if p == "participation":
-        filler = restriction(g, REL["participates in"], dst); g.add((src, RDFS.subClassOf, filler))
-        return src, RDFS.subClassOf, filler, f"'{ax['src_label']}' SubClassOf 'participates in' some '{ax['dst_label']}'"
+        return restriction(g, REL["participates in"], dst), f"'participates in' some '{ax['dst_label']}'"
     if p == "occurs_in":
-        filler = restriction(g, REL["occurs in"], dst); g.add((src, RDFS.subClassOf, filler))
-        return src, RDFS.subClassOf, filler, f"'{ax['src_label']}' SubClassOf 'occurs in' some '{ax['dst_label']}'"
+        return restriction(g, REL["occurs in"], dst), f"'occurs in' some '{ax['dst_label']}'"
     raise ValueError(p)
+
+
+def build_axiom(g: Graph, T: Namespace, ax: dict, src: URIRef, dst: URIRef, src_cat: str) -> tuple[URIRef, object, object, str]:
+    """Assert the axiom; return (predicate, asserted object, a fresh copy for the annotation, manchester)."""
+    pred = OWL.equivalentClass if ax["pattern"] == "equivalent" else RDFS.subClassOf
+    obj, text = build_expression(g, T, ax, dst, src_cat)
+    copy, _ = build_expression(g, T, ax, dst, src_cat)
+    g.add((src, pred, obj))
+    keyword = "EquivalentTo" if ax["pattern"] == "equivalent" else "SubClassOf"
+    return pred, obj, copy, f"'{ax['src_label']}' {keyword} {text}"
 
 
 def main() -> None:
@@ -298,26 +308,35 @@ def main() -> None:
     parser.add_argument("--out-name", default="bfo", help="output directory name under --dir")
     parser.add_argument("--quality-change-as-process", action="store_true",
                         help="model 'increase in X' clusters as processes and let dispositions target qualities")
+    parser.add_argument("--reuse", action="store_true", help="rebuild the module from the saved proposals without calling the model")
     args = parser.parse_args()
-    if not os.environ.get("OPENAI_API_KEY"):
-        sys.exit("OPENAI_API_KEY is not set")
-    from openai import OpenAI
-
-    client = OpenAI()
     out = args.dir / args.out_name
     out.mkdir(exist_ok=True)
+    # --reuse rebuilds the module and the review from the saved proposals; no model calls.
+    reuse = args.reuse and (out / "proposal_classes.jsonl").exists() and (out / "proposal_axioms.jsonl").exists()
+    client = None
+    if not reuse:
+        if not os.environ.get("OPENAI_API_KEY"):
+            sys.exit("OPENAI_API_KEY is not set")
+        from openai import OpenAI
+
+        client = OpenAI()
     class_system = CLASS_SYSTEM + (QUALITY_CHANGE_NOTE if args.quality_change_as_process else "")
 
     cond, clusters, key_to_cluster = load_clusters(args.dir, args.seed)
     if args.max_clusters:
         clusters = clusters[: args.max_clusters]
-    print(f"categorising {len(clusters)} clusters with {args.model}", file=sys.stderr)
-    with ThreadPoolExecutor(args.workers) as pool:
-        proposals = list(pool.map(lambda c: categorise(client, args.model, c, class_system), clusters))
+    if reuse:
+        proposals = [json.loads(line) for line in open(out / "proposal_classes.jsonl")]
+        print(f"reusing {len(proposals)} saved categorisations", file=sys.stderr)
+    else:
+        print(f"categorising {len(clusters)} clusters with {args.model}", file=sys.stderr)
+        with ThreadPoolExecutor(args.workers) as pool:
+            proposals = list(pool.map(lambda c: categorise(client, args.model, c, class_system), clusters))
+        with open(out / "proposal_classes.jsonl", "w") as f:
+            for p in proposals:
+                f.write(json.dumps(p, ensure_ascii=False) + "\n")
     by_id = {p["cluster"]: p for p in proposals}
-    with open(out / "proposal_classes.jsonl", "w") as f:
-        for p in proposals:
-            f.write(json.dumps(p, ensure_ascii=False) + "\n")
 
     edges = pd.read_parquet(args.dir / "edges_parts_mcs15_umap10.parquet")
     edges = edges[(edges.src != edges.dst) & (edges.papers >= args.min_papers_edge) & edges.src.isin(by_id) & edges.dst.isin(by_id)]
@@ -340,9 +359,13 @@ def main() -> None:
                                 a["direction"], dst["label"])
         return e | a | {"proposed_pattern": a["pattern"], "pattern": pattern, "enforced": note}
 
-    print(f"axiomatising {len(edges)} edges with >= {args.min_papers_edge} papers", file=sys.stderr)
-    with ThreadPoolExecutor(args.workers) as pool:
-        axioms = list(pool.map(one_edge, list(edges.itertuples())))
+    if reuse:
+        axioms = [json.loads(line) for line in open(out / "proposal_axioms.jsonl")]
+        print(f"reusing {len(axioms)} saved axiom proposals", file=sys.stderr)
+    else:
+        print(f"axiomatising {len(edges)} edges with >= {args.min_papers_edge} papers", file=sys.stderr)
+        with ThreadPoolExecutor(args.workers) as pool:
+            axioms = list(pool.map(one_edge, list(edges.itertuples())))
 
     # ---- the module ----
     T = Namespace(args.base)
@@ -376,10 +399,11 @@ def main() -> None:
     for a in axioms:
         if a["pattern"] == "evidence_only":
             continue
-        s, pred, o, text = build_axiom(g, T, a, iri[a["src"]], iri[a["dst"]], a["src_category"])
+        s = iri[a["src"]]
+        pred, o, copy, text = build_axiom(g, T, a, s, iri[a["dst"]], a["src_category"])
         a["manchester"] = text
         ann = BNode()
-        g.add((ann, RDF.type, OWL.Axiom)); g.add((ann, OWL.annotatedSource, s)); g.add((ann, OWL.annotatedProperty, pred)); g.add((ann, OWL.annotatedTarget, o))
+        g.add((ann, RDF.type, OWL.Axiom)); g.add((ann, OWL.annotatedSource, s)); g.add((ann, OWL.annotatedProperty, pred)); g.add((ann, OWL.annotatedTarget, copy))
         g.add((ann, T.supportPapers, Literal(a["papers"]))); g.add((ann, T.supportClaims, Literal(a["n"])))
         g.add((ann, T.proposalRationale, Literal(a["rationale"]))); g.add((ann, T.proposalConfidence, Literal(a["confidence"], datatype=XSD.decimal)))
         g.add((ann, T.claimDirection, Literal(a.get("direction", "none"))))
@@ -391,6 +415,7 @@ def main() -> None:
             ev.add((sent, RDFS.label, Literal(text_)))
         built += 1
     g.serialize(out / "terms.ttl", format="turtle")
+    g.serialize(out / "terms.owl", format="xml")  # RDF/XML: what Protégé opens by double-click
     ev.serialize(out / "evidence.ttl", format="turtle")
     # Written after the module so each row carries the axiom as rendered.
     with open(out / "proposal_axioms.jsonl", "w") as f:
