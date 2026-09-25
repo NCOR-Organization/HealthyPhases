@@ -193,20 +193,33 @@ uv run scripts/term_clustering/bfo_check.py --dir storage/spikes/term_clustering
 
 Tendencies are the central problem: "If X, then Y tends to happen" is not a
 universal, so `X SubClassOf r some Y` would be false. The module uses BFO's
-disposition instead: bearers of X bear a disposition realized in Y. Every
-bearer has the disposition, not every disposition is realized. Increases and
-decreases are two disposition subclasses defined in the module; direction and
-support are annotations, since OWL cannot express probability.
+disposition instead: bearers of X bear a disposition realized only in Y. Every
+bearer has the disposition, not every disposition is realized. Class
+expressions contain only BFO classes and BFO relations plus the module's own
+term classes; what the corpus says about direction, strength and disagreement
+is carried by annotations on the axiom (`claimDirection`, `supportPapers`,
+`supportClaims`, `contested`, `evidence`), never by a class.
 
-Two runs on 195 clusters and the 50 relations with 3+ papers (`gpt-4.1`):
+An earlier version defined two disposition subclasses, "probability
+increasing" and "probability decreasing", to carry direction inside the
+expression. That was wrong twice over: "increasing" is what any disposition
+already does, and a disposition realized in Y cannot make Y less likely, so
+"decreasing" produced contradictions whenever the target was itself a
+"decrease in X" process. Direction now lives in the target process class
+("decrease in loneliness") and a "decreases" claim whose target is not such a
+class stays evidence.
 
-| | strict (A) | quality change as process (B) |
-|---|---|---|
-| domain entities | 98 | 142 |
-| set aside: comparative / measurement / mixed / other | 65 / 28 / 3 / 1 | 24 / 27 / 1 / 1 |
-| categories | 35 quality, 31 process, 16 disposition, 10 object aggregate, 3 role, 2 GDC, 1 function | 82 process, 37 quality, 11 disposition, 6 object aggregate, 3 role, 2 GDC, 1 function |
-| axioms from 50 relations | 2 | 24 (23 disposition, 1 subclass) |
-| structural problems / consistent | 0 / yes | 0 / yes |
+Three runs on 195 clusters and the 50 relations with 3+ papers (`gpt-4.1`):
+
+| | strict (A) | change as process (B, superseded) | plain BFO (C) |
+|---|---|---|---|
+| domain entities | 98 | 142 | 142 |
+| set aside: comparative / measurement / mixed / other | 65 / 28 / 3 / 1 | 24 / 27 / 1 / 1 | 23 / 28 / 2 / 0 |
+| categories | 35 quality, 31 process, 16 disposition, 10 object aggregate, 3 role, 2 GDC, 1 function | 82 process, 37 quality, 11 disposition, 6 object aggregate, 3 role, 2 GDC, 1 function | 77 process, 41 quality, 12 disposition, 5 object aggregate, 4 role, 3 GDC |
+| axioms from 50 relations | 2 | 24 | 24 (all dispositions) |
+| structural problems / consistent | 0 / yes | 0 / yes | 0 / yes |
+
+Run C is the reference. Its output directory is `bfo_c/`.
 
 The difference is one modelling decision. In this corpus the consequent of a
 claim is very often a change in degree ("higher positive affect", "decrease in
@@ -218,14 +231,15 @@ BFO-conformant), and lets a disposition targeting a quality be realized in the
 process of coming to bear it. The strict run is the baseline that shows what
 the corpus supports without that concession; the ontologist decides.
 
-What run B writes reads like the findings: spending time alone bears a
-probability-increasing disposition realized in self-reflection and creativity
-(6 papers); scarcity of social relationships, in experience of loneliness (4);
-social withdrawal, in peer rejection and victimization (4); engagement in
-solitude, in decrease in high-arousal affect (3). Relations whose sentences
-disagree on direction are written with a plain disposition and flagged
-contested (4 of 24), and 4 relations were refused by the model as inconsistent
-or purely correlational.
+What run C writes reads like the findings: participants in spending time
+alone bear a disposition realized only in self-reflection and creativity
+(6 papers, direction "increases"); bearers of scarcity of social
+relationships, in experience of loneliness (4); bearers of social withdrawal,
+in peer rejection and victimization (4); participants in adolescent
+engagement in solitude, in decrease in loneliness (3). Relations whose
+sentences disagree are written with direction "none" and flagged contested
+(3 of 24); 2 were refused by enforcement and the rest by the model as
+comparative, correlational or inconsistent.
 
 For review (the sheet is `review.md` in each output directory):
 

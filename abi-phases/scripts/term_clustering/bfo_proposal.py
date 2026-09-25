@@ -109,7 +109,7 @@ The relation comes from "If X, then Y." claims whose X fell in the source class 
 Pick exactly one pattern:
 - subclass: the claims say the source is a kind of the target (same BFO category required).
 - equivalent: the claims define the source as exactly the target (same category, definitional).
-- disposition: the target is a process and the claims say the source tends to lead to it. Direction is "increases" or "decreases" if the claims say the source makes the target more or less likely, else "none".
+- disposition: the target is a process and the claims say the source tends to lead to it. Direction says what the claims assert about THE TARGET AS LABELLED: "increases" if the target process becomes more likely, "decreases" if less likely, "none" if the claims only say it happens or disagree. Judge it against the target's own label: if the target is "decrease in loneliness" and the claims say loneliness goes down, the direction is "increases", because that decrease becomes more likely.
 - quality_attribution: the target is a quality and the claims say the source bears it.
 - participation: the target is a process and the claims say the source takes part in it, as a matter of definition rather than tendency.
 - occurs_in: the source is a process and the target is a site or material entity it happens in.
@@ -200,15 +200,29 @@ def axiomatise(client, model, edge: dict, src: dict, dst: dict, examples: list[s
     return ask(client, model, EDGE_SYSTEM, user, EDGE_SCHEMA, "axiomatisation")
 
 
-def enforce(pattern: str, src_cat: str, dst_cat: str, wrap_quality: bool = False) -> tuple[str, str]:
+def enforce(pattern: str, src_cat: str, dst_cat: str, wrap_quality: bool = False,
+            direction: str = "none", dst_label: str = "") -> tuple[str, str]:
     """The pattern the categories actually allow, and why it changed if it did.
 
     With ``wrap_quality`` a disposition may target a quality: the realization is
-    then the process in which a participant comes to bear that quality."""
+    then the process in which a participant comes to bear that quality.
+
+    A disposition is realized in its target, so it can only make the target
+    more likely. "Decreases" is therefore acceptable only when the target
+    class itself is the decrease ("decrease in loneliness"); otherwise the
+    claim needs a counterpart process class that nobody proposed, and it stays
+    evidence."""
     if pattern in ("subclass", "equivalent") and src_cat != dst_cat:
         return "evidence_only", f"{pattern} needs one category, got {src_cat} and {dst_cat}"
     if pattern == "disposition" and dst_cat not in PROCESSES and not (wrap_quality and dst_cat == "quality"):
         return "evidence_only", f"disposition needs a process target, got {dst_cat}"
+    if pattern == "disposition" and direction == "decreases":
+        label = dst_label.lower()
+        if label.startswith(("decrease in", "reduction in", "reduced ", "loss of")):
+            return pattern, ""
+        if label.startswith(("increase in", "increased ")):
+            return "evidence_only", "claims say the target becomes less likely but the target is an increase; direction conflicts with the target class"
+        return "evidence_only", "a disposition cannot make its realization less likely; 'decreases' needs a counterpart process class (e.g. 'decrease in ...')"
     if pattern == "quality_attribution" and (dst_cat != "quality" or src_cat not in INDEPENDENT):
         return "evidence_only", f"quality attribution needs an independent continuant bearing a quality, got {src_cat} -> {dst_cat}"
     if pattern == "participation" and (dst_cat not in PROCESSES or src_cat not in INDEPENDENT):
@@ -242,8 +256,9 @@ def build_axiom(g: Graph, T: Namespace, ax: dict, src: URIRef, dst: URIRef, src_
     if p == "equivalent":
         g.add((src, OWL.equivalentClass, dst)); return src, OWL.equivalentClass, dst, f"{ax['src_label']} EquivalentTo {ax['dst_label']}"
     if p == "disposition":
-        disp = {"increases": T.ProbabilityIncreasingDisposition, "decreases": T.ProbabilityDecreasingDisposition}.get(ax["direction"], OBO.BFO_0000016)
-        disp_label = {"increases": "probability increasing disposition", "decreases": "probability decreasing disposition"}.get(ax["direction"], "disposition")
+        # Plain BFO: a disposition realized only in the target process. The
+        # empirical direction is an annotation on the axiom, never a class.
+        disp, disp_label = OBO.BFO_0000016, "disposition"
         if ax["dst_category"] == "quality":
             # A quality is not a realization; the process in which a participant comes to bear it is.
             target = intersection(g, OBO.BFO_0000015, restriction(g, REL["has participant"], restriction(g, REL["bearer of"], dst)))
@@ -321,7 +336,8 @@ def main() -> None:
             return e | {"pattern": "evidence_only", "direction": "none", "contested": False, "confidence": 1.0,
                         "rationale": "one end is not a domain entity", "enforced": "", "proposed_pattern": "evidence_only"}
         a = axiomatise(client, args.model, e, src, dst, examples)
-        pattern, note = enforce(a["pattern"], src["bfo_category"], dst["bfo_category"], args.quality_change_as_process)
+        pattern, note = enforce(a["pattern"], src["bfo_category"], dst["bfo_category"], args.quality_change_as_process,
+                                a["direction"], dst["label"])
         return e | a | {"proposed_pattern": a["pattern"], "pattern": pattern, "enforced": note}
 
     print(f"axiomatising {len(edges)} edges with >= {args.min_papers_edge} papers", file=sys.stderr)
@@ -335,15 +351,13 @@ def main() -> None:
     onto = URIRef(args.base.rstrip("/#"))
     g.add((onto, RDF.type, OWL.Ontology)); g.add((onto, OWL.imports, URIRef(BFO_IRI)))
     g.add((onto, RDFS.comment, Literal("Generated proposal: classes from clusters of claim fragments, restrictions from relations between clusters. Every class and axiom is a proposal until accepted.")))
+    # Only BFO classes and relations appear in class expressions; everything the
+    # corpus says about strength, direction or disagreement is an annotation.
     for prop, label in (("clusterId", "cluster id"), ("supportPapers", "support: distinct papers"), ("supportClaims", "support: claims"),
-                        ("proposalRationale", "proposal rationale"), ("proposalConfidence", "proposal confidence"), ("evidence", "evidence sentence")):
+                        ("proposalRationale", "proposal rationale"), ("proposalConfidence", "proposal confidence"), ("evidence", "evidence sentence"),
+                        ("claimDirection", "claim direction: what the claims say happens to the target (increases, decreases, none)"),
+                        ("contested", "contested: the supporting claims disagree")):
         g.add((T[prop], RDF.type, OWL.AnnotationProperty)); g.add((T[prop], RDFS.label, Literal(label)))
-    for name, label, definition in (
-        ("ProbabilityIncreasingDisposition", "probability increasing disposition", "A disposition whose realization makes the process it is realized in more likely than it would otherwise be."),
-        ("ProbabilityDecreasingDisposition", "probability decreasing disposition", "A disposition whose realization makes the process it is realized in less likely than it would otherwise be."),
-    ):
-        g.add((T[name], RDF.type, OWL.Class)); g.add((T[name], RDFS.subClassOf, OBO.BFO_0000016))
-        g.add((T[name], RDFS.label, Literal(label, lang="en"))); g.add((T[name], DEFINITION, Literal(definition, lang="en")))
 
     iri = {}
     for p in proposals:
@@ -368,6 +382,9 @@ def main() -> None:
         g.add((ann, RDF.type, OWL.Axiom)); g.add((ann, OWL.annotatedSource, s)); g.add((ann, OWL.annotatedProperty, pred)); g.add((ann, OWL.annotatedTarget, o))
         g.add((ann, T.supportPapers, Literal(a["papers"]))); g.add((ann, T.supportClaims, Literal(a["n"])))
         g.add((ann, T.proposalRationale, Literal(a["rationale"]))); g.add((ann, T.proposalConfidence, Literal(a["confidence"], datatype=XSD.decimal)))
+        g.add((ann, T.claimDirection, Literal(a.get("direction", "none"))))
+        if a.get("contested"):
+            g.add((ann, T.contested, Literal(True)))
         for item_id, text_ in zip(a["item_ids"], a["examples"]):
             sent = T[f"S{item_id[:16]}"]
             g.add((ann, T.evidence, sent))
