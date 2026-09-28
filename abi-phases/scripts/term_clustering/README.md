@@ -159,13 +159,27 @@ Sample of three mid-sized papers (55 chunks, 355 claims, about $1.50):
 | where | 5% | 14 | 0 |
 | information | 43% | 85 | 7 |
 
-Module: 63 classes (58 from clusters, 5 defined), 8 participant restrictions
-("aging process has participant some older adult", 43 of 73 frames, 2
-papers), 73 relation axioms, 13 refused for stated reasons; 0 structural
+Module: 85 classes (58 from clusters, 5 defined from qualified frames, 22
+minted from definitions), 8 participant restrictions ("aging process has
+participant some older adult", 43 of 73 frames, 2 papers), 22 definitional
+axioms, 73 relation axioms, 13 refused for stated reasons; 0 structural
 problems, consistent, ROBOT-clean. The fill rates are the finding: papers
 state participants and, less often, time and instrument; qualities,
 realizables and places are rarely explicit, so those buckets will stay thin
 until the corpus is large or a grounding step supplies them.
+
+**Structured definitions.** The categoriser returns a genus, typed
+differentiae (quality, realizable, life stage, location, member kind) and a
+collective flag, not only a sentence. Each component is resolved to an
+existing class of its role by centroid similarity (0.80) or minted once,
+deduplicated by paraphrase, and becomes an axiom: `subClassOf` the genus,
+`'bearer of' some` for qualities and realizables of independent continuants,
+`'has member part' some` for collectives. Plural participants are individuals
+unless the phrases name a group. This is what turns "A human child exhibiting
+social withdrawal" into `'socially withdrawn child' SubClassOf 'child' and
+'bearer of' some 'social withdrawal'`, with `child` and `social withdrawal`
+as classes, and it is the corpus-derived dictionary that a grounding step
+maps to reference ontologies (`human` to a taxon, the qualities to PATO).
 
 Question: can papers ingested daily be attached to existing terms without
 re-clustering everything? `incremental.py` simulates it: the 26 papers are put

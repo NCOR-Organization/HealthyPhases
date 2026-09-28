@@ -242,4 +242,26 @@ synonyms as alternative labels, and nothing more.
 Concretely: one new extraction prompt (the frame), the same embed, cluster
 and categorise steps per bucket, restrictions generated from slots instead of
 guessed from definitions, and a grounding step against reference ontologies.
-None of it changes the contracts in section 5.
+None of it changes the contracts in section 5. `frames.py` is that pipeline
+in one file; its README section records the first sample.
+
+**Structured definitions are where the decomposition happens.** A compound
+term such as "older adult human population" is a genus plus components:
+genus *human*, a life-stage differentia *older adulthood*, and, only when the
+claims are about the group as such, a collective marker with a member kind.
+The categoriser now returns those components typed, and each one is resolved
+to an existing class of its role or minted once, so `human` becomes one class
+that every participant definition points at, and the axioms follow:
+
+```
+'older adult'              SubClassOf 'human', 'bearer of' some 'older adulthood'
+'socially withdrawn child' SubClassOf 'child', 'bearer of' some 'social withdrawal'
+'older adult population'   SubClassOf 'object aggregate', 'has member part' some 'older adult'
+```
+
+That set of minted components is the corpus's own dictionary, built with
+evidence and typed by bucket. It is what a dictionary of English cannot give
+(which of the four words is the genus, which the value, which the collective
+marker) and it is what the grounding step maps to reference ontologies.
+Plural participants of a process are read as individuals; an aggregate is
+written only when the phrases name a group.
