@@ -7,7 +7,52 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from frames import allowed_disposition, cluster_role, flatten, keywords_for, normalize_key, summarise_direction  # noqa: E402
+from frames import (  # noqa: E402
+    allowed_disposition, cluster_role, flatten, keywords_for, normalise_direction, normalize_key, polarity, split_by_polarity, summarise_direction,
+)
+
+
+# ---- polarity guard ----
+
+def test_polarity_reads_degree_words_and_stays_neutral_when_mixed_or_absent():
+    assert polarity("high autonomy") == "+" and polarity("low resting vagal tone") == "-"
+    assert polarity("decrease in loneliness") == "-" and polarity("increase in positive affect") == "+"
+    assert polarity("autonomy") == "" and polarity("low high something") == ""
+
+
+def test_split_by_polarity_separates_opposite_values_and_keeps_unmarked_phrases_with_the_majority():
+    texts = ["high autonomy", "higher autonomy", "low autonomy", "autonomy", "peer rejection"]
+    labels = np.array([0, 0, 0, 0, 1])
+    out = split_by_polarity(labels, texts)
+    assert out[0] == out[1] == out[3] != out[2]   # the two '+' and the unmarked stay; the '-' moves out
+    assert out[4] == 1                             # untouched cluster keeps its label
+    assert out[2] not in (0, 1)                    # the new cluster gets a fresh id
+
+
+def test_split_by_polarity_leaves_single_polarity_clusters_alone():
+    texts = ["increase in loneliness", "increased loneliness", "loneliness"]
+    assert split_by_polarity(np.array([3, 3, 3]), texts).tolist() == [3, 3, 3]
+
+
+# ---- direction normalisation ----
+
+def test_a_decreases_claim_is_rewritten_as_a_more_likely_decrease():
+    c = _claim(ante={"process": "aging"}, cons={"process": "social interaction"}, direction="decreases")
+    out = normalise_direction(c)
+    assert out["consequent"]["process"] == "decrease in social interaction"
+    assert out["relation"]["direction"] == "increases"
+
+
+def test_a_decreases_claim_whose_target_already_names_the_change_is_left_alone():
+    c = _claim(ante={"process": "aging"}, cons={"process": "decrease in loneliness"}, direction="decreases")
+    out = normalise_direction(c)
+    assert out["consequent"]["process"] == "decrease in loneliness" and out["relation"]["direction"] == "decreases"
+
+
+def test_other_directions_are_untouched():
+    for d in ("increases", "no_effect", "none"):
+        c = normalise_direction(_claim(ante={"process": "a"}, cons={"process": "b"}, direction=d))
+        assert c["consequent"]["process"] == "b" and c["relation"]["direction"] == d
 
 
 def _claim(cid="c1", paper="p1", ante=None, cons=None, kind="tends_to", direction="increases"):

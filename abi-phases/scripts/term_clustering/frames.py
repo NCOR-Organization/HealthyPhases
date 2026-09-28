@@ -152,9 +152,23 @@ def extract(client, model: str, chunks: pd.DataFrame, workers: int) -> list[dict
         return [c for claims in pool.map(one, list(chunks.itertuples())) for c in claims]
 
 
+CHANGE_PREFIXES = ("decrease in", "reduction in", "reduced", "loss of", "lower", "decline in", "fewer")
+
+
+def normalise_direction(claim: dict) -> dict:
+    """A tendency can only make its realization more likely, so "X decreases Y"
+    is written as "X makes 'decrease in Y' more likely". The prompt asks for
+    this; when the model keeps "decreases" on a plain target, do it here."""
+    rel, cons = claim["relation"], claim["consequent"]
+    if rel["direction"] == "decreases" and not cons["process"].lower().startswith(CHANGE_PREFIXES):
+        cons["process"] = f"decrease in {cons['process']}"
+        rel["direction"] = "increases"
+    return claim
+
+
 # ============================================================== 2. flatten
 
-IRREGULAR_PLURALS = {"children": "child", "people": "person", "men": "man", "women": "woman", "adolescents": "adolescent"}
+IRREGULAR_PLURALS ={"children": "child", "people": "person", "men": "man", "women": "woman", "adolescents": "adolescent"}
 
 
 def singular(word: str) -> str:
@@ -239,6 +253,41 @@ def cluster_role(unit: np.ndarray, mcs: int, seed: int, merge_distance: float = 
     return HDBSCAN(min_cluster_size=mcs, min_samples=min(mcs, 5), cluster_selection_method="eom").fit(reduced).labels_
 
 
+POLARITY = {
+    "+": ("high", "higher", "increase", "increased", "increasing", "more", "greater", "positive", "strong", "stronger", "elevated", "gain"),
+    "-": ("low", "lower", "decrease", "decreased", "decreasing", "less", "fewer", "negative", "weak", "weaker", "reduced", "reduction", "loss", "decline"),
+}
+
+
+def polarity(text: str) -> str:
+    """'+', '-' or '' from the degree words in a phrase; '' when mixed or absent."""
+    words = set(re.findall(r"[a-z]+", text.lower()))
+    plus, minus = bool(words & set(POLARITY["+"])), bool(words & set(POLARITY["-"]))
+    return "+" if plus and not minus else "-" if minus and not plus else ""
+
+
+def split_by_polarity(labels: np.ndarray, texts: list[str]) -> np.ndarray:
+    """Embeddings put "high autonomy" next to "low autonomy"; a quality's value and a
+    change's direction are what a qualifier carries, so a cluster is split by polarity.
+    Phrases with no degree word stay with the cluster's unmarked part."""
+    out = labels.copy()
+    next_label = int(labels.max()) + 1 if len(labels) else 0
+    for c in sorted(set(labels) - {-1}):
+        members = np.flatnonzero(labels == c)
+        pols = {i: polarity(texts[i]) for i in members}
+        signs = {p for p in pols.values() if p}
+        if len(signs) < 2:
+            continue
+        # keep '' and the majority sign together, move the minority sign out
+        counts = Counter(p for p in pols.values() if p)
+        minority = min(counts, key=counts.get)
+        for i in members:
+            if pols[i] == minority:
+                out[i] = next_label
+        next_label += 1
+    return out
+
+
 def keywords_for(texts: list[str], labels: np.ndarray, top: int = 6) -> dict[int, list[str]]:
     clusters = sorted(set(labels) - {-1})
     if not clusters or len(clusters) < 2:
@@ -257,7 +306,8 @@ def keywords_for(texts: list[str], labels: np.ndarray, top: int = 6) -> dict[int
 CATEGORISE_SYSTEM = """You are an ontologist applying Basic Formal Ontology 2020 to a cluster of short phrases. All phrases were extracted from research claims in the same role, and phrases in a cluster were judged to mean the same thing. Decide what kind of entity the cluster names.
 
 Decide in this order:
-1. kind: domain_entity (a kind of thing in the world), measurement_or_method (instruments, statistics, study designs; these are information, not domain entities, unless the role is 'information'), comparative_or_statistical (a comparison or degree, not a kind of thing), mixed (several kinds), other.
+1. kind: domain_entity (a kind of thing in the world), measurement_or_method (instruments, statistics, study designs; these are information, not domain entities, unless the role is 'information'), comparative_or_statistical (a comparison between groups or a correlation, not a kind of thing), mixed (several kinds), other.
+   A quality or realizable qualified by a degree ("high autonomy", "low resting vagal tone", "strong preference for solitude") IS a domain entity: it is the quality at that value, which a participant can bear. Only comparisons between groups ("higher than younger adults") and statistics are comparative.
 2. bfo_category, for domain entities and for information: the role the phrases were extracted in suggests a bucket; keep it unless the phrases clearly say otherwise (a 'participant' that names a status like "study participant" is a role; a 'participant' that names a device is an object; a 'quality' that is really a tendency is a disposition). Categories: material entity, object, object aggregate, site, quality, disposition, role, function, generically dependent continuant, process, process boundary, temporal region, spatial region. A change in degree ("increase in X") is a process.
 3. label: singular lowercase noun phrase, at most six words, no hedges.
 4. definition: "A <genus> that <differentia>." with the genus the BFO category or a more specific kind the phrases imply.
@@ -377,6 +427,7 @@ def main() -> None:
         with open(claims_path, "w") as f:
             for c in claims:
                 f.write(json.dumps(c, ensure_ascii=False) + "\n")
+    claims = [normalise_direction(c) for c in claims]
     n_chunks = len({c["chunk_id"] for c in claims})
     sample_papers = len({c["paper_id"] for c in claims})
 
@@ -403,9 +454,9 @@ def main() -> None:
         idx = np.flatnonzero(phrases["role"] == role)
         if len(idx) == 0:
             continue
-        labels = cluster_role(unit[idx], args.min_cluster_size, args.seed, args.merge_distance, args.density_from)
-        phrases.loc[idx, "cluster"] = labels
         texts = phrases.loc[idx, "text"].tolist()
+        labels = split_by_polarity(cluster_role(unit[idx], args.min_cluster_size, args.seed, args.merge_distance, args.density_from), texts)
+        phrases.loc[idx, "cluster"] = labels
         kw = keywords_for(texts, labels)
         for c in sorted(set(labels) - {-1}):
             members = idx[labels == c]
@@ -421,8 +472,10 @@ def main() -> None:
     # The cache is keyed by the cluster's content, not its id: a re-clustering
     # that yields the same set of phrases reuses the categorisation, anything
     # else is categorised afresh.
+    prompt_hash = hashlib.sha256(CATEGORISE_SYSTEM.encode()).hexdigest()[:8]
     for k, info in cluster_info.items():
-        info["signature"] = hashlib.sha256("|".join(sorted(phrases.loc[info["members"], "key"])).encode()).hexdigest()[:16]
+        content = "|".join(sorted(phrases.loc[info["members"], "key"]))
+        info["signature"] = hashlib.sha256(f"{prompt_hash}|{k[0]}|{content}".encode()).hexdigest()[:16]
     cat_path = run / "classes.jsonl"
     cache = {r["signature"]: r for r in (json.loads(l) for l in open(cat_path)) if "signature" in r} if cat_path.exists() else {}
     # Only clusters with enough members (or seen in two papers) are worth a class.
