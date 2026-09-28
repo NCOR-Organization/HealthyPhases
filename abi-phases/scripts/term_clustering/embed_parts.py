@@ -62,15 +62,22 @@ def embed(client: OpenAI, texts: list[str]) -> np.ndarray:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dir", type=Path, default=DEFAULT_DIR)
+    parser.add_argument("--input", default="parts",
+                        help="phrase table to embed: 'parts' (built from conditionals.parquet) or the stem of any parquet with key/text columns")
     args = parser.parse_args()
     if not os.environ.get("OPENAI_API_KEY"):
         sys.exit("OPENAI_API_KEY is not set; export it (uv's --env-file cannot parse this repo's .env)")
 
-    conditionals = pd.read_parquet(args.dir / "conditionals.parquet")
-    parts = distinct_parts(conditionals)
-    print(f"distinct parts: {len(parts)}")
+    if args.input == "parts":
+        conditionals = pd.read_parquet(args.dir / "conditionals.parquet")
+        parts = distinct_parts(conditionals)
+    else:
+        parts = pd.read_parquet(args.dir / f"{args.input}.parquet")
+        if not {"key", "text"} <= set(parts.columns):
+            sys.exit(f"{args.input}.parquet needs 'key' and 'text' columns")
+    print(f"distinct phrases in {args.input}: {len(parts)}")
 
-    parts_path, vec_path = args.dir / "parts.parquet", args.dir / "parts.vectors.npy"
+    parts_path, vec_path = args.dir / f"{args.input}.parquet", args.dir / f"{args.input}.vectors.npy"
     known: dict[str, np.ndarray] = {}
     if parts_path.exists() and vec_path.exists():
         old = pd.read_parquet(parts_path)

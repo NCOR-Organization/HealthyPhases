@@ -59,16 +59,17 @@ def load(variant: str, directory: Path) -> Corpus:
             vectors,
             conditionals[["paper_id"]],
         )
-    if variant == "parts":
-        parts = pd.read_parquet(directory / "parts.parquet")
-        return Corpus(
-            variant,
-            parts["key"].tolist(),
-            parts["text"].tolist(),
-            np.load(directory / "parts.vectors.npy"),
-            parts[["as_antecedent", "as_consequent"]],
-        )
-    raise ValueError(variant)
+    # Any other variant is a phrase table: <variant>.parquet with key/text
+    # columns (parts, process_phrases, participants) and <variant>.vectors.npy.
+    table = pd.read_parquet(directory / f"{variant}.parquet")
+    extra = [c for c in table.columns if c not in ("key", "text")]
+    return Corpus(
+        variant,
+        table["key"].tolist(),
+        table["text"].tolist(),
+        np.load(directory / f"{variant}.vectors.npy"),
+        table[extra],
+    )
 
 
 def normalise(vectors: np.ndarray) -> np.ndarray:
@@ -121,19 +122,40 @@ def central_examples(unit: np.ndarray, labels: np.ndarray, label: int, k: int) -
     return members[np.argsort(-similarity)[:k]]
 
 
-def term_graph(directory: Path, key_to_label: dict[str, int]) -> pd.DataFrame:
-    """Every conditional whose two parts both landed in a cluster is an edge."""
+def term_graph(directory: Path, key_to_label: dict[str, int], variant: str = "parts") -> tuple[pd.DataFrame, int]:
+    """Every claim whose two ends both landed in a cluster is an edge.
+
+    Returns the aggregated edges and the number of claims considered. For the
+    process phrases the claims carry their own direction, so the edge also
+    counts how many say increases, decreases or no effect."""
+    if variant == "process_phrases":
+        items = pd.read_parquet(directory / "processes.parquet")
+        edges = items.assign(
+            src=items["subject_key"].map(key_to_label), dst=items["target_key"].map(key_to_label),
+            text=items["participant"] + " | " + items["subject"] + " -> " + items["target"] + " (" + items["direction"] + ")",
+        )
+        edges = edges[(edges["src"] >= 0) & (edges["dst"] >= 0)]
+        agg = (
+            edges.groupby(["src", "dst"])
+            .agg(n=("item_id", "size"), papers=("paper_id", "nunique"), example=("text", "first"),
+                 increases=("direction", lambda s: int((s == "increases").sum())),
+                 decreases=("direction", lambda s: int((s == "decreases").sum())),
+                 no_effect=("direction", lambda s: int((s == "no-effect").sum())))
+            .reset_index()
+        )
+        return agg.sort_values(["n", "papers"], ascending=False), len(items)
     conditionals = pd.read_parquet(directory / "conditionals.parquet")
     src = conditionals["antecedent_key"].map(key_to_label)
     dst = conditionals["consequent_key"].map(key_to_label)
     edges = conditionals.assign(src=src, dst=dst)
     edges = edges[(edges["src"] >= 0) & (edges["dst"] >= 0)]
-    return (
+    agg = (
         edges.groupby(["src", "dst"])
         .agg(n=("item_id", "size"), papers=("paper_id", "nunique"), example=("text", "first"))
         .reset_index()
         .sort_values(["n", "papers"], ascending=False)
     )
+    return agg, len(conditionals)
 
 
 def run(args: argparse.Namespace, variant: str) -> None:
@@ -177,26 +199,27 @@ def run(args: argparse.Namespace, variant: str) -> None:
         "",
     ]
 
-    if variant == "parts":
+    if variant in ("parts", "process_phrases"):
         key_to_label = dict(zip(corpus.ids, labels.tolist()))
-        edges = term_graph(args.dir, key_to_label)
+        edges, total = term_graph(args.dir, key_to_label, variant)
         edges.to_parquet(args.dir / f"edges_{stem}.parquet", index=False)
-        conditionals = pd.read_parquet(args.dir / "conditionals.parquet")
         both = int(edges["n"].sum())
+        directed = variant == "process_phrases"
         lines += [
-            "## Term graph (antecedent cluster -> consequent cluster)",
+            "## Term graph (source cluster -> target cluster)",
             "",
-            f"- conditionals with both parts clustered: {both}/{len(conditionals)} ({both / len(conditionals):.0%})",
+            f"- claims with both ends clustered: {both}/{total} ({both / total:.0%})",
             f"- distinct edges: {len(edges)}; edges seen in >=2 papers: {int((edges['papers'] >= 2).sum())}",
             "",
-            "| n | papers | antecedent cluster | consequent cluster | example |",
-            "|---|---|---|---|---|",
+            "| n | papers | " + ("inc / dec / none | " if directed else "") + "source cluster | target cluster | example |",
+            "|---|---|" + ("---|" if directed else "") + "---|---|---|",
         ]
         for edge in edges.head(args.edges).itertuples():
             src_kw = ", ".join(keywords.get(edge.src, [])[:3])
             dst_kw = ", ".join(keywords.get(edge.dst, [])[:3])
             example = edge.example.replace("|", "/")
-            lines.append(f"| {edge.n} | {edge.papers} | C{edge.src}: {src_kw} | C{edge.dst}: {dst_kw} | {example} |")
+            dirs = f"{edge.increases} / {edge.decreases} / {edge.no_effect} | " if directed else ""
+            lines.append(f"| {edge.n} | {edge.papers} | {dirs}C{edge.src}: {src_kw} | C{edge.dst}: {dst_kw} | {example} |")
         lines.append("")
 
     lines += ["## Clusters (largest first)", ""]
@@ -209,9 +232,8 @@ def run(args: argparse.Namespace, variant: str) -> None:
         lines += [header, "", f"keywords: {', '.join(keywords.get(label, []))}", ""]
         for i in central_examples(unit, labels, label, args.examples):
             detail = ""
-            if variant == "parts":
-                a, c = corpus.extra.iloc[i]
-                detail = f"  (as antecedent {a}x, as consequent {c}x)"
+            if variant != "sentences" and len(corpus.extra.columns):
+                detail = "  (" + ", ".join(f"{col} {v}" for col, v in corpus.extra.iloc[i].items()) + ")"
             lines.append(f"- {corpus.texts[i]}{detail}")
         lines.append("")
 
@@ -223,7 +245,8 @@ def run(args: argparse.Namespace, variant: str) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--variant", nargs="+", choices=("sentences", "parts"), default=["sentences", "parts"])
+    parser.add_argument("--variant", nargs="+", default=["sentences", "parts"],
+                        help="'sentences', or any phrase table stem: parts, process_phrases, participants")
     parser.add_argument("--dir", type=Path, default=DEFAULT_DIR)
     parser.add_argument("--min-cluster-size", type=int, default=15)
     parser.add_argument("--min-samples", type=int, default=None)
