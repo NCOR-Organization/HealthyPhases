@@ -845,6 +845,12 @@ def main() -> None:
             a["manchester"] = f"'{src_label}' SubClassOf {head} (disposition and 'has realization' only '{dst_label}'))"
             relation_axioms.append(a)
         elif kind in ("is_a", "defines") and src_cat == dst_cat:
+            # A hierarchy or an equivalence is a stronger claim than a tendency: it needs two
+            # papers, and a process is never equivalent to its own qualified subclass.
+            if n_papers < 2:
+                evidence_only.append(a | {"why": f"{kind} needs two papers to become a class axiom"}); continue
+            if src_pc == dst_pc:
+                evidence_only.append(a | {"why": f"{kind} between a process and its own qualified subclass"}); continue
             pred = RDFS.subClassOf if kind == "is_a" else OWL.equivalentClass
             g.add((src_node, pred, dst_node)); annotate(src_node, pred, dst_node, a)
             a["manchester"] = f"'{src_label}' {'SubClassOf' if kind == 'is_a' else 'EquivalentTo'} '{dst_label}'"
