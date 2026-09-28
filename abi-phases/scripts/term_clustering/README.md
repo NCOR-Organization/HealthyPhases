@@ -110,7 +110,62 @@ Known limitations of this spike:
   `phases_v2.papers.storage_key -> pubmed.artifacts.storage_key -> pmid ->
   openalex.paper_enrichments`.
 
-## Incremental assignment (2026-09-25)
+## Frames: the generic pipeline in one file (2026-09-28)
+
+`frames.py` is the end-to-end version of the method, written as a single
+script so it can be reviewed top to bottom and tested on a few papers before
+it runs on hundreds. See `PIPELINE.md` for the reasoning. Stages, each cached
+under `storage/spikes/term_clustering/frames/<run>/`:
+
+1. extract: one prompt lays each claim out as a relation between two
+   seven-slot frames (process, participants, qualities of a participant,
+   realizables of a participant, when, where, information). Roles only, no
+   types.
+2. flatten: one row per slot phrase, with the head noun's number folded into
+   the key and "X decreases Y" rewritten as "X makes 'decrease in Y' more
+   likely".
+3. embed: every distinct (role, phrase).
+4. cluster per role: agglomerative paraphrase merge (0.20 cosine) below 300
+   phrases, UMAP + HDBSCAN above; phrases with opposite degree words never
+   share a cluster.
+5. categorise once per cluster, the role as a prior the model may override;
+   cached by cluster content and prompt.
+6. module: classes under BFO categories; `has participant` and `occurs in`
+   from the frame structure when a majority of a process's frames agree;
+   qualified frames become defined subclasses (`process and has participant
+   some (participant and bearer of some quality)`); tendencies become
+   dispositions with voted direction; null findings, co-occurrence and
+   cross-category is-a stay as evidence.
+7. review: slot fill rates, classes by bucket, restrictions, defined classes,
+   relation axioms, what was refused and why, and processes with no
+   consistent when/where/participant.
+
+```sh
+OPENAI_API_KEY=... uv run scripts/term_clustering/frames.py --papers 3 --run s3
+uv run scripts/term_clustering/bfo_check.py --dir storage/spikes/term_clustering/frames/s3
+uv run --no-project --with pytest --with pandas --with pyarrow --with rdflib --with scikit-learn \
+    --with scipy --with numpy --with openai --with umap-learn pytest scripts/term_clustering/tests -q
+```
+
+Sample of three mid-sized papers (55 chunks, 355 claims, about $1.50):
+
+| role | filled | distinct phrases | classes |
+|---|---|---|---|
+| process | 100% | 453 | 28 |
+| participant | 100% | 56 | 11 |
+| quality | 11% | 50 | 2 |
+| realizable | 2% | 23 | 1 |
+| when | 27% | 56 | 9 |
+| where | 5% | 14 | 0 |
+| information | 43% | 85 | 7 |
+
+Module: 63 classes (58 from clusters, 5 defined), 8 participant restrictions
+("aging process has participant some older adult", 43 of 73 frames, 2
+papers), 73 relation axioms, 13 refused for stated reasons; 0 structural
+problems, consistent, ROBOT-clean. The fill rates are the finding: papers
+state participants and, less often, time and instrument; qualities,
+realizables and places are rarely explicit, so those buckets will stay thin
+until the corpus is large or a grounding step supplies them.
 
 Question: can papers ingested daily be attached to existing terms without
 re-clustering everything? `incremental.py` simulates it: the 26 papers are put
