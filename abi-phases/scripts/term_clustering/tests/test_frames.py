@@ -36,12 +36,17 @@ def test_plan_skips_bare_category_genera_and_member_kinds_of_individuals():
 def test_plan_gives_qualities_only_to_bearers_and_drops_degree_only_and_self_referential_components():
     classes = {
         ("process", 0): _cls(genus="experience", differentiae=[{"kind": "quality", "phrase": "positive valence"}], category="process"),
-        ("participant", 1): _cls(genus="human", differentiae=[{"kind": "quality", "phrase": "high degree"}, {"kind": "life_stage", "phrase": "older adulthood"}]),
+        ("participant", 1): _cls(genus="human", differentiae=[{"kind": "quality", "phrase": "high degree"}, {"kind": "life_stage", "phrase": "older adulthood"},
+                                                             {"kind": "location", "phrase": "in Japan"}]),
         ("quality", 2): _cls(genus="autonomy", differentiae=[{"kind": "quality", "phrase": "high autonomy"}], category="quality") | {"label": "high autonomy"},
+        ("process", 3): _cls(genus="aloneliness", category="quality") | {"label": "high aloneliness"},  # a state in the process slot
     }
     wanted = plan_components(classes, lambda role, c: True)
     got = sorted((w[0][1], w[1], w[4]) for w in wanted)
-    assert got == [(0, "genus", "experience"), (1, "genus", "human"), (1, "life_stage", "older adulthood"), (2, "genus", "autonomy")]
+    assert got == [(0, "genus", "experience"), (1, "genus", "human"), (1, "life_stage", "older adulthood"), (2, "genus", "autonomy"), (3, "genus", "aloneliness")]
+    by_owner = {w[0][1]: (w[2], w[3]) for w in wanted if w[1] == "genus"}
+    assert by_owner[3] == ("quality", "quality")     # the genus follows the class's category, not the slot
+    assert by_owner[0] == ("process", "process") and by_owner[1] == ("participant", "object")
 
 
 def test_plan_ignores_clusters_that_are_not_classes():

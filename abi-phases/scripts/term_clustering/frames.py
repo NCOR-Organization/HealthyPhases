@@ -402,12 +402,23 @@ def plan_components(classes: dict, is_class) -> list[tuple]:
         role, category, own = k[0], p.get("bfo_category"), normalize_key(p.get("label") or "")
         genus = (p.get("genus") or "").strip()
         if genus and normalize_key(genus) not in bare and normalize_key(genus) != own:
-            wanted.append((k, "genus", role, GENUS_TARGET[role], genus))
+            # The genus follows the class's category, not the slot it came from: a state in the
+            # process slot typed as a quality has a quality for a genus.
+            target_role = next((r for r, cat in GENUS_TARGET.items() if cat == category), None)
+            if category in DEPENDENT:
+                target_role, minted_category = ("quality", "quality") if category == "quality" else ("realizable", category)
+            elif target_role is not None:
+                minted_category = category
+            else:
+                target_role, minted_category = role, GENUS_TARGET[role]
+            wanted.append((k, "genus", target_role, minted_category, genus))
         for d in p.get("differentiae", []):
             phrase = (d.get("phrase") or "").strip()
             kind = d.get("kind")
             if not phrase or kind not in DIFFERENTIA_TARGET or normalize_key(phrase) == own:
                 continue
+            if kind == "location":
+                continue  # no axiom can use it (BFO core has no located-in for this pattern); reported as a note instead
             if set(re.findall(r"[a-z]+", phrase.lower())) <= degree_only:
                 continue  # "high degree" is not a quality, it is the value of one
             # Only a bearer can have a quality or a realizable; a process's differentiae are its
@@ -638,7 +649,8 @@ def main() -> None:
             component_node[w] = iri[key]
         for role, items in to_mint.items():
             V = np.vstack([v for _, v in items])
-            groups = cluster_role(V, args.min_cluster_size, args.seed, args.merge_distance, args.density_from)
+            # same guard as the clusters: "high aloneliness" and "low aloneliness" are two classes
+            groups = split_by_polarity(cluster_role(V, args.min_cluster_size, args.seed, args.merge_distance, args.density_from), [w[4] for w, _ in items])
             for gid in sorted(set(groups)):
                 members = [w for (w, _), l in zip(items, groups) if l == gid]
                 phrase = min((w[4] for w in members), key=len)
@@ -679,9 +691,6 @@ def main() -> None:
                 obj, copy = restriction(g, OBO.BFO_0000115, node), restriction(g, OBO.BFO_0000115, node)  # has member part
                 g.add((subj, RDFS.subClassOf, obj)); annotate(subj, RDFS.subClassOf, copy, a)
                 definitional.append(f"'{owner_label}' SubClassOf 'has member part' some '{node_label(node)}'")
-        elif kind == "location":
-            # BFO core relates a continuant to a site only through its history; kept as a note for the reviewer.
-            definitional.append(f"'{owner_label}' location: '{phrase}'  (noted, no axiom)")
 
     # Participant expression: an independent continuant directly; a role or quality via its bearer.
     def participant_expr(pc: int):
@@ -761,6 +770,11 @@ def main() -> None:
         pc = f["process"]
         if pc is None or pc < 0 or not is_class("process", pc):
             return None
+        if cat_of[("process", pc)] not in PROCESSES:
+            # A state in the process slot ("having high shyness") is typed as a quality or a
+            # disposition. It can carry a tendency through its bearer, but it has no
+            # participants, so it gets no defined subclass.
+            return iri[("process", pc)], label_of[("process", pc)], cat_of[("process", pc)], pc
         qualifiers = []
         for a in f["participants"]:
             if a < 0 or not is_class("participant", a):
@@ -868,6 +882,8 @@ def main() -> None:
         "| category | label | referenced by |", "|---|---|---|",
         *(f"| {m['category']} | {m['label']} | {'; '.join(sorted(set(m['from']))[:6])} |" for m in sorted(minted.values(), key=lambda m: (m['category'], m['label']))),
         "", "## Definitional axioms", "", *(f"- {d}" for d in definitional),
+        "", "## Locations stated in definitions (noted, no axiom)", "",
+        *(f"- '{p['label']}': {d['phrase']}" for (role, c), p in classes.items() if is_class(role, c) for d in p.get("differentiae", []) if d.get("kind") == "location" and d.get("phrase")),
         "", "## Classes by bucket", "",
         "| role | category | label | definition | papers | central phrases |", "|---|---|---|---|---|---|",
         *(f"| {role} | {p['bfo_category']} | {p['label']} | {p['definition'][:100]} | {p['papers']} | {'; '.join(p['central'][:3])} |" for (role, c), p in sorted(classes.items(), key=lambda kv: (kv[0][0], -kv[1]['papers'], -kv[1]['size'])) if is_class(role, c)),
