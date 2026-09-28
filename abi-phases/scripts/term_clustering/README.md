@@ -188,10 +188,15 @@ quality).
 25 USD): fill rates unchanged (participants and processes 100%, information
 40%, when 21%, quality 13%, where 4%, realizable 2%). Module: 770 classes
 (549 from clusters, 126 defined, 95 minted), 214 definitional axioms, 74
-participant and place restrictions, 806 relation axioms of which 17 have
-three or more papers and 74 have two, 119 refused with reasons; 0
-structural problems, consistent, ROBOT-clean; HermiT infers 553
-module-internal superclass links. Two scale defects fixed on the way:
+participant and place restrictions, 777 relation axioms of which 17 have
+three or more papers and 74 have two, 148 refused with reasons; 0
+structural problems, consistent, ROBOT-clean. Hierarchy and equivalence
+claims (`is_a`, `defines`) now need two papers and are never written toward
+a process's own qualified subclass: 29 single-paper ones were held back,
+and the reasoner's inferred module-internal links fell from 553 to 32,
+which shows that most of the earlier "inferences" were single-paper
+equivalences collapsing classes into each other. Two scale defects fixed on
+the way:
 qualifiers repeated inside defined classes when several spans fell in one
 cluster (now a set), and the density path over-merged roles with a few
 hundred phrases (526 participant phrases became 42 clusters, 311 time
