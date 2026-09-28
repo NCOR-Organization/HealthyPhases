@@ -8,9 +8,68 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from frames import (  # noqa: E402
-    allowed_disposition, cluster_role, flatten, keywords_for, normalise_direction, normalize_key, plan_components, polarity,
-    resolve_components, split_by_polarity, summarise_direction,
+    allowed_disposition, apply_decisions, cluster_role, flatten, keywords_for, normalise_direction, normalize_key, plan_components, polarity,
+    reconcile, resolve_components, split_by_polarity, stable_id, summarise_direction,
 )
+
+
+# ---- identities ----
+
+def test_stable_id_depends_only_on_content():
+    assert stable_id("T", "participant", "a", "b") == stable_id("T", "participant", "a", "b")
+    assert stable_id("T", "participant", "a", "b") != stable_id("T", "participant", "a", "c")
+    assert stable_id("A", "x").startswith("A") and len(stable_id("A", "x")) == 11
+
+
+def test_reconcile_keeps_ids_for_overlapping_clusters_and_mints_for_new_ones():
+    registry = {"T1": {"term_id": "T1", "role": "participant", "members": ["older adult", "older person", "older people"]},
+                "T2": {"term_id": "T2", "role": "participant", "members": ["child", "children"]},
+                "Tq": {"term_id": "Tq", "role": "quality", "members": ["shyness"]}}
+    clusters = {0: ["older adult", "older person", "elderly person"], 1: ["adolescent", "teenager"]}
+    assignment, report = reconcile(registry, "participant", clusters, threshold=0.5, run="r2")
+    assert assignment[0] == "T1"                       # 2 of 4 in the union, and all of the old term but one: kept
+    assert assignment[1].startswith("T") and assignment[1] not in ("T1", "T2", "Tq")   # new
+    assert report["matched"] == 1 and report["new"] == 1 and report["vanished"] == ["T2"]
+
+
+def test_reconcile_reports_a_split_when_two_clusters_claim_one_term():
+    registry = {"T1": {"term_id": "T1", "role": "process", "members": ["a", "b", "c", "d"]}}
+    assignment, report = reconcile(registry, "process", {0: ["a", "b"], 1: ["c", "d"]}, threshold=0.5, run="r")
+    kept = [c for c, tid in assignment.items() if tid == "T1"]
+    assert len(kept) == 1                                  # one cluster keeps the id, the other is new
+    assert report["matched"] == 1 and report["new"] == 1 and report["split"] == [("T1", [c for c in (0, 1) if c not in kept][0])]
+
+
+def test_reconcile_reports_a_merge_when_one_cluster_absorbs_two_terms():
+    registry = {"T1": {"term_id": "T1", "role": "process", "members": ["a", "b"]}, "T2": {"term_id": "T2", "role": "process", "members": ["c", "d"]}}
+    assignment, report = reconcile(registry, "process", {0: ["a", "b", "c", "d"]}, threshold=0.5, run="r")
+    assert assignment[0] in ("T1", "T2")
+    other = "T2" if assignment[0] == "T1" else "T1"
+    assert report["merged"] == [(other, assignment[0])] and report["vanished"] == []
+
+
+def test_reconcile_ignores_terms_of_other_roles_and_merged_terms():
+    registry = {"T1": {"term_id": "T1", "role": "quality", "members": ["a"]}, "T3": {"term_id": "T3", "role": "process", "members": ["a"], "status": "merged"}}
+    assignment, report = reconcile(registry, "process", {0: ["a"]}, threshold=0.5, run="r")
+    assert assignment[0] not in ("T1", "T3") and report["new"] == 1
+
+
+def test_apply_decisions_indexes_by_target_and_last_decision_wins():
+    d = apply_decisions([
+        {"target": "T1", "action": "rename", "value": "older adult human"},
+        {"target": "T2", "action": "reject"},
+        {"target": "T2", "action": "accept"},                      # overrides the reject
+        {"target": "T3", "action": "recategorise", "value": "role"},
+        {"target": "T4", "action": "recategorise", "value": "not a category"},
+        {"target": "T5", "action": "merge", "value": "T1"},
+        {"target": "A9", "action": "reject"},
+        {"action": "reject"},                                       # no target: ignored
+    ])
+    assert d["rename"] == {"T1": "older adult human"}
+    assert d["accept"] == {"T2"} and "T2" not in d["reject"]
+    assert d["recategorise"] == {"T3": "role"}
+    assert d["merge"] == {"T5": "T1"}
+    assert d["reject"] == {"A9"}
 
 
 # ---- definitions: planning and resolving components ----

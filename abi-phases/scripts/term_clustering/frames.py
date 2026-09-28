@@ -388,6 +388,80 @@ def allowed_disposition(src_cat: str, dst_cat: str, direction: str, dst_label: s
     return ""
 
 
+# ============================================================== identities and decisions
+
+def stable_id(prefix: str, *parts: str) -> str:
+    """A short identifier derived from content, so the same thing gets the same id on every run."""
+    return prefix + hashlib.sha256("|".join(parts).encode()).hexdigest()[:10]
+
+
+def reconcile(registry: dict, role: str, clusters: dict[int, list[str]], threshold: float = 0.5, run: str = "") -> tuple[dict[int, str], dict]:
+    """Give each cluster a term id that survives re-runs.
+
+    A cluster keeps the id of the registered term whose members overlap it most
+    (Jaccard, or containment of the old term so a term that grew still matches)
+    when the overlap reaches ``threshold``; otherwise it gets a new id. The
+    report says what changed: matched, new, split (two clusters claim one old
+    term; the better overlap keeps the id), merged (two old terms map to one
+    cluster; the other is marked merged), vanished (an old term matched by no
+    cluster)."""
+    old = {tid: set(t["members"]) for tid, t in registry.items() if t["role"] == role and t.get("status") != "merged"}
+    scores = {}
+    for c, members in clusters.items():
+        m = set(members)
+        for tid, om in old.items():
+            inter = len(m & om)
+            if inter:
+                scores[(c, tid)] = max(inter / len(m | om), inter / len(om))
+    assignment, used = {}, {}
+    for (c, tid), s in sorted(scores.items(), key=lambda kv: -kv[1]):
+        if s < threshold or c in assignment or tid in used:
+            continue
+        assignment[c] = tid
+        used[tid] = c
+    report = {"matched": len(assignment), "new": 0, "split": [], "merged": [], "vanished": []}
+    for (c, tid), s in scores.items():
+        if s >= threshold and c not in assignment and tid in used:
+            report["split"].append((tid, c))
+    for c in clusters:
+        if c not in assignment:
+            assignment[c] = stable_id("T", role, run, *sorted(clusters[c]))
+            report["new"] += 1
+    for tid in old:
+        if tid in used:
+            continue
+        best = max(((c, s) for (c, t), s in scores.items() if t == tid), key=lambda x: x[1], default=None)
+        if best and best[1] >= threshold:
+            report["merged"].append((tid, assignment[best[0]]))
+        else:
+            report["vanished"].append(tid)
+    return assignment, report
+
+
+def apply_decisions(decisions: list[dict]) -> dict:
+    """Index a decisions file by target.
+
+    Rows are ``{"target": <term or axiom id>, "action": ..., "value": ...}`` with
+    actions accept, reject, rename (value: label), recategorise (value: BFO
+    category), merge (value: target term id). The last decision on a target wins."""
+    out = {"reject": set(), "accept": set(), "rename": {}, "recategorise": {}, "merge": {}}
+    for d in decisions:
+        target, action, value = d.get("target"), d.get("action"), d.get("value")
+        if not target or action not in ("accept", "reject", "rename", "recategorise", "merge"):
+            continue
+        for key in ("reject", "accept"):
+            out[key].discard(target)
+        for key in ("rename", "recategorise", "merge"):
+            out[key].pop(target, None)
+        if action in ("accept", "reject"):
+            out[action].add(target)
+        elif action == "recategorise" and value in CATEGORIES:
+            out[action][target] = value
+        elif action in ("rename", "merge") and value:
+            out[action][target] = value
+    return out
+
+
 def plan_components(classes: dict, is_class) -> list[tuple]:
     """Which definition components to resolve: (owner key, kind, target role, minted category, phrase).
 
@@ -468,6 +542,9 @@ def main() -> None:
                         help="phrases per role from which UMAP + HDBSCAN is used; below it, paraphrase agglomeration (a few hundred phrases over-merge under density)")
     parser.add_argument("--min-members", type=int, default=2, help="phrases a cluster needs before it becomes a class")
     parser.add_argument("--resolve-threshold", type=float, default=0.80, help="cosine similarity for a definition component to reuse an existing class")
+    parser.add_argument("--registry", type=Path, default=None, help="term registry (JSONL) that gives clusters ids surviving re-runs; default <dir>/frames/registry.jsonl")
+    parser.add_argument("--decisions", type=Path, default=None, help="review decisions (JSONL) applied on rebuild; default <dir>/frames/decisions.jsonl")
+    parser.add_argument("--reconcile-threshold", type=float, default=0.5, help="member overlap for a cluster to keep a registered term's id")
     parser.add_argument("--min-papers", type=int, default=1, help="papers behind a restriction or relation before it is written")
     parser.add_argument("--base", default="http://purl.example.org/terms/")
     parser.add_argument("--workers", type=int, default=6)
@@ -555,6 +632,21 @@ def main() -> None:
     spans["cluster"] = [key_to_cluster[(r, k)] for r, k in zip(spans["role"], spans["key"])]
     papers_of = spans[spans.cluster >= 0].groupby(["role", "cluster"])["paper_id"].nunique().to_dict()
 
+    # ---- identities: a cluster keeps its term id across runs; decisions attach to that id ----
+    registry_path = args.registry or (args.dir / "frames" / "registry.jsonl")
+    registry = {r["term_id"]: r for r in (json.loads(l) for l in open(registry_path))} if registry_path.exists() else {}
+    term_id, reconciliation = {}, {}
+    for role in ROLES:
+        members_of = {c: phrases.loc[info["members"], "key"].tolist() for (r, c), info in cluster_info.items() if r == role}
+        if members_of:
+            assignment, report = reconcile(registry, role, members_of, args.reconcile_threshold, run.name)
+            term_id.update({(role, c): tid for c, tid in assignment.items()})
+            reconciliation[role] = report
+    decisions_path = args.decisions or (args.dir / "frames" / "decisions.jsonl")
+    decided = apply_decisions([json.loads(l) for l in open(decisions_path)] if decisions_path.exists() else [])
+    print(f"[identities] {sum(r['matched'] for r in reconciliation.values())} clusters kept a registered id, "
+          f"{sum(r['new'] for r in reconciliation.values())} new; decisions: {sum(len(v) for v in decided.values())}", file=sys.stderr)
+
     # ---- 5. categorise per cluster ----
     # The cache is keyed by the cluster's content, not its id: a re-clustering
     # that yields the same set of phrases reuses the categorisation, anything
@@ -593,31 +685,55 @@ def main() -> None:
         elif role == "participant" and p.get("collective") and p.get("bfo_category") in INDEPENDENT:
             p["bfo_category"] = "object aggregate"
 
+    # ---- decisions from review: rename, recategorise, reject; merges are applied when classes are created ----
+    for k, p in classes.items():
+        tid = term_id[k]
+        if tid in decided["rename"]:
+            p["alias"] = p.get("label"); p["label"] = decided["rename"][tid]
+        if tid in decided["recategorise"]:
+            p["bfo_category"] = decided["recategorise"][tid]; p["kind"] = "domain_entity"
+    rejected = {k for k in classes if term_id[k] in decided["reject"]}
+
     def is_class(role, c):
         p = classes.get((role, c))
-        return bool(p) and p["bfo_category"] in CATEGORIES and (p["kind"] == "domain_entity" or (role == "information" and p["kind"] in ("domain_entity", "measurement_or_method")))
+        if not p or (role, c) in rejected:
+            return False
+        return p["bfo_category"] in CATEGORIES and (p["kind"] == "domain_entity" or (role == "information" and p["kind"] in ("domain_entity", "measurement_or_method")))
 
     # ---- 6. module ----
     T = Namespace(args.base)
     g = Graph(); g.bind("terms", T); g.bind("obo", OBO); g.bind("owl", OWL)
     onto = URIRef(args.base.rstrip("/#"))
     g.add((onto, RDF.type, OWL.Ontology)); g.add((onto, OWL.imports, URIRef(BFO_IRI)))
-    for prop, label in (("clusterId", "cluster id (role:cluster)"), ("supportPapers", "support: distinct papers"), ("supportClaims", "support: claims"),
-                        ("proposalRationale", "proposal rationale"), ("proposalConfidence", "proposal confidence"), ("evidence", "evidence quote"),
-                        ("claimDirection", "claim direction"), ("contested", "contested"), ("origin", "origin of the axiom"),
+    for prop, label in (("clusterId", "cluster id (role:cluster)"), ("termId", "term id: stable across runs, the target of review decisions"),
+                        ("supportPapers", "support: distinct papers"), ("supportClaims", "support: claims"),
+                        ("proposalRationale", "proposal rationale"), ("modelSelfConfidence", "the categoriser's own confidence (self-reported, uncalibrated)"),
+                        ("evidence", "evidence quote"), ("claimDirection", "claim direction"), ("contested", "contested"), ("origin", "origin of the axiom"),
+                        ("axiomId", "axiom id: stable across runs, the target of review decisions"), ("status", "review status"), ("alias", "another label this class absorbed"),
                         ("when", "temporal context stated by the claims"), ("howWeKnow", "instrument or design stated by the claims"), ("definedFrom", "defined class built from a qualified frame")):
         g.add((T[prop], RDF.type, OWL.AnnotationProperty)); g.add((T[prop], RDFS.label, Literal(label)))
-    prefix = {"process": "P", "participant": "M", "quality": "Q", "realizable": "R", "when": "T", "where": "S", "information": "I"}
+    # Class IRIs are the term ids, so a class keeps its IRI across runs and decisions keep pointing at it.
+    by_tid = {tid: k for k, tid in term_id.items()}
+    merged_into = {k: by_tid.get(decided["merge"][term_id[k]]) for k in classes if term_id[k] in decided["merge"]}
     iri, label_of, cat_of = {}, {}, {}
     for (role, c), p in classes.items():
-        if not is_class(role, c):
+        if not is_class(role, c) or (role, c) in merged_into:
             continue
-        node = T[f"T{prefix[role]}{c:04d}"]
+        tid = term_id[(role, c)]
+        node = T[tid]
         iri[(role, c)], label_of[(role, c)], cat_of[(role, c)] = node, p["label"], p["bfo_category"]
         g.add((node, RDF.type, OWL.Class)); g.add((node, RDFS.subClassOf, OBO[CATEGORIES[p["bfo_category"]]]))
         g.add((node, RDFS.label, Literal(p["label"], lang="en"))); g.add((node, DEFINITION, Literal(p["definition"], lang="en")))
-        g.add((node, T.clusterId, Literal(f"{role}:{c}"))); g.add((node, T.supportPapers, Literal(p["papers"])))
-        g.add((node, T.proposalRationale, Literal(p["rationale"]))); g.add((node, T.proposalConfidence, Literal(p["confidence"], datatype=XSD.decimal)))
+        g.add((node, T.clusterId, Literal(f"{role}:{c}"))); g.add((node, T.termId, Literal(tid))); g.add((node, T.supportPapers, Literal(p["papers"])))
+        g.add((node, T.proposalRationale, Literal(p["rationale"]))); g.add((node, T.modelSelfConfidence, Literal(p["confidence"], datatype=XSD.decimal)))
+        if tid in decided["accept"]:
+            g.add((node, T.status, Literal("accepted")))
+        if p.get("alias"):
+            g.add((node, T.alias, Literal(p["alias"])))
+    for k, target in merged_into.items():
+        if target is not None and target in iri:
+            iri[k], label_of[k], cat_of[k] = iri[target], label_of[target], cat_of[target]
+            g.add((iri[target], T.alias, Literal(f"{classes[k]['label']} (merged by decision)")))
 
     ev = Graph(); ev.bind("terms", T)
     ev.add((URIRef(args.base.rstrip("/#") + "/evidence"), RDF.type, OWL.Ontology))
@@ -633,6 +749,20 @@ def main() -> None:
         for cid, quote in a.get("evidence", []):
             sent = T[f"E{cid}"]
             g.add((ann, T.evidence, sent)); ev.add((sent, RDFS.label, Literal(quote)))
+        if a.get("axiom_id"):
+            g.add((ann, T.axiomId, Literal(a["axiom_id"])))
+            if a["axiom_id"] in decided["accept"]:
+                g.add((ann, T.status, Literal("accepted")))
+
+    def assert_axiom(subject, pred, obj, copy, a: dict) -> bool:
+        """Write an axiom unless a review decision rejected it. The axiom id is
+        derived from its origin and its two ends, so it is the same on every run."""
+        aid = stable_id("A", a["origin"], str(subject), str(a.get("dst", "")))
+        a["axiom_id"] = aid
+        if aid in decided["reject"]:
+            return False
+        g.add((subject, pred, obj)); annotate(subject, pred, copy, a)
+        return True
 
     # ---- 6a. definitions: genus, differentiae and members become classes and axioms ----
     # A definition names things ("a human child exhibiting social withdrawal").
@@ -680,21 +810,22 @@ def main() -> None:
         target_cat = node_category(node)
         if node == subj or target_cat is None:
             continue
-        a = {"origin": f"definition: {kind}", "n": 1, "papers": classes[owner]["papers"]}
+        a = {"origin": f"definition: {kind}", "n": 1, "papers": classes[owner]["papers"], "dst": node_label(node)}
         if kind == "genus":
-            if TOP.get(owner_cat) == TOP.get(target_cat):
+            aid = stable_id("A", a["origin"], str(subj), a["dst"])
+            if TOP.get(owner_cat) == TOP.get(target_cat) and aid not in decided["reject"]:
                 g.add((subj, RDFS.subClassOf, node))
-                definitional.append(f"'{owner_label}' SubClassOf '{node_label(node)}'")
+                definitional.append(f"'{owner_label}' SubClassOf '{node_label(node)}'  [{aid}]")
         elif kind in ("quality", "life_stage", "realizable"):
             if owner_cat in INDEPENDENT and target_cat in DEPENDENT:
                 obj, copy = restriction(g, REL["bearer of"], node), restriction(g, REL["bearer of"], node)
-                g.add((subj, RDFS.subClassOf, obj)); annotate(subj, RDFS.subClassOf, copy, a)
-                definitional.append(f"'{owner_label}' SubClassOf 'bearer of' some '{node_label(node)}'")
+                if assert_axiom(subj, RDFS.subClassOf, obj, copy, a):
+                    definitional.append(f"'{owner_label}' SubClassOf 'bearer of' some '{node_label(node)}'  [{a['axiom_id']}]")
         elif kind == "member_kind":
             if owner_cat == "object aggregate" and target_cat in INDEPENDENT:
                 obj, copy = restriction(g, OBO.BFO_0000115, node), restriction(g, OBO.BFO_0000115, node)  # has member part
-                g.add((subj, RDFS.subClassOf, obj)); annotate(subj, RDFS.subClassOf, copy, a)
-                definitional.append(f"'{owner_label}' SubClassOf 'has member part' some '{node_label(node)}'")
+                if assert_axiom(subj, RDFS.subClassOf, obj, copy, a):
+                    definitional.append(f"'{owner_label}' SubClassOf 'has member part' some '{node_label(node)}'  [{a['axiom_id']}]")
 
     # Participant expression: an independent continuant directly; a role or quality via its bearer.
     def participant_expr(pc: int):
@@ -747,7 +878,7 @@ def main() -> None:
             if n_papers < args.min_papers or len(hits) < 0.5 * total:
                 continue
             node = iri[("process", pc)]
-            a = {"origin": f"frame structure: {role}", "n": len(hits), "papers": n_papers,
+            a = {"origin": f"frame structure: {role}", "n": len(hits), "papers": n_papers, "dst": label_of[(role, c)],
                  "evidence": [(cid, claim_of[cid]["evidence"]) for _, cid in hits[:4]]}
             if role == "participant":
                 exprs = [participant_expr(c), participant_expr(c)]
@@ -763,8 +894,8 @@ def main() -> None:
                 g.add((node, T.when if role == "when" else T.howWeKnow, Literal(f"{label_of[(role, c)]} ({n_papers} papers)")))
                 structural.append(f"'{label_of[('process', pc)]}' {role}: '{label_of[(role, c)]}'  [{len(hits)}/{total} frames, {n_papers} papers]  (annotation)")
                 continue
-            g.add((node, RDFS.subClassOf, obj)); annotate(node, RDFS.subClassOf, copy, a)
-            structural.append(f"{text}  [{len(hits)}/{total} frames, {n_papers} papers]")
+            if assert_axiom(node, RDFS.subClassOf, obj, copy, a):
+                structural.append(f"{text}  [{len(hits)}/{total} frames, {n_papers} papers] [{a['axiom_id']}]")
 
     # 6b. qualified frames become defined subclasses: process and has participant some (participant and bearer of some quality)
     defined = {}
@@ -840,7 +971,8 @@ def main() -> None:
                 bearer = restriction(g, REL["bearer of"], realizable)
                 return restriction(g, REL["has participant"], bearer) if src_cat in PROCESSES else bearer if src_cat in INDEPENDENT else restriction(g, REL["inheres in"], bearer)
             obj, copy = expr(), expr()
-            g.add((src_node, RDFS.subClassOf, obj)); annotate(src_node, RDFS.subClassOf, copy, a)
+            if not assert_axiom(src_node, RDFS.subClassOf, obj, copy, a):
+                evidence_only.append(a | {"why": "rejected by review decision"}); continue
             head = "'has participant' some ('bearer of' some" if src_cat in PROCESSES else "'bearer of' some (" if src_cat in INDEPENDENT else "'inheres in' some ('bearer of' some"
             a["manchester"] = f"'{src_label}' SubClassOf {head} (disposition and 'has realization' only '{dst_label}'))"
             relation_axioms.append(a)
@@ -852,7 +984,8 @@ def main() -> None:
             if src_pc == dst_pc:
                 evidence_only.append(a | {"why": f"{kind} between a process and its own qualified subclass"}); continue
             pred = RDFS.subClassOf if kind == "is_a" else OWL.equivalentClass
-            g.add((src_node, pred, dst_node)); annotate(src_node, pred, dst_node, a)
+            if not assert_axiom(src_node, pred, dst_node, dst_node, a):
+                evidence_only.append(a | {"why": "rejected by review decision"}); continue
             a["manchester"] = f"'{src_label}' {'SubClassOf' if kind == 'is_a' else 'EquivalentTo'} '{dst_label}'"
             relation_axioms.append(a)
         else:
@@ -862,6 +995,24 @@ def main() -> None:
     core = args.dir / "bfo/bfo-core.ttl"
     if core.exists():
         (run / "bfo-core.ttl").write_bytes(core.read_bytes())
+
+    # ---- registry: every cluster's id, members and status, so the next run can reconcile against it ----
+    for k, info in cluster_info.items():
+        tid = term_id[k]
+        row = registry.get(tid, {"term_id": tid, "role": k[0], "created": run.name})
+        row.update({"members": phrases.loc[info["members"], "key"].tolist(), "last_run": run.name,
+                    "status": "rejected" if k in rejected else "merged" if k in merged_into else "active",
+                    "label": classes.get(k, {}).get("label"), "category": classes.get(k, {}).get("bfo_category")})
+        registry[tid] = row
+    for rep in reconciliation.values():
+        for tid, into in rep["merged"]:
+            registry[tid]["status"], registry[tid]["merged_into"] = "merged", into
+        for tid in rep["vanished"]:
+            registry[tid]["status"] = "vanished"
+    registry_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(registry_path, "w") as f:
+        for r in registry.values():
+            f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     # ---- 7. review ----
     sides = 2 * len(claims)
@@ -888,6 +1039,12 @@ def main() -> None:
         f"- definitional axioms (genus, differentiae, members): {len([d for d in definitional if '(noted' not in d])}",
         f"- restrictions from frame structure: {len([s for s in structural if '(annotation)' not in s])} (+ {len([s for s in structural if '(annotation)' in s])} annotations)",
         f"- relation axioms: {len(relation_axioms)}; evidence only: {len(evidence_only)}",
+        "", "## Identities and decisions", "",
+        f"- registry: {registry_path} ({len(registry)} terms after this run)",
+        *(f"- {role}: {rep['matched']} clusters kept their term id, {rep['new']} new, {len(rep['split'])} split, {len(rep['merged'])} merged, {len(rep['vanished'])} vanished"
+          for role, rep in reconciliation.items()),
+        f"- decisions applied from {decisions_path}: {len(decided['accept'])} accepted, {len(decided['reject'])} rejected, {len(decided['rename'])} renamed, "
+        f"{len(decided['recategorise'])} recategorised, {len(decided['merge'])} merged",
         "", "## Classes minted from definitions", "",
         "| category | label | referenced by |", "|---|---|---|",
         *(f"| {m['category']} | {m['label']} | {'; '.join(sorted(set(m['from']))[:6])} |" for m in sorted(minted.values(), key=lambda m: (m['category'], m['label']))),
@@ -895,14 +1052,14 @@ def main() -> None:
         "", "## Locations stated in definitions (noted, no axiom)", "",
         *(f"- '{p['label']}': {d['phrase']}" for (role, c), p in classes.items() if is_class(role, c) for d in p.get("differentiae", []) if d.get("kind") == "location" and d.get("phrase")),
         "", "## Classes by bucket", "",
-        "| role | category | label | definition | papers | central phrases |", "|---|---|---|---|---|---|",
-        *(f"| {role} | {p['bfo_category']} | {p['label']} | {p['definition'][:100]} | {p['papers']} | {'; '.join(p['central'][:3])} |" for (role, c), p in sorted(classes.items(), key=lambda kv: (kv[0][0], -kv[1]['papers'], -kv[1]['size'])) if is_class(role, c)),
+        "| term id | role | category | label | definition | papers | central phrases |", "|---|---|---|---|---|---|---|",
+        *(f"| {term_id[(role, c)]} | {role} | {p['bfo_category']} | {p['label']} | {p['definition'][:100]} | {p['papers']} | {'; '.join(p['central'][:3])} |" for (role, c), p in sorted(classes.items(), key=lambda kv: (kv[0][0], -kv[1]['papers'], -kv[1]['size'])) if is_class(role, c)),
         "", "## Set aside (not domain entities)", "",
         *(f"- {role}:{c} {p['kind']}: {'; '.join(p['central'][:3])}" for (role, c), p in classes.items() if not is_class(role, c)),
         "", "## Restrictions from frame structure", "", *(f"- {s}" for s in structural),
         "", "## Defined classes from qualified frames", "", *(f"- {lbl}" for _, lbl, _, _ in defined.values()),
-        "", "## Relation axioms", "", "| papers | claims | direction | contested | axiom |", "|---|---|---|---|---|",
-        *(f"| {a['papers']} | {a['n']} | {a['direction']} | {'yes' if a['contested'] else ''} | {a['manchester']} |" for a in sorted(relation_axioms, key=lambda a: (-a['papers'], -a['n']))),
+        "", "## Relation axioms", "", "| axiom id | papers | claims | direction | contested | axiom |", "|---|---|---|---|---|---|",
+        *(f"| {a.get('axiom_id', '')} | {a['papers']} | {a['n']} | {a['direction']} | {'yes' if a['contested'] else ''} | {a['manchester']} |" for a in sorted(relation_axioms, key=lambda a: (-a['papers'], -a['n']))),
         "", "## Evidence only", "", *(f"- {a['src']} -> {a['dst']} ({a['papers']} papers, {a['direction']}): {a['why']}" for a in evidence_only),
         "", "## Gaps: processes with no consistent slot", "", *(gaps or ["- none"]),
     ]
