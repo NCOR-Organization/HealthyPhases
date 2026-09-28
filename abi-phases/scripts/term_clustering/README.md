@@ -219,7 +219,81 @@ Three runs on 195 clusters and the 50 relations with 3+ papers (`gpt-4.1`):
 | axioms from 50 relations | 2 | 24 | 24 (all dispositions) |
 | structural problems / consistent | 0 / yes | 0 / yes | 0 / yes |
 
-Run C is the reference. Its output directory is `bfo_c/`.
+Run C is the reference for the conditional-only module. Its output directory
+is `bfo_c/`.
+
+## Pipeline v2: both sources, votes, hierarchy (2026-09-28)
+
+Five additions, each its own script, all covered by `tests/test_pure.py`
+(17 tests; run with `uv run --no-project --with pytest --with pandas
+--with pyarrow --with rdflib --with scikit-learn --with scipy --with numpy
+--with openai pytest scripts/term_clustering/tests -q`).
+
+```sh
+uv run scripts/term_clustering/split_processes.py                       # probabilistic-process items -> phrase tables
+OPENAI_API_KEY=... uv run scripts/term_clustering/embed_parts.py --input process_phrases
+OPENAI_API_KEY=... uv run scripts/term_clustering/embed_parts.py --input participants
+uv run scripts/term_clustering/cluster.py --variant process_phrases --min-cluster-size 10
+uv run scripts/term_clustering/cluster.py --variant participants --min-cluster-size 8
+uv run scripts/term_clustering/hierarchy.py --variant parts --min-cluster-size 15   # and process_phrases 10, participants 8
+OPENAI_API_KEY=... uv run scripts/term_clustering/vote_directions.py --min-papers 2
+OPENAI_API_KEY=... uv run scripts/term_clustering/bfo_module.py --min-papers 2
+uv run scripts/term_clustering/bfo_check.py --dir storage/spikes/term_clustering/bfo_v2
+```
+
+**Probabilistic-process items as a second source.** The 3,624 items already
+carry participant, subject process, direction and target process. Their
+phrases cluster better than the halves (108 process clusters at 81% clustered,
+41 participant clusters at 85%), 74% of items have both ends in a cluster,
+and 166 of the 756 relations have two or more papers. Because the structure
+is the disposition pattern, each (subject, participant, target) relation
+becomes an axiom with no model call, and the participant gives the process
+its `has participant` restriction ("aging has participant some older adult",
+72 of 83 items, 9 papers). The participants are the bearer classes the
+conditional-only module lacked.
+
+**Merges and hierarchy** (`hierarchy.py`). Centroid pairs above 0.90 cosine
+similarity fold into one term (4 clusters absorbed among the halves, 3 among
+the processes); an average-linkage tree cut at cosine distance 0.25 gives
+level-1 parents, which become proposed parent classes only when all their
+children share one BFO category and there are at most twelve of them. The
+labels of those parents are keyword pairs and their definitions are
+placeholders; they exist to be named or rejected.
+
+**Per-sentence direction votes** (`vote_directions.py`). Each of the 1,348
+sentences behind the 211 conditional relations with two or more papers is
+classified on its own (direction against the target as labelled, qualifier if
+any). Contested is then a minority of at least 25% backed by two or more
+papers: 12 relations. 162 relations carry at least one qualifier, and the
+qualifiers often resolve the disagreement ("autonomy in solitude -> change in
+low-arousal affect" splits exactly on *high* versus *low* autonomy).
+
+**Two-source module** (`bfo_module.py`, output `bfo_v2/`):
+
+| | conditional-only (C) | v2 |
+|---|---|---|
+| canonical terms | 142 | 263 (16 concepts found by both sources, aligned by centroid similarity ≥ 0.90 within one category) |
+| classes | 142 | 293, including 30 proposed parents |
+| axioms | 24 | 206: 112 from process items, 73 from conditionals (2+ papers, voted direction), 21 participant restrictions |
+| evidence only | 26 | 99 |
+| divergences reported | 3 contested | 34 (contested both ways, opposite change targets, effect versus null finding) |
+| structural problems / HermiT / ROBOT | 0 / consistent / 0 errors | 0 / consistent / 0 errors |
+
+The divergence list is now a first-class output. Its head is the central
+argument of the field, with the papers counted on each side: "spending time
+in solitude -> experience of loneliness" (10 papers, contested), "-> experience
+of well-being" (8, contested), "-> onset of depressive symptoms" (5, contested).
+
+Known weak points, for the review sheet (`bfo_v2/review.md`):
+
+- alignment across sources is by similarity, so a few pairs are near rather
+  than identical ("solitude episode" with "increase in solitude episode
+  duration"); the alias annotation keeps both cluster ids for review;
+- proposed parents are groupings, not terms, until someone names them;
+- "spending time in solitude", "solitude experience" and "solitude
+  engagement" are three process terms that a reviewer may collapse; the
+  merge threshold was kept strict on purpose;
+- relations with a single paper are not in the module at all.
 
 The difference is one modelling decision. In this corpus the consequent of a
 claim is very often a change in degree ("higher positive affect", "decrease in
