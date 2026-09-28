@@ -12,9 +12,54 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import numpy as np  # noqa: E402
+
 from split_conditionals import FORM, normalize_part, split  # noqa: E402
 from split_processes import normalize_key, parse_item  # noqa: E402
 from bfo_proposal import enforce  # noqa: E402
+from vote_directions import summarise  # noqa: E402
+from hierarchy import merge_groups  # noqa: E402
+
+
+# ---- direction voting ----
+
+def _votes(*rows):
+    return pd.DataFrame(rows, columns=["direction", "paper_id"])
+
+
+def test_majority_direction_ignores_claims_that_say_nothing_about_likelihood():
+    s = summarise(_votes(("increases", "a"), ("increases", "b"), ("none", "c"), ("none", "d")), 0.25)
+    assert s["majority"] == "increases" and s["share"] == 1.0 and not s["contested"]
+
+
+def test_contested_needs_a_large_enough_minority_backed_by_two_papers():
+    one_paper = _votes(("increases", "a"), ("increases", "b"), ("decreases", "c"), ("decreases", "c"))
+    assert not summarise(one_paper, 0.25)["contested"]
+    two_papers = _votes(("increases", "a"), ("increases", "b"), ("decreases", "c"), ("decreases", "d"))
+    assert summarise(two_papers, 0.25)["contested"]
+    tiny_minority = _votes(*[("increases", p) for p in "abcdefgh"], ("decreases", "x"), ("decreases", "y"))
+    assert not summarise(tiny_minority, 0.25)["contested"]
+
+
+def test_no_effect_counts_as_a_direction_of_its_own():
+    s = summarise(_votes(("no_effect", "a"), ("no_effect", "b"), ("increases", "c")), 0.25)
+    assert s["majority"] == "no_effect" and s["contested"] is False  # minority from one paper only
+
+
+# ---- cluster merging ----
+
+def test_merge_groups_is_transitive_and_keeps_the_smallest_id():
+    # three centroids: 0 ~ 1, 1 ~ 2, 0 not ~ 2 directly; 3 is far from all
+    C = np.array([[1.0, 0.0], [0.96, 0.28], [0.85, 0.53], [0.0, 1.0]])
+    C = C / np.linalg.norm(C, axis=1, keepdims=True)
+    group = merge_groups([10, 11, 12, 13], C, threshold=0.95)
+    assert group[10] == group[11] == group[12] == 10
+    assert group[13] == 13
+
+
+def test_merge_groups_with_a_strict_threshold_merges_nothing():
+    C = np.eye(3)
+    assert merge_groups([1, 2, 3], C, threshold=0.99) == {1: 1, 2: 2, 3: 3}
 
 
 # ---- conditionals ----
