@@ -499,9 +499,12 @@ def main() -> None:
         else:
             # Mid-sized papers, spread across the sorted ids, so a sample of N really is N papers.
             sizes = chunks.groupby("paper_id").size()
-            candidates = sorted(sizes[(sizes >= 10) & (sizes <= 40)].index) or sorted(sizes.index)
-            step = max(1, len(candidates) // args.papers)
-            paper_ids = candidates[::step][: args.papers]
+            if args.papers >= len(sizes):
+                paper_ids = sorted(sizes.index)  # the whole local corpus
+            else:
+                candidates = sorted(sizes[(sizes >= 10) & (sizes <= 40)].index) or sorted(sizes.index)
+                step = max(1, len(candidates) // args.papers)
+                paper_ids = candidates[::step][: args.papers]
         chunks = chunks[chunks["paper_id"].isin(paper_ids)].sort_values(["paper_id", "seq"])
         if args.max_chunks:
             chunks = chunks.head(args.max_chunks)
