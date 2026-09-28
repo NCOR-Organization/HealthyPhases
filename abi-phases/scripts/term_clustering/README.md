@@ -184,6 +184,23 @@ aloneliness" had merged); a genus is minted in the class's own category, not
 the slot's bucket ("autonomy" had been minted both as a process and as a
 quality).
 
+**All 26 local papers** (run `frames/s26`, 499 chunks, 3,092 claims, about
+25 USD): fill rates unchanged (participants and processes 100%, information
+40%, when 21%, quality 13%, where 4%, realizable 2%). Module: 770 classes
+(549 from clusters, 126 defined, 95 minted), 214 definitional axioms, 74
+participant and place restrictions, 806 relation axioms of which 17 have
+three or more papers and 74 have two, 119 refused with reasons; 0
+structural problems, consistent, ROBOT-clean; HermiT infers 553
+module-internal superclass links. Two scale defects fixed on the way:
+qualifiers repeated inside defined classes when several spans fell in one
+cluster (now a set), and the density path over-merged roles with a few
+hundred phrases (526 participant phrases became 42 clusters, 311 time
+phrases became 8), so agglomeration is now used up to 2,000 phrases per
+role; participants then give 107 classes, time phrases 67 ("older age",
+"early adolescence", "later life", "solitude period"). The reviewed core
+at two or more papers is 91 relation axioms; the rest is single-paper
+evidence for the review sheet.
+
 **Structured definitions.** The categoriser returns a genus, typed
 differentiae (quality, realizable, life stage, location, member kind) and a
 collective flag, not only a sentence. Each component is resolved to an
