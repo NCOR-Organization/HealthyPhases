@@ -464,7 +464,8 @@ def main() -> None:
     parser.add_argument("--model", default="gpt-4.1")
     parser.add_argument("--min-cluster-size", type=int, default=5, help="HDBSCAN minimum, used once a role has --density-from phrases")
     parser.add_argument("--merge-distance", type=float, default=0.20, help="cosine distance under which small-role phrases are one concept")
-    parser.add_argument("--density-from", type=int, default=300, help="phrases per role from which UMAP + HDBSCAN is used")
+    parser.add_argument("--density-from", type=int, default=2000,
+                        help="phrases per role from which UMAP + HDBSCAN is used; below it, paraphrase agglomeration (a few hundred phrases over-merge under density)")
     parser.add_argument("--min-members", type=int, default=2, help="phrases a cluster needs before it becomes a class")
     parser.add_argument("--resolve-threshold", type=float, default=0.80, help="cosine similarity for a definition component to reuse an existing class")
     parser.add_argument("--min-papers", type=int, default=1, help="papers behind a restriction or relation before it is written")
@@ -783,8 +784,8 @@ def main() -> None:
             if a < 0 or not is_class("participant", a):
                 continue
             # Only what BFO lets a participant bear: a quality, or a realizable (disposition, role, function).
-            qs = tuple(sorted(q for q in f["qualities"].get(a, []) if q >= 0 and is_class("quality", q) and cat_of[("quality", q)] == "quality"))
-            rs = tuple(sorted(r for r in f["realizables"].get(a, []) if r >= 0 and is_class("realizable", r) and cat_of[("realizable", r)] in ("disposition", "role", "function")))
+            qs = tuple(sorted({q for q in f["qualities"].get(a, []) if q >= 0 and is_class("quality", q) and cat_of[("quality", q)] == "quality"}))
+            rs = tuple(sorted({r for r in f["realizables"].get(a, []) if r >= 0 and is_class("realizable", r) and cat_of[("realizable", r)] in ("disposition", "role", "function")}))
             if qs or rs:
                 qualifiers.append((a, qs, rs))
         if not qualifiers:
