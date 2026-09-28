@@ -28,6 +28,12 @@ few papers before it runs on hundreds. Stages, each cached under
     OPENAI_API_KEY=... uv run scripts/term_clustering/frames.py --papers 3
     uv run scripts/term_clustering/bfo_check.py --dir storage/spikes/term_clustering/frames/p3
 
+Without the platform (stage 0, documents): a directory of .txt/.md files or a
+table of posts, the registry, decisions and categorisation cache beside the run:
+
+    OPENAI_API_KEY=... uv run scripts/term_clustering/frames.py --input docs/ --out out/project/first
+    OPENAI_API_KEY=... uv run scripts/term_clustering/frames.py --input posts.parquet --id-col id --source-col account --out out/project/first
+
 Everything the corpus says about direction, support and disagreement is an
 annotation; class expressions use only BFO classes and relations.
 """
@@ -139,17 +145,112 @@ def ask_json(client, model: str, system: str, user: str, schema: dict, name: str
     return json.loads(response.choices[0].message.content)
 
 
-def extract(client, model: str, chunks: pd.DataFrame, workers: int) -> list[dict]:
-    def one(row):
-        out = ask_json(client, model, EXTRACT_SYSTEM, f"Passage:\n{row.text}", CLAIMS_SCHEMA, "claims")
+# ============================================================== 0. documents
+
+TEXT_SUFFIXES = (".txt", ".md")
+BATCH_NOTE = """
+
+Several short passages are given, each with a number in brackets. Treat every passage on its own: set "passage" on each claim to the number of the passage it comes from, never combine passages, and return no claim for a passage that makes no general claim (a report of one event, a question, an opinion about a person, an advertisement). Short posts often yield nothing; that is the right answer for them."""
+
+
+def split_passages(text: str, max_chars: int = 1500) -> list[str]:
+    """Cut a document into passages at paragraph boundaries, then at sentence
+    boundaries when a paragraph is still too long. A short document is one passage."""
+    text = text.replace("\r\n", "\n").strip()
+    if len(text) <= max_chars:
+        return [text] if text else []
+    passages, current = [], ""
+    for para in re.split(r"\n\s*\n", text):
+        para = para.strip()
+        if not para:
+            continue
+        if len(para) > max_chars:
+            for sentence in re.split(r"(?<=[.!?])\s+", para):
+                if len(current) + len(sentence) + 1 > max_chars and current.strip():
+                    passages.append(current.strip()); current = ""
+                current += sentence + " "
+            continue
+        if len(current) + len(para) + 2 > max_chars and current.strip():
+            passages.append(current.strip()); current = ""
+        current += para + "\n\n"
+    if current.strip():
+        passages.append(current.strip())
+    return passages
+
+
+def load_documents(source: Path, text_col: str = "text", id_col: str | None = None, source_col: str | None = None, max_chars: int = 1500) -> pd.DataFrame:
+    """Documents from a directory of text files or from a table, as passages.
+
+    A directory: every .txt or .md file is one document; its name is the
+    document id and its source. A table (parquet, csv, jsonl): one row per
+    document; ``text_col`` holds the text, ``id_col`` the document id (the row
+    number when absent), ``source_col`` what counts as one source for support
+    (the account for tweets, the paper for papers; the document when absent).
+
+    Returns the columns the pipeline works with: chunk_id, paper_id (the
+    support unit, whatever it is in the corpus), seq, text."""
+    if source.is_dir():
+        files = sorted(p for p in source.rglob("*") if p.suffix.lower() in TEXT_SUFFIXES)
+        table = pd.DataFrame([{"doc_id": p.stem, "source": p.stem, "text": p.read_text(errors="replace")} for p in files])
+    else:
+        suffix = source.suffix.lower()
+        table = pd.read_parquet(source) if suffix == ".parquet" else pd.read_csv(source) if suffix == ".csv" else pd.read_json(source, lines=True)
+        if text_col not in table.columns:
+            raise SystemExit(f"{source} has no column {text_col!r}; columns: {list(table.columns)}")
+        table = table.rename(columns={text_col: "text"})
+        table["doc_id"] = table[id_col].astype(str) if id_col and id_col in table.columns else [str(i) for i in range(len(table))]
+        table["source"] = table[source_col].astype(str) if source_col and source_col in table.columns else table["doc_id"]
+    rows = []
+    for r in table.itertuples():
+        passages = split_passages(str(r.text) if r.text is not None else "", max_chars)
+        for seq, passage in enumerate(passages):
+            rows.append({"chunk_id": r.doc_id if len(passages) == 1 else f"{r.doc_id}#{seq}", "paper_id": r.source, "seq": seq, "text": passage})
+    return pd.DataFrame(rows, columns=["chunk_id", "paper_id", "seq", "text"])
+
+
+def collapse_duplicates(chunks: pd.DataFrame) -> tuple[pd.DataFrame, int]:
+    """Keep the first of passages whose text is the same once links, mentions,
+    hashtags marks, case and spacing are ignored (retweets, copied talking
+    points). Counting them would let one campaign look like many sources."""
+    norm = (chunks["text"].fillna("").str.lower()
+            .str.replace(r"https?://\S+|@\w+", "", regex=True).str.replace("#", "", regex=False).str.replace(r"\W+", " ", regex=True).str.strip())
+    keep = ~norm.duplicated()
+    return chunks[keep].reset_index(drop=True), int((~keep).sum())
+
+
+def claims_schema(batched: bool) -> dict:
+    if not batched:
+        return CLAIMS_SCHEMA
+    schema = json.loads(json.dumps(CLAIMS_SCHEMA))
+    item = schema["properties"]["claims"]["items"]
+    item["properties"]["passage"] = {"type": "integer"}
+    item["required"].append("passage")
+    return schema
+
+
+def extract(client, model: str, chunks: pd.DataFrame, workers: int, batch: int = 1) -> list[dict]:
+    """Claims per passage. Short passages (posts) go several per call, numbered,
+    and each claim says which passage it came from."""
+    rows = list(chunks.itertuples())
+    groups = [rows[i:i + batch] for i in range(0, len(rows), batch)] if batch > 1 else [[r] for r in rows]
+
+    def one(group):
+        if len(group) == 1:
+            row = group[0]
+            out = ask_json(client, model, EXTRACT_SYSTEM, f"Passage:\n{row.text}", CLAIMS_SCHEMA, "claims")
+            per = [(row, c) for c in out["claims"]]
+        else:
+            listing = "\n\n".join(f"[{i}] {r.text}" for i, r in enumerate(group))
+            out = ask_json(client, model, EXTRACT_SYSTEM + BATCH_NOTE, f"Passages, numbered:\n\n{listing}", claims_schema(True), "claims")
+            per = [(group[c["passage"]], c) for c in out["claims"] if 0 <= c.get("passage", -1) < len(group)]
         claims = []
-        for i, c in enumerate(out["claims"]):
+        for i, (row, c) in enumerate(per):
             claim_id = hashlib.sha256(f"{row.chunk_id}|{i}|{c['antecedent']['process']}|{c['consequent']['process']}".encode()).hexdigest()[:16]
-            claims.append({"claim_id": claim_id, "paper_id": row.paper_id, "chunk_id": row.chunk_id, **c})
+            claims.append({"claim_id": claim_id, "paper_id": row.paper_id, "chunk_id": row.chunk_id, **{k: v for k, v in c.items() if k != "passage"}})
         return claims
 
     with ThreadPoolExecutor(workers) as pool:
-        return [c for claims in pool.map(one, list(chunks.itertuples())) for c in claims]
+        return [c for claims in pool.map(one, groups) for c in claims]
 
 
 CHANGE_PREFIXES = ("decrease in", "reduction in", "reduced", "loss of", "lower", "decline in", "fewer")
@@ -533,10 +634,31 @@ def resolve_components(wanted: list[tuple], vectors: np.ndarray, centroids: dict
 
 # ============================================================== main
 
+def load_cache(*paths: Path) -> dict[str, dict]:
+    """Categorisations keyed by cluster content signature, later files overriding
+    earlier ones. Rows without a signature come from before the content key and
+    are stale."""
+    cache: dict[str, dict] = {}
+    for path in paths:
+        if path.exists():
+            cache.update({r["signature"]: r for r in (json.loads(line) for line in open(path)) if "signature" in r})
+    return cache
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dir", type=Path, default=DEFAULT_DIR)
-    parser.add_argument("--papers", type=int, default=3, help="how many papers to sample (first N sorted ids)")
+    parser.add_argument("--input", type=Path, default=None,
+                        help="documents to process: a directory of .txt/.md files (file name = document id), or a parquet/csv/jsonl table; "
+                             "without it, the platform's chunk dump under --dir is used")
+    parser.add_argument("--text-col", default="text", help="table input: column holding the text")
+    parser.add_argument("--id-col", default=None, help="table input: column holding the document id (e.g. tweet id)")
+    parser.add_argument("--source-col", default=None, help="table input: column that counts as one source for support (e.g. account id)")
+    parser.add_argument("--max-chars", type=int, default=1500, help="long documents are split into passages of at most this many characters")
+    parser.add_argument("--batch-docs", type=int, default=0, help="short passages per extraction call (0 = automatic: 12 when the median passage is under 400 characters)")
+    parser.add_argument("--no-dedupe", action="store_true", help="keep passages whose text repeats another's (retweets, copies)")
+    parser.add_argument("--out", type=Path, default=None, help="output directory for this run (default <dir>/frames/<run>)")
+    parser.add_argument("--papers", type=int, default=None, help="how many sources to sample (default: all when --input is given, 3 for the platform dump)")
     parser.add_argument("--paper-ids", nargs="*", default=None, help="explicit paper ids instead of a sample")
     parser.add_argument("--max-chunks", type=int, default=0, help="cap on chunks (0 = all chunks of the sampled papers)")
     parser.add_argument("--run", default=None, help="run name under <dir>/frames/ (default p<papers>)")
@@ -556,7 +678,8 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    run = args.dir / "frames" / (args.run or f"p{args.papers}")
+    default_name = args.run or (args.input.stem if args.input else f"p{args.papers if args.papers is not None else 3}")
+    run = args.out or (args.dir / "frames" / default_name)
     run.mkdir(parents=True, exist_ok=True)
     client = None
 
@@ -575,24 +698,35 @@ def main() -> None:
         claims = [json.loads(line) for line in open(claims_path)]
         print(f"[extract] reusing {len(claims)} claims", file=sys.stderr)
     else:
-        chunks = pd.read_parquet(args.dir / "phases_v2_chunks.meta.parquet")
-        chunks = chunks[chunks["text"].fillna("").str.len() > 200]
+        if args.input:
+            chunks = load_documents(args.input, args.text_col, args.id_col, args.source_col, args.max_chars)
+            if not args.no_dedupe:
+                chunks, dropped = collapse_duplicates(chunks)
+                if dropped:
+                    print(f"[documents] {dropped} duplicate passages collapsed", file=sys.stderr)
+            print(f"[documents] {len(chunks)} passages from {chunks['paper_id'].nunique()} sources in {args.input}", file=sys.stderr)
+        else:
+            chunks = pd.read_parquet(args.dir / "phases_v2_chunks.meta.parquet")
+            chunks = chunks[chunks["text"].fillna("").str.len() > 200]
+        sizes = chunks.groupby("paper_id").size()
+        wanted = args.papers if args.papers is not None else (len(sizes) if args.input else 3)
         if args.paper_ids:
             paper_ids = args.paper_ids
+        elif wanted >= len(sizes):
+            paper_ids = sorted(sizes.index)  # the whole corpus
+        elif args.input:
+            paper_ids = sorted(sizes.index)[:wanted]
         else:
-            # Mid-sized papers, spread across the sorted ids, so a sample of N really is N papers.
-            sizes = chunks.groupby("paper_id").size()
-            if args.papers >= len(sizes):
-                paper_ids = sorted(sizes.index)  # the whole local corpus
-            else:
-                candidates = sorted(sizes[(sizes >= 10) & (sizes <= 40)].index) or sorted(sizes.index)
-                step = max(1, len(candidates) // args.papers)
-                paper_ids = candidates[::step][: args.papers]
+            # Platform dump: mid-sized papers, spread across the sorted ids, so a sample of N really is N papers.
+            candidates = sorted(sizes[(sizes >= 10) & (sizes <= 40)].index) or sorted(sizes.index)
+            step = max(1, len(candidates) // wanted)
+            paper_ids = candidates[::step][:wanted]
         chunks = chunks[chunks["paper_id"].isin(paper_ids)].sort_values(["paper_id", "seq"])
         if args.max_chunks:
             chunks = chunks.head(args.max_chunks)
-        print(f"[extract] {len(chunks)} chunks from {len(paper_ids)} papers with {args.model}", file=sys.stderr)
-        claims = extract(get_client(), args.model, chunks, args.workers)
+        batch = args.batch_docs or (12 if len(chunks) and chunks["text"].str.len().median() < 400 else 1)
+        print(f"[extract] {len(chunks)} passages from {len(paper_ids)} sources with {args.model}" + (f", {batch} passages per call" if batch > 1 else ""), file=sys.stderr)
+        claims = extract(get_client(), args.model, chunks, args.workers, batch)
         with open(claims_path, "w") as f:
             for c in claims:
                 f.write(json.dumps(c, ensure_ascii=False) + "\n")
@@ -638,7 +772,7 @@ def main() -> None:
     papers_of = spans[spans.cluster >= 0].groupby(["role", "cluster"])["paper_id"].nunique().to_dict()
 
     # ---- identities: a cluster keeps its term id across runs; decisions attach to that id ----
-    registry_path = args.registry or (args.dir / "frames" / "registry.jsonl")
+    registry_path = args.registry or (run.parent / "registry.jsonl")
     registry = {r["term_id"]: r for r in (json.loads(l) for l in open(registry_path))} if registry_path.exists() else {}
     term_id, reconciliation = {}, {}
     for role in ROLES:
@@ -647,7 +781,7 @@ def main() -> None:
             assignment, report = reconcile(registry, role, members_of, args.reconcile_threshold, run.name)
             term_id.update({(role, c): tid for c, tid in assignment.items()})
             reconciliation[role] = report
-    decisions_path = args.decisions or (args.dir / "frames" / "decisions.jsonl")
+    decisions_path = args.decisions or (run.parent / "decisions.jsonl")
     decided = apply_decisions([json.loads(l) for l in open(decisions_path)] if decisions_path.exists() else [])
     print(f"[identities] {sum(r['matched'] for r in reconciliation.values())} clusters kept a registered id, "
           f"{sum(r['new'] for r in reconciliation.values())} new; decisions: {sum(len(v) for v in decided.values())}", file=sys.stderr)
@@ -660,8 +794,11 @@ def main() -> None:
     for k, info in cluster_info.items():
         content = "|".join(sorted(phrases.loc[info["members"], "key"]))
         info["signature"] = hashlib.sha256(f"{prompt_hash}|{k[0]}|{content}".encode()).hexdigest()[:16]
-    cat_path = run / "classes.jsonl"
-    cache = {r["signature"]: r for r in (json.loads(l) for l in open(cat_path)) if "signature" in r} if cat_path.exists() else {}
+    # The run keeps its own clusters' categorisations in classes.jsonl; the shared file beside the
+    # registry keeps every categorisation seen, so a rebuild into a new run directory reuses the
+    # answer for an unchanged cluster instead of asking the model again (its answers drift).
+    cat_path, shared_cat_path = run / "classes.jsonl", run.parent / "categories.jsonl"
+    cache = load_cache(shared_cat_path, cat_path)
     # Only clusters with enough members (or seen in two papers) are worth a class.
     eligible = {k for k, info in cluster_info.items() if len(info["members"]) >= args.min_members or papers_of.get(k, 0) >= 2}
     missing = [k for k in eligible if cluster_info[k]["signature"] not in cache]
@@ -678,10 +815,16 @@ def main() -> None:
         with ThreadPoolExecutor(args.workers) as pool:
             for r in pool.map(one, missing):
                 cache[r["signature"]] = r
-        with open(cat_path, "w") as f:
+        shared_cat_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(shared_cat_path, "w") as f:
             for r in cache.values():
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    classes = {k: dict(cache[cluster_info[k]["signature"]]) | {"cluster": k[1], "papers": papers_of.get(k, 0)} for k in eligible if cluster_info[k]["signature"] in cache}
+    with open(cat_path, "w") as f:
+        for k in sorted(eligible):
+            if cluster_info[k]["signature"] in cache:
+                f.write(json.dumps(cache[cluster_info[k]["signature"]], ensure_ascii=False) + "\n")
+    # Sorted so that ties in every later ordering fall the same way on every run.
+    classes = {k: dict(cache[cluster_info[k]["signature"]]) | {"cluster": k[1], "papers": papers_of.get(k, 0)} for k in sorted(eligible) if cluster_info[k]["signature"] in cache}
     # Participants are individuals unless the phrases name a collective; the
     # aggregate and its member kind are two classes joined by 'has member part'.
     for (role, c), p in classes.items():
@@ -804,7 +947,14 @@ def main() -> None:
                 members = [w for (w, _), l in zip(items, groups) if l == gid]
                 phrase = min((w[4] for w in members), key=len)
                 category = members[0][3]
-                node = T[f"TX{len(minted):04d}"]
+                # The IRI comes from what the class is (role, category, label), not from the order
+                # of minting, so a decision taken on a minted class finds it again on the next run.
+                node = T[stable_id("M", role, category, normalize_key(phrase))]
+                if node in minted:
+                    minted[node]["from"] += [label_of[w[0]] for w in members]
+                    for w in members:
+                        component_node[w] = node
+                    continue
                 minted[node] = {"label": phrase, "category": category, "role": role, "from": [label_of[w[0]] for w in members]}
                 g.add((node, RDF.type, OWL.Class)); g.add((node, RDFS.subClassOf, OBO[CATEGORIES[category]]))
                 g.add((node, RDFS.label, Literal(phrase, lang="en")))
@@ -1044,7 +1194,7 @@ def main() -> None:
             gaps.append(f"- '{label_of[('process', pc)]}' ({total} frames): no consistent {', '.join(missing_roles)}")
     lines = [
         "# Frames pipeline review", "",
-        f"- sample: {sample_papers} papers, {n_chunks} chunks, {len(claims)} claims ({len(claims) / max(n_chunks, 1):.1f} per chunk), model {args.model}",
+        f"- sample: {sample_papers} sources, {n_chunks} passages, {len(claims)} claims ({len(claims) / max(n_chunks, 1):.1f} per passage), model {args.model}",
         "", "## Slot fill rates (share of frame sides with the slot filled)", "",
         "| role | filled | share | spans | distinct phrases | clusters | noise phrases | classes |", "|---|---|---|---|---|---|---|---|",
         *(f"| {role} | {fill[role]} | {fill[role] / max(sides, 1):.0%} | {per_role.get(role, {}).get('spans', 0)} | {per_role.get(role, {}).get('distinct', 0)} | {clusters_per_role.get(role, 0)} | {noise[role]} | {classes_per_role.get(role, 0)} |" for role in ROLES),

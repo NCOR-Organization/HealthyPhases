@@ -1,16 +1,79 @@
-"""Tests for the pure parts of frames.py (no model, no files)."""
+"""Tests for the pure parts of frames.py (no model; only temporary files)."""
 
 import sys
 from pathlib import Path
 
 import numpy as np
+import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from frames import (  # noqa: E402
-    allowed_disposition, apply_decisions, cluster_role, flatten, keywords_for, normalise_direction, normalize_key, plan_components, polarity,
-    reconcile, resolve_components, split_by_polarity, stable_id, summarise_direction,
+    CLAIMS_SCHEMA, allowed_disposition, apply_decisions, claims_schema, cluster_role, collapse_duplicates, flatten, keywords_for, load_cache,
+    load_documents, normalise_direction, normalize_key, plan_components, polarity, reconcile, resolve_components, split_by_polarity, split_passages,
+    stable_id, summarise_direction,
 )
+
+
+def test_category_cache_merges_files_in_order_and_skips_rows_without_a_signature(tmp_path):
+    shared, own = tmp_path / "categories.jsonl", tmp_path / "run" / "classes.jsonl"
+    own.parent.mkdir()
+    shared.write_text('{"signature": "a", "label": "shared a"}\n{"signature": "b", "label": "shared b"}\n{"label": "stale, no signature"}\n')
+    own.write_text('{"signature": "b", "label": "own b"}\n')
+    cache = load_cache(shared, own, tmp_path / "missing.jsonl")
+    assert {k: v["label"] for k, v in cache.items()} == {"a": "shared a", "b": "own b"}
+
+
+# ---- documents in ----
+
+def test_short_document_is_one_passage_and_empty_text_is_none():
+    assert split_passages("Solitude helps.", 1500) == ["Solitude helps."]
+    assert split_passages("   \n\n  ", 1500) == []
+
+
+def test_long_document_splits_at_paragraphs_then_sentences_within_the_limit():
+    paras = ["First paragraph. " * 20, "Second paragraph. " * 20, "Third one is short."]
+    passages = split_passages("\n\n".join(paras), max_chars=400)
+    assert all(len(p) <= 400 for p in passages)
+    assert " ".join(passages).count("paragraph") == 40
+    assert passages[-1].endswith("Third one is short.")
+
+
+def test_load_documents_from_a_directory_uses_file_names_as_ids_and_sources(tmp_path):
+    (tmp_path / "tweet-1.txt").write_text("Drones are noisy.")
+    (tmp_path / "tweet-2.md").write_text("Drones deliver parcels.")
+    (tmp_path / "ignored.csv").write_text("x")
+    chunks = load_documents(tmp_path)
+    assert list(chunks["chunk_id"]) == ["tweet-1", "tweet-2"]
+    assert list(chunks["paper_id"]) == ["tweet-1", "tweet-2"]
+    assert list(chunks["seq"]) == [0, 0]
+
+
+def test_load_documents_from_a_table_uses_the_given_columns_and_splits_long_rows(tmp_path):
+    table = pd.DataFrame({"body": ["Drones are noisy.", "A. " * 900], "tweet_id": ["t1", "t2"], "account": ["alice", "bob"]})
+    table.to_parquet(tmp_path / "posts.parquet", index=False)
+    chunks = load_documents(tmp_path / "posts.parquet", text_col="body", id_col="tweet_id", source_col="account", max_chars=1000)
+    assert chunks.iloc[0]["chunk_id"] == "t1" and chunks.iloc[0]["paper_id"] == "alice"
+    assert (chunks["paper_id"] == "bob").sum() >= 3 and chunks[chunks.paper_id == "bob"]["chunk_id"].iloc[0] == "t2#0"
+
+
+def test_load_documents_without_id_or_source_columns_falls_back_to_row_numbers(tmp_path):
+    pd.DataFrame({"text": ["a", "b"]}).to_parquet(tmp_path / "t.parquet", index=False)
+    chunks = load_documents(tmp_path / "t.parquet")
+    assert list(chunks["chunk_id"]) == ["0", "1"] and list(chunks["paper_id"]) == ["0", "1"]
+
+
+def test_collapse_duplicates_ignores_links_mentions_case_and_hashtag_marks():
+    chunks = pd.DataFrame({"chunk_id": ["a", "b", "c", "d"], "paper_id": ["x", "y", "z", "w"], "seq": [0, 0, 0, 0],
+                           "text": ["Drones are #noisy https://t.co/abc", "drones are noisy!", "@bob Drones are noisy", "Drones are quiet"]})
+    kept, dropped = collapse_duplicates(chunks)
+    assert dropped == 2 and list(kept["chunk_id"]) == ["a", "d"]
+
+
+def test_batched_schema_adds_the_passage_index_and_leaves_the_single_schema_alone():
+    item = claims_schema(True)["properties"]["claims"]["items"]
+    assert item["properties"]["passage"] == {"type": "integer"} and "passage" in item["required"]
+    assert "passage" not in CLAIMS_SCHEMA["properties"]["claims"]["items"]["properties"]
 
 
 # ---- identities ----

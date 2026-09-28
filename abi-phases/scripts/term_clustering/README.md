@@ -234,6 +234,62 @@ social withdrawal" into `'socially withdrawn child' SubClassOf 'child' and
 as classes, and it is the corpus-derived dictionary that a grounding step
 maps to reference ontologies (`human` to a taxon, the qualities to PATO).
 
+**Standalone input (2026-09-28).** The same script runs without the
+platform. `--input` takes a directory of `.txt`/`.md` files (one document
+per file, the file name is the document id and the source) or a table
+(parquet, csv, jsonl) with one row per document: `--text-col` (default
+`text`), `--id-col` (the tweet id; row number when absent) and
+`--source-col` (what counts as one source for support: the account for
+posts, the paper for papers; the document itself when absent). Long
+documents are cut at paragraph then sentence boundaries into passages of
+at most `--max-chars` (1,500); short passages (median under 400
+characters) are sent twelve per extraction call with each claim tagged by
+its passage number, and the prompt is told to return nothing for a post that
+makes no general claim. Passages whose text repeats another's once links,
+mentions, hashtag marks and case are ignored are collapsed to the first
+(`--no-dedupe` keeps them), so a retweet campaign is one passage and one
+source. `--out` is the run directory; the registry, the decisions file and
+the categorisation cache (`categories.jsonl`, keyed by cluster content) live
+in its parent, so successive runs on one corpus reconcile ids and reuse the
+categorisation of unchanged clusters, and a different corpus is a different
+parent. Everything downstream is unchanged; the `supportPapers` annotation
+counts sources, whatever they are.
+
+```sh
+# a directory of documents
+OPENAI_API_KEY=... uv run scripts/term_clustering/frames.py \
+    --input path/to/docs --out storage/spikes/term_clustering/standalone/docs-project/first
+# a table of posts, the account as the support unit
+OPENAI_API_KEY=... uv run scripts/term_clustering/frames.py \
+    --input posts.parquet --id-col id --source-col account \
+    --out storage/spikes/term_clustering/standalone/posts-project/first
+uv run scripts/term_clustering/bfo_check.py --dir storage/spikes/term_clustering/standalone/docs-project/first
+```
+
+Smoke runs, both from the local corpus: two papers written out as one
+text file each (112k characters) and sixty single sentences written out as
+posts from eight accounts with three planted near-duplicates.
+
+| input | passages | claims | classes | definitional | structural | relation axioms | check |
+|---|---|---|---|---|---|---|---|
+| 2 text files | 82 (1 duplicate dropped) | 142 from 45 passages | 45 (32 clusters, 1 defined, 12 minted) | 12 | 4 | 9 (+6 evidence only) | consistent, 0 problems |
+| 60 posts, 5 calls | 60 (the 3 planted duplicates dropped) | 11 from 9 passages | 6 (4 clusters, 2 minted) | 2 | 1 | 0 | consistent, 0 problems |
+
+Every claim maps back to its post id and account. The posts profile is the
+one to expect from tweets: most passages yield nothing, sources are
+accounts, and classes appear only once the same phrase recurs across
+accounts. Rebuilding the two text files from the same claims into a second
+run directory under the same parent keeps 241 of 241 term ids. It also
+showed two things a rebuild in a new directory had been getting wrong: the
+categoriser drifts between calls even at temperature zero (3 of 31 shared
+terms changed category and 7 changed label between two rebuilds), which the
+shared `categories.jsonl` now prevents; and classes minted from definitions
+were numbered in minting order (`TX0001`), which is now a content-derived
+IRI (`M` plus a hash of role, category and label), so a rename or rejection
+of "human" finds it again next run and two mintings of the same label fold
+into one class (11 minted became 9). Two rebuilds after both fixes produce
+isomorphic graphs (955 triples each), consistent, 0 structural problems.
+
 Question: can papers ingested daily be attached to existing terms without
 re-clustering everything? `incremental.py` simulates it: the 26 papers are put
 in a fixed random order, the first 16 are clustered once and every cluster
