@@ -206,6 +206,21 @@ role; participants then give 107 classes, time phrases 67 ("older age",
 at two or more papers is 91 relation axioms; the rest is single-paper
 evidence for the review sheet.
 
+**Identities and decisions.** Each cluster carries a term id reconciled
+against `frames/registry.jsonl` by member overlap (Jaccard or containment of
+the old term, threshold 0.5): a cluster keeps a registered term's id when it
+matches, otherwise it gets a new content-derived id; the review reports
+matched, new, split, merged and vanished per role. Class IRIs are the term
+ids; axioms carry an id derived from their origin and ends. Review outcomes
+live in `frames/decisions.jsonl` as `{"target": <term or axiom id>,
+"action": accept | reject | rename | recategorise | merge, "value": ...}` and
+are applied on every rebuild (last decision on a target wins). On the
+26-paper module an identical rebuild keeps 1,956 of 1,956 ids; a five-row
+decisions file (accept, rename, recategorise, reject a term, reject an axiom)
+has exactly its five effects. The categoriser's self-reported confidence is
+annotated as `modelSelfConfidence`; it is uncalibrated and should not order a
+review queue (support in papers should).
+
 **Structured definitions.** The categoriser returns a genus, typed
 differentiae (quality, realizable, life stage, location, member kind) and a
 collective flag, not only a sentence. Each component is resolved to an

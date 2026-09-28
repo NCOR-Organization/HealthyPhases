@@ -341,6 +341,11 @@ DIFFERENTIA_TARGET = {"quality": ("quality", "quality"), "life_stage": ("quality
                       "location": ("where", "site"), "member_kind": ("participant", "object")}
 TOP = {**{c: "continuant" for c in INDEPENDENT | DEPENDENT | {"generically dependent continuant", "spatial region"}},
        **{c: "occurrent" for c in PROCESSES | {"temporal region"}}}
+# A genus must sit in the same BFO family as the class: an independent continuant cannot be a
+# kind of role, a process cannot be a kind of quality. Families are pairwise disjoint in BFO.
+FAMILY = {**{c: "independent" for c in INDEPENDENT}, **{c: "dependent" for c in DEPENDENT},
+          "generically dependent continuant": "information", **{c: "process" for c in PROCESSES},
+          "temporal region": "temporal region", "spatial region": "spatial region"}
 
 
 def categorise(client, model: str, role: str, phrases: list[str], keywords: list[str], papers: int) -> dict:
@@ -754,12 +759,22 @@ def main() -> None:
             if a["axiom_id"] in decided["accept"]:
                 g.add((ann, T.status, Literal("accepted")))
 
+    def remove_expression(node):
+        """Drop an anonymous class expression (restrictions, intersections, their lists)
+        that no axiom refers to; OWLAPI cannot parse an orphaned intersection."""
+        if not isinstance(node, BNode):
+            return
+        for _, _, o in list(g.triples((node, None, None))):
+            remove_expression(o)
+        g.remove((node, None, None))
+
     def assert_axiom(subject, pred, obj, copy, a: dict) -> bool:
         """Write an axiom unless a review decision rejected it. The axiom id is
         derived from its origin and its two ends, so it is the same on every run."""
         aid = stable_id("A", a["origin"], str(subject), str(a.get("dst", "")))
         a["axiom_id"] = aid
         if aid in decided["reject"]:
+            remove_expression(obj); remove_expression(copy)
             return False
         g.add((subject, pred, obj)); annotate(subject, pred, copy, a)
         return True
@@ -813,7 +828,7 @@ def main() -> None:
         a = {"origin": f"definition: {kind}", "n": 1, "papers": classes[owner]["papers"], "dst": node_label(node)}
         if kind == "genus":
             aid = stable_id("A", a["origin"], str(subj), a["dst"])
-            if TOP.get(owner_cat) == TOP.get(target_cat) and aid not in decided["reject"]:
+            if FAMILY.get(owner_cat) == FAMILY.get(target_cat) and aid not in decided["reject"]:
                 g.add((subj, RDFS.subClassOf, node))
                 definitional.append(f"'{owner_label}' SubClassOf '{node_label(node)}'  [{aid}]")
         elif kind in ("quality", "life_stage", "realizable"):
