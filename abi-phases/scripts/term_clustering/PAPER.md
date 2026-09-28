@@ -143,6 +143,14 @@ Three mid-sized papers (55 chunks) yielded 355 claims (6.5 per chunk, GPT-4.1, a
 
 Module: 85 classes (58 from clusters, 5 defined from qualified frames, 22 minted from definitions), 8 participant restrictions, 22 definitional axioms, 73 relation axioms, 13 refused for stated reasons (null findings, mere co-occurrence, a role as realization target); 0 structural problems, consistent, ROBOT-clean. The minted classes are `human`, `child`, `adult human`, `toddler or baby`, `solitude experience`, `experimental method`, and the qualities the participants bear (`social withdrawal`, `shyness`, `behavioral inhibition`, `autonomy`, life stages); the axioms include `'older adult' SubClassOf 'human'` and `'bearer of' some 'older adulthood'`, `'socially withdrawn child' SubClassOf 'child'` and `'bearer of' some 'social withdrawal'`.
 
+### 4.7 Frames on ten papers
+
+Ten mid-sized papers spread across the corpus (183 chunks) yielded 1,096 claims (6.0 per chunk, about 6 USD). The fill profile is the same as on three papers: process and participant 100%, information 40%, when 24%, quality 13%, where 4%, realizable 2%. Relation kinds: 993 tendencies, 30 is-a, 24 definitions, 48 co-occurrences, 1 causal; directions after the decrease rewrite: 911 increases, 113 none, 71 no effect.
+
+Module: 242 classes (195 from clusters, 15 defined from qualified frames, 32 minted from definitions), 60 definitional axioms, 24 participant and place restrictions, 230 relation axioms at one paper of support, 64 refused with reasons; 0 structural problems, consistent, no unsatisfiable class, ROBOT-clean. HermiT infers 69 module-internal superclass links that were not asserted, which is the definitions doing their work: the genus chains (`human`, `child`, `person`, `human adult`, `human child`) and the `bearer of` differentiae let the reasoner place qualified participants under their kinds.
+
+Three defects appeared only at this scale and were fixed before the numbers above. A state extracted into the process slot ("having high shyness", "being socially anxious") is typed by the categoriser as a quality or a disposition; treating it as a process with participants made 23 defined classes unsatisfiable, so such classes now carry tendencies only through their bearer and get no defined subclass. Minted components lacked the polarity guard the clusters have, so "high aloneliness" and "low aloneliness" had merged into one quality. And a genus was minted in the slot's bucket rather than the class's category, producing "autonomy" both as a process and as a quality.
+
 ## 5. Discussion
 
 ### 5.1 The space has islands, and the split is what makes them terms
@@ -232,4 +240,5 @@ Parameters: `text-embedding-3-large` at 3,072 dimensions; UMAP 10 dimensions, 15
 
 - 2026-09-24. Conditionals split into halves, embedded, clustered; term graph; results page. Finding: islands, not fog; halves beat sentences.
 - 2026-09-25. Prompt fix for explicit subjects (PR #85). Incremental replay and seed stability: assignment reliable for known concepts, novelty is the failure mode. BFO proposals A, B, C; disposition subclasses introduced and then removed; plain-BFO module; OWLAPI-clean serialisation; ROBOT and Protégé audit.
-- 2026-09-28. Process items as a second source; merges and hierarchy; per-sentence direction votes; two-source module v2 (263 terms, 206 axioms, 34 divergences). Frames pipeline in one file, sample-tested on three papers; sampler, paraphrase merge, plural folding, decrease rewriting, polarity guard, content-keyed cache; structured definitions mint referenced classes. This draft.
+- 2026-09-28. Process items as a second source; merges and hierarchy; per-sentence direction votes; two-source module v2 (263 terms, 206 axioms, 34 divergences). Frames pipeline in one file, sample-tested on three papers; sampler, paraphrase merge, plural folding, decrease rewriting, polarity guard, content-keyed cache; structured definitions mint referenced classes. First draft of this paper.
+- 2026-09-28, later. Frames on ten papers (Section 4.7): 242 classes, 230 relation axioms, clean. Fixes: states in the process slot get no defined subclass; polarity guard on minted components; genus minted in the class's category.

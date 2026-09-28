@@ -168,6 +168,22 @@ state participants and, less often, time and instrument; qualities,
 realizables and places are rarely explicit, so those buckets will stay thin
 until the corpus is large or a grounding step supplies them.
 
+**Ten papers** (run `frames/s10`, 183 chunks, 1,096 claims, about 6 USD):
+fill rates process and participant 100%, information 40%, when 24%,
+quality 13%, where 4%, realizable 2%, the same profile as three papers.
+Module: 242 classes (195 from clusters, 15 defined, 32 minted), 60
+definitional axioms, 24 participant and place restrictions, 230 relation
+axioms at one paper of support, 64 refused with reasons; 0 structural
+problems, consistent, ROBOT-clean, and HermiT infers 69 module-internal
+superclass links from the definitions. Three defects surfaced at this scale
+and were fixed: a state extracted into the process slot ("having high
+shyness") is typed as a quality and must not get a defined subclass with
+participants (23 unsatisfiable classes before the fix); minted components
+need the same polarity guard as clusters ("high aloneliness" and "low
+aloneliness" had merged); a genus is minted in the class's own category, not
+the slot's bucket ("autonomy" had been minted both as a process and as a
+quality).
+
 **Structured definitions.** The categoriser returns a genus, typed
 differentiae (quality, realizable, life stage, location, member kind) and a
 collective flag, not only a sentence. Each component is resolved to an
