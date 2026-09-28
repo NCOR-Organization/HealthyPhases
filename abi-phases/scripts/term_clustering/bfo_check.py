@@ -42,6 +42,7 @@ ALLOWED = {
     OBO.BFO_0000056: (CONTINUANT, PROCESS, "participates in"),
     OBO.BFO_0000057: (PROCESS, CONTINUANT, "has participant"),
     OBO.BFO_0000066: (OCCURRENT, INDEPENDENT, "occurs in"),
+    OBO.BFO_0000115: (OBO.BFO_0000040, OBO.BFO_0000040, "has member part"),
 }
 
 

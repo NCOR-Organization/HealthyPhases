@@ -311,18 +311,36 @@ Decide in this order:
 2. bfo_category, for domain entities and for information: the role the phrases were extracted in suggests a bucket; keep it unless the phrases clearly say otherwise (a 'participant' that names a status like "study participant" is a role; a 'participant' that names a device is an object; a 'quality' that is really a tendency is a disposition). Categories: material entity, object, object aggregate, site, quality, disposition, role, function, generically dependent continuant, process, process boundary, temporal region, spatial region. A change in degree ("increase in X") is a process.
 3. label: singular lowercase noun phrase, at most six words, no hedges.
 4. definition: "A <genus> that <differentia>." with the genus the BFO category or a more specific kind the phrases imply.
-5. rationale: one sentence naming the BFO question that decided it.
-6. confidence: 0 to 1."""
+5. genus: the parent kind as a short phrase ("human", "child", "experience", "social interaction"), or "" when the BFO category itself is the parent. Prefer the most specific kind the phrases share.
+6. differentiae: what distinguishes this kind from its genus, as typed items. kind is one of: quality (a property the bearer has: "social withdrawal", "shyness"), realizable (a tendency, role or function: "behavioral inhibition"), life_stage (an age or developmental stage: "older adulthood", "preschool age"), location (where it is), member_kind (for a group: the kind of its members), other. phrase is a short noun phrase. Give one item per distinct component; leave the list empty when the phrases name a bare kind.
+7. collective: true only when the phrases name a group as such (a family, a peer group, a dyad, a cohort, a population studied as a whole). Plural participants of a process ("older adults", "children") are individuals of that kind: collective = false and category object or material entity, never object aggregate.
+8. rationale: one sentence naming the BFO question that decided it.
+9. confidence: 0 to 1."""
 
 CATEGORY_SCHEMA = {
     "type": "object", "additionalProperties": False,
     "properties": {
         "kind": {"type": "string", "enum": ["domain_entity", "measurement_or_method", "comparative_or_statistical", "mixed", "other"]},
         "bfo_category": {"type": "string", "enum": list(CATEGORIES) + ["none"]},
-        "label": {"type": "string"}, "definition": {"type": "string"}, "rationale": {"type": "string"}, "confidence": {"type": "number"},
+        "label": {"type": "string"}, "definition": {"type": "string"},
+        "genus": {"type": "string"},
+        "differentiae": {"type": "array", "items": {"type": "object", "additionalProperties": False,
+                                                    "properties": {"kind": {"type": "string", "enum": ["quality", "realizable", "life_stage", "location", "member_kind", "other"]},
+                                                                   "phrase": {"type": "string"}},
+                                                    "required": ["kind", "phrase"]}},
+        "collective": {"type": "boolean"},
+        "rationale": {"type": "string"}, "confidence": {"type": "number"},
     },
-    "required": ["kind", "bfo_category", "label", "definition", "rationale", "confidence"],
+    "required": ["kind", "bfo_category", "label", "definition", "genus", "differentiae", "collective", "rationale", "confidence"],
 }
+
+# Where a definition's components live, and the BFO category a minted one gets.
+GENUS_TARGET = {"participant": "object", "process": "process", "quality": "quality", "realizable": "disposition",
+                "when": "temporal region", "where": "site", "information": "generically dependent continuant"}
+DIFFERENTIA_TARGET = {"quality": ("quality", "quality"), "life_stage": ("quality", "quality"), "realizable": ("realizable", "disposition"),
+                      "location": ("where", "site"), "member_kind": ("participant", "object")}
+TOP = {**{c: "continuant" for c in INDEPENDENT | DEPENDENT | {"generically dependent continuant", "spatial region"}},
+       **{c: "occurrent" for c in PROCESSES | {"temporal region"}}}
 
 
 def categorise(client, model: str, role: str, phrases: list[str], keywords: list[str], papers: int) -> dict:
@@ -370,6 +388,59 @@ def allowed_disposition(src_cat: str, dst_cat: str, direction: str, dst_label: s
     return ""
 
 
+def plan_components(classes: dict, is_class) -> list[tuple]:
+    """Which definition components to resolve: (owner key, kind, target role, minted category, phrase).
+
+    A genus that is just a BFO category name adds nothing; a member kind only
+    makes sense for a collective."""
+    bare = {normalize_key(c) for c in CATEGORIES} | {"entity", "thing", "kind"}
+    degree_only = set(POLARITY["+"]) | set(POLARITY["-"]) | {"degree", "level", "amount", "extent", "very"}
+    wanted = []
+    for k, p in classes.items():
+        if not is_class(*k):
+            continue
+        role, category, own = k[0], p.get("bfo_category"), normalize_key(p.get("label") or "")
+        genus = (p.get("genus") or "").strip()
+        if genus and normalize_key(genus) not in bare and normalize_key(genus) != own:
+            wanted.append((k, "genus", role, GENUS_TARGET[role], genus))
+        for d in p.get("differentiae", []):
+            phrase = (d.get("phrase") or "").strip()
+            kind = d.get("kind")
+            if not phrase or kind not in DIFFERENTIA_TARGET or normalize_key(phrase) == own:
+                continue
+            if set(re.findall(r"[a-z]+", phrase.lower())) <= degree_only:
+                continue  # "high degree" is not a quality, it is the value of one
+            # Only a bearer can have a quality or a realizable; a process's differentiae are its
+            # participants and parts, which the frames already supply.
+            if kind in ("quality", "life_stage", "realizable") and category not in INDEPENDENT:
+                continue
+            if kind == "member_kind" and not (p.get("collective") and category == "object aggregate"):
+                continue
+            target_role, minted_category = DIFFERENTIA_TARGET[kind]
+            wanted.append((k, kind, target_role, minted_category, phrase))
+    return wanted
+
+
+def resolve_components(wanted: list[tuple], vectors: np.ndarray, centroids: dict, threshold: float) -> tuple[dict, dict]:
+    """Match each component to an existing class of its target role by centroid
+    similarity; what does not match is grouped for minting, one class per paraphrase group.
+
+    ``centroids`` maps a role to (list of class keys, unit matrix). Returns
+    (matched: component -> class key, to_mint: role -> list of (component, vector))."""
+    matched, to_mint = {}, defaultdict(list)
+    for w, v in zip(wanted, vectors):
+        role = w[2]
+        if role in centroids:
+            keys, M = centroids[role]
+            sims = M @ v
+            j = int(np.argmax(sims))
+            if sims[j] >= threshold:
+                matched[w] = keys[j]
+                continue
+        to_mint[role].append((w, v))
+    return matched, to_mint
+
+
 # ============================================================== main
 
 def main() -> None:
@@ -384,6 +455,7 @@ def main() -> None:
     parser.add_argument("--merge-distance", type=float, default=0.20, help="cosine distance under which small-role phrases are one concept")
     parser.add_argument("--density-from", type=int, default=300, help="phrases per role from which UMAP + HDBSCAN is used")
     parser.add_argument("--min-members", type=int, default=2, help="phrases a cluster needs before it becomes a class")
+    parser.add_argument("--resolve-threshold", type=float, default=0.80, help="cosine similarity for a definition component to reuse an existing class")
     parser.add_argument("--min-papers", type=int, default=1, help="papers behind a restriction or relation before it is written")
     parser.add_argument("--base", default="http://purl.example.org/terms/")
     parser.add_argument("--workers", type=int, default=6)
@@ -497,7 +569,14 @@ def main() -> None:
         with open(cat_path, "w") as f:
             for r in cache.values():
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
-    classes = {k: cache[cluster_info[k]["signature"]] | {"cluster": k[1], "papers": papers_of.get(k, 0)} for k in eligible if cluster_info[k]["signature"] in cache}
+    classes = {k: dict(cache[cluster_info[k]["signature"]]) | {"cluster": k[1], "papers": papers_of.get(k, 0)} for k in eligible if cluster_info[k]["signature"] in cache}
+    # Participants are individuals unless the phrases name a collective; the
+    # aggregate and its member kind are two classes joined by 'has member part'.
+    for (role, c), p in classes.items():
+        if role == "participant" and p.get("bfo_category") == "object aggregate" and not p.get("collective"):
+            p["bfo_category"] = "object"
+        elif role == "participant" and p.get("collective") and p.get("bfo_category") in INDEPENDENT:
+            p["bfo_category"] = "object aggregate"
 
     def is_class(role, c):
         p = classes.get((role, c))
@@ -540,6 +619,70 @@ def main() -> None:
             sent = T[f"E{cid}"]
             g.add((ann, T.evidence, sent)); ev.add((sent, RDFS.label, Literal(quote)))
 
+    # ---- 6a. definitions: genus, differentiae and members become classes and axioms ----
+    # A definition names things ("a human child exhibiting social withdrawal").
+    # Each component is resolved to an existing class of its role or minted once,
+    # so the hierarchy the definitions know becomes axioms the reasoner sees.
+    centroids = {}
+    for role in ROLES:
+        keys = [k for k in iri if k[0] == role]
+        if keys:
+            M = np.vstack([unit[cluster_info[k]["members"]].mean(axis=0) for k in keys])
+            centroids[role] = (keys, M / np.linalg.norm(M, axis=1, keepdims=True))
+    wanted = plan_components(classes, is_class)
+    component_node, minted, definitional = {}, {}, []
+    if wanted:
+        vectors = embed(get_client(), [w[4] for w in wanted])
+        matched, to_mint = resolve_components(wanted, vectors, centroids, args.resolve_threshold)
+        for w, key in matched.items():
+            component_node[w] = iri[key]
+        for role, items in to_mint.items():
+            V = np.vstack([v for _, v in items])
+            groups = cluster_role(V, args.min_cluster_size, args.seed, args.merge_distance, args.density_from)
+            for gid in sorted(set(groups)):
+                members = [w for (w, _), l in zip(items, groups) if l == gid]
+                phrase = min((w[4] for w in members), key=len)
+                category = members[0][3]
+                node = T[f"TX{len(minted):04d}"]
+                minted[node] = {"label": phrase, "category": category, "role": role, "from": [label_of[w[0]] for w in members]}
+                g.add((node, RDF.type, OWL.Class)); g.add((node, RDFS.subClassOf, OBO[CATEGORIES[category]]))
+                g.add((node, RDFS.label, Literal(phrase, lang="en")))
+                g.add((node, DEFINITION, Literal(f"A {category} named in the definitions of {len(members)} class(es); to be defined.", lang="en")))
+                g.add((node, T.origin, Literal("minted from definitions: " + "; ".join(sorted({label_of[w[0]] for w in members})[:6]))))
+                for w in members:
+                    component_node[w] = node
+
+    def node_label(node):
+        return minted[node]["label"] if node in minted else str(g.value(node, RDFS.label))
+
+    def node_category(node):
+        return minted[node]["category"] if node in minted else next((c for k, c in cat_of.items() if iri[k] == node), None)
+
+    for w, node in component_node.items():
+        owner, kind, _, _, phrase = w
+        subj, owner_cat, owner_label = iri[owner], cat_of[owner], label_of[owner]
+        target_cat = node_category(node)
+        if node == subj or target_cat is None:
+            continue
+        a = {"origin": f"definition: {kind}", "n": 1, "papers": classes[owner]["papers"]}
+        if kind == "genus":
+            if TOP.get(owner_cat) == TOP.get(target_cat):
+                g.add((subj, RDFS.subClassOf, node))
+                definitional.append(f"'{owner_label}' SubClassOf '{node_label(node)}'")
+        elif kind in ("quality", "life_stage", "realizable"):
+            if owner_cat in INDEPENDENT and target_cat in DEPENDENT:
+                obj, copy = restriction(g, REL["bearer of"], node), restriction(g, REL["bearer of"], node)
+                g.add((subj, RDFS.subClassOf, obj)); annotate(subj, RDFS.subClassOf, copy, a)
+                definitional.append(f"'{owner_label}' SubClassOf 'bearer of' some '{node_label(node)}'")
+        elif kind == "member_kind":
+            if owner_cat == "object aggregate" and target_cat in INDEPENDENT:
+                obj, copy = restriction(g, OBO.BFO_0000115, node), restriction(g, OBO.BFO_0000115, node)  # has member part
+                g.add((subj, RDFS.subClassOf, obj)); annotate(subj, RDFS.subClassOf, copy, a)
+                definitional.append(f"'{owner_label}' SubClassOf 'has member part' some '{node_label(node)}'")
+        elif kind == "location":
+            # BFO core relates a continuant to a site only through its history; kept as a note for the reviewer.
+            definitional.append(f"'{owner_label}' location: '{phrase}'  (noted, no axiom)")
+
     # Participant expression: an independent continuant directly; a role or quality via its bearer.
     def participant_expr(pc: int):
         node, cat = iri[("participant", pc)], cat_of[("participant", pc)]
@@ -566,7 +709,9 @@ def main() -> None:
     per_process = defaultdict(lambda: defaultdict(list))  # (process cluster) -> relation key -> [(paper, claim)]
     for (cid, side), f in by_claim_side.items():
         pc = f["process"]
-        if pc is None or pc < 0 or not is_class("process", pc):
+        # A process-role cluster the categoriser typed otherwise (a disposition, a role) is
+        # not a process and cannot have participants; its frames are kept as evidence only.
+        if pc is None or pc < 0 or not is_class("process", pc) or cat_of[("process", pc)] not in PROCESSES:
             continue
         paper = claim_of[cid]["paper_id"]
         per_process[pc]["frames"].append((paper, cid))
@@ -715,9 +860,14 @@ def main() -> None:
         *(f"| {role} | {fill[role]} | {fill[role] / max(sides, 1):.0%} | {per_role.get(role, {}).get('spans', 0)} | {per_role.get(role, {}).get('distinct', 0)} | {clusters_per_role.get(role, 0)} | {noise[role]} | {classes_per_role.get(role, 0)} |" for role in ROLES),
         "", f"- relation kinds: {dict(Counter(c['relation']['kind'] for c in claims))}",
         f"- directions: {dict(Counter(c['relation']['direction'] for c in claims))}",
-        f"- classes: {len(iri)} from clusters + {len(defined)} defined (qualified frames)",
+        f"- classes: {len(iri)} from clusters + {len(defined)} defined (qualified frames) + {len(minted)} minted from definitions",
+        f"- definitional axioms (genus, differentiae, members): {len([d for d in definitional if '(noted' not in d])}",
         f"- restrictions from frame structure: {len([s for s in structural if '(annotation)' not in s])} (+ {len([s for s in structural if '(annotation)' in s])} annotations)",
         f"- relation axioms: {len(relation_axioms)}; evidence only: {len(evidence_only)}",
+        "", "## Classes minted from definitions", "",
+        "| category | label | referenced by |", "|---|---|---|",
+        *(f"| {m['category']} | {m['label']} | {'; '.join(sorted(set(m['from']))[:6])} |" for m in sorted(minted.values(), key=lambda m: (m['category'], m['label']))),
+        "", "## Definitional axioms", "", *(f"- {d}" for d in definitional),
         "", "## Classes by bucket", "",
         "| role | category | label | definition | papers | central phrases |", "|---|---|---|---|---|---|",
         *(f"| {role} | {p['bfo_category']} | {p['label']} | {p['definition'][:100]} | {p['papers']} | {'; '.join(p['central'][:3])} |" for (role, c), p in sorted(classes.items(), key=lambda kv: (kv[0][0], -kv[1]['papers'], -kv[1]['size'])) if is_class(role, c)),

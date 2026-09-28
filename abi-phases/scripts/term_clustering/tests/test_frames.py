@@ -8,8 +8,62 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from frames import (  # noqa: E402
-    allowed_disposition, cluster_role, flatten, keywords_for, normalise_direction, normalize_key, polarity, split_by_polarity, summarise_direction,
+    allowed_disposition, cluster_role, flatten, keywords_for, normalise_direction, normalize_key, plan_components, polarity,
+    resolve_components, split_by_polarity, summarise_direction,
 )
+
+
+# ---- definitions: planning and resolving components ----
+
+def _cls(genus="", differentiae=(), collective=False, category="object", kind="domain_entity"):
+    return {"kind": kind, "bfo_category": category, "genus": genus, "differentiae": list(differentiae), "collective": collective}
+
+
+def test_plan_skips_bare_category_genera_and_member_kinds_of_individuals():
+    classes = {
+        ("participant", 0): _cls(genus="human child", differentiae=[{"kind": "quality", "phrase": "social withdrawal"}]),
+        ("participant", 1): _cls(genus="material entity", differentiae=[{"kind": "member_kind", "phrase": "older adult"}], collective=False),
+        ("participant", 2): _cls(genus="group", differentiae=[{"kind": "member_kind", "phrase": "peer"}], collective=True, category="object aggregate"),
+        ("process", 3): _cls(genus="process", differentiae=[{"kind": "other", "phrase": "whatever"}], category="process"),
+    }
+    wanted = plan_components(classes, lambda role, c: True)
+    kinds = sorted((w[0][1], w[1], w[4]) for w in wanted)
+    assert kinds == [(0, "genus", "human child"), (0, "quality", "social withdrawal"), (2, "genus", "group"), (2, "member_kind", "peer")]
+    assert {w[3] for w in wanted if w[1] == "genus"} == {"object"}          # minted genera of participants are objects
+    assert [w[2] for w in wanted if w[1] == "quality"] == ["quality"]        # a quality differentia resolves among quality clusters
+
+
+def test_plan_gives_qualities_only_to_bearers_and_drops_degree_only_and_self_referential_components():
+    classes = {
+        ("process", 0): _cls(genus="experience", differentiae=[{"kind": "quality", "phrase": "positive valence"}], category="process"),
+        ("participant", 1): _cls(genus="human", differentiae=[{"kind": "quality", "phrase": "high degree"}, {"kind": "life_stage", "phrase": "older adulthood"}]),
+        ("quality", 2): _cls(genus="autonomy", differentiae=[{"kind": "quality", "phrase": "high autonomy"}], category="quality") | {"label": "high autonomy"},
+    }
+    wanted = plan_components(classes, lambda role, c: True)
+    got = sorted((w[0][1], w[1], w[4]) for w in wanted)
+    assert got == [(0, "genus", "experience"), (1, "genus", "human"), (1, "life_stage", "older adulthood"), (2, "genus", "autonomy")]
+
+
+def test_plan_ignores_clusters_that_are_not_classes():
+    classes = {("participant", 0): _cls(genus="human")}
+    assert plan_components(classes, lambda role, c: False) == []
+
+
+def test_resolve_reuses_a_close_existing_class_and_groups_the_rest_for_minting():
+    wanted = [(("participant", 0), "genus", "participant", "object", "human"),
+              (("participant", 1), "genus", "participant", "object", "human being"),
+              (("participant", 2), "quality", "quality", "quality", "shyness")]
+    vectors = np.array([[1.0, 0.0], [0.99, 0.14], [0.0, 1.0]]); vectors /= np.linalg.norm(vectors, axis=1, keepdims=True)
+    centroids = {"participant": ([("participant", 9)], np.array([[0.995, 0.1]]) / np.linalg.norm([0.995, 0.1]))}
+    matched, to_mint = resolve_components(wanted, vectors, centroids, threshold=0.95)
+    assert matched == {wanted[0]: ("participant", 9), wanted[1]: ("participant", 9)}
+    assert list(to_mint) == ["quality"] and to_mint["quality"][0][0] == wanted[2]
+
+
+def test_resolve_mints_when_no_class_of_that_role_exists():
+    wanted = [(("process", 0), "genus", "process", "process", "experience")]
+    matched, to_mint = resolve_components(wanted, np.array([[1.0, 0.0]]), {}, threshold=0.8)
+    assert matched == {} and to_mint["process"][0][0] == wanted[0]
 
 
 # ---- polarity guard ----
