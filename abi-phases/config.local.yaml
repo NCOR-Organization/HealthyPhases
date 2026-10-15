@@ -58,9 +58,6 @@ modules:
         email_from_address: "{{ secret.SMTP_FROM_EMAIL }}"
         email_from_name: "{{ secret.SMTP_FROM_NAME }}"
         magic_link_email_app_name: "HealthyPhases Platform"
-        magic_link_email_subject_template: "Your {app_name} sign-in link"
-        magic_link_email_text_template: "Use this link to sign in to {app_name}:\n\n{magic_link_url}\n\nThis link expires in {expire_minutes} minutes."
-        magic_link_email_html_template: "<p>Use this link to sign in to {app_name}:</p><p><a href=\"{magic_link_url}\">Sign in</a></p><p>This link expires in {expire_minutes} minutes.</p>"
         tenant:
           tab_title: "HealthyPhases | ABI Nexus"
           primary_color: "#22c55e"
