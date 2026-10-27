@@ -1,0 +1,191 @@
+"""Collection members read from object storage, the datasets and PubMed.
+
+Folders are listed in object storage; ingested papers, their results and
+folder names come from this module's datasets; saved searches and PubMed
+papers come from the PubMed catalog, read fresh on every call so a live member
+sees what was published since.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+from phases_v2.paper_collections.interfaces import (
+    FOLDER,
+    PAPER,
+    PUBMED_QUERY,
+    Artifact,
+    MemberUnavailable,
+)
+from phases_v2.papers.interfaces import ObjectNotFound
+from phases_v2.ports import RowStore
+from phases_v2.sql import in_list, literal
+
+logger = logging.getLogger(__name__)
+
+_PAPERS = (
+    "SELECT paper_id, storage_prefix, storage_key, file_name FROM papers "
+    "WHERE text_key IS NOT NULL"
+)
+
+
+def _pubmed_artifact(row: dict[str, Any]) -> Artifact:
+    return Artifact(
+        storage_prefix=row["storage_prefix"],
+        storage_key=row["storage_key"],
+        content_sha256=row["content_sha256"],
+        name=row.get("title") or row["storage_key"].rsplit("/", 1)[-1],
+        artifact_id=row.get("artifact_id"),
+        pmid=row.get("pmid"),
+    )
+
+
+def _paper_artifact(row: dict[str, Any]) -> Artifact:
+    return Artifact(
+        storage_prefix=row["storage_prefix"],
+        storage_key=row["storage_key"],
+        content_sha256=row["paper_id"],
+        name=row.get("file_name") or row["storage_key"].rsplit("/", 1)[-1],
+    )
+
+
+class StoredMemberSources:
+    def __init__(self, rows: RowStore, storage=None, pubmed=None):
+        """``storage`` is the engine's object storage; ``pubmed`` a ``PubmedCatalog``."""
+        self._rows = rows
+        self._storage = storage
+        self._pubmed = pubmed
+
+    # -- resolution -----------------------------------------------------
+
+    def folder(self, prefix: str) -> list[Artifact]:
+        from phases_v2.papers.adapters.secondary.ObjectStorageSource import (
+            ObjectStorageSource,
+        )
+
+        if self._storage is None:
+            raise MemberUnavailable("Object storage is unavailable in this deployment.")
+        try:
+            keys = ObjectStorageSource(self._storage).list_objects_recursive(prefix)
+        except ObjectNotFound:
+            # A folder nothing has been uploaded to yet holds no papers.
+            return []
+        except Exception as failure:  # noqa: BLE001 - any storage error makes the folder unreadable
+            logger.warning("Could not list %s: %s", prefix, failure, exc_info=True)
+            raise MemberUnavailable(f"Could not read {prefix}: {failure}") from failure
+        return [
+            Artifact(prefix, key, name=key.rsplit("/", 1)[-1])
+            for key in sorted(set(keys))
+            if key and not key.endswith("/")
+        ]
+
+    def pubmed_query(self, query_id: str) -> list[Artifact]:
+        return [_pubmed_artifact(row) for row in self._catalog().artifacts(query_id)]
+
+    def pubmed_paper(self, pmid: str) -> list[Artifact]:
+        return [_pubmed_artifact(r) for r in self._catalog().paper_artifacts(pmid)]
+
+    def ingested_paper(self, paper_id: str) -> Artifact | None:
+        rows = self._rows.query(f"{_PAPERS} AND paper_id = {literal(paper_id)}")
+        return _paper_artifact(rows[0]) if rows else None
+
+    def paper_ids_by_path(self, paths: list[str]) -> dict[str, str]:
+        wanted = set(paths)
+        found = {}
+        for row in self._rows.query(_PAPERS):
+            path = f"{row['storage_prefix'].rstrip('/')}/{row['storage_key']}"
+            if path in wanted:
+                found[path] = row["paper_id"]
+        return found
+
+    # -- what the collection pages show ---------------------------------
+
+    def pubmed_query_exists(self, query_id: str) -> bool:
+        return query_id in self._catalog().query_texts([query_id])
+
+    def labels(self, members: list[dict[str, Any]]) -> dict[str, str]:
+        def ids(kind, field):
+            return [m[field] for m in members if m["kind"] == kind and m.get(field)]
+
+        folders = {}
+        if ids(FOLDER, "prefix"):
+            folders = {
+                row["prefix"]: row["name"]
+                for row in self._rows.query(
+                    "SELECT prefix, name FROM input_locations "
+                    f"WHERE prefix IN {in_list(ids(FOLDER, 'prefix'))}"
+                )
+            }
+        queries = (
+            self._pubmed.query_texts(ids(PUBMED_QUERY, "query_id"))
+            if self._pubmed
+            else {}
+        )
+        titles = self._pubmed.titles(ids(PAPER, "pmid")) if self._pubmed else {}
+        files = {}
+        if ids(PAPER, "paper_id"):
+            files = {
+                row["paper_id"]: row["file_name"]
+                for row in self._rows.query(
+                    f"{_PAPERS} AND paper_id IN {in_list(ids(PAPER, 'paper_id'))}"
+                )
+            }
+        labels = {}
+        for m in members:
+            if m["kind"] == FOLDER:
+                label = folders.get(m["prefix"]) or m["prefix"]
+            elif m["kind"] == PUBMED_QUERY:
+                label = (
+                    queries.get(m["query_id"]) or "PubMed search (no longer available)"
+                )
+            elif m.get("pmid"):
+                label = titles.get(m["pmid"]) or f"PMID {m['pmid']}"
+            else:
+                label = files.get(m["paper_id"]) or "Paper (not in the library)"
+            labels[m["member_id"]] = label
+        return labels
+
+    def paper_states(self, paper_ids: list[str]) -> dict[str, dict[str, Any]]:
+        if not paper_ids:
+            return {}
+        ids = in_list(sorted(set(paper_ids)))
+        states = {
+            row["paper_id"]: {"ingested": True, "results": 0}
+            for row in self._rows.query(f"{_PAPERS} AND paper_id IN {ids}")
+        }
+        for row in self._rows.query(
+            "SELECT paper_id, COUNT(*) AS results FROM extracted_items "  # nosec B608 - ids go through sql.literal
+            f"WHERE paper_id IN {ids} GROUP BY paper_id"
+        ):
+            states.setdefault(row["paper_id"], {"ingested": True, "results": 0})
+            states[row["paper_id"]]["results"] = int(row["results"])
+        return states
+
+    def ingested_papers(self, search: str, limit: int) -> list[dict[str, Any]]:
+        where = ""
+        if search.strip():
+            pattern = literal(f"%{search.strip().lower()}%")
+            where = (
+                f" AND (LOWER(file_name) LIKE {pattern} "
+                f"OR LOWER(storage_prefix || '/' || storage_key) LIKE {pattern})"
+            )
+        rows = self._rows.query(
+            "SELECT paper_id, storage_prefix, storage_key, file_name, discovered_at "
+            f"FROM papers WHERE text_key IS NOT NULL{where} "
+            f"ORDER BY file_name, paper_id LIMIT {int(limit)}"
+        )
+        return [
+            {
+                "paper_id": row["paper_id"],
+                "file_name": row["file_name"],
+                "path": f"{row['storage_prefix'].rstrip('/')}/{row['storage_key']}",
+                "discovered_at": row["discovered_at"],
+            }
+            for row in rows
+        ]
+
+    def _catalog(self):
+        if self._pubmed is None:
+            raise MemberUnavailable("PubMed papers are unavailable in this deployment.")
+        return self._pubmed

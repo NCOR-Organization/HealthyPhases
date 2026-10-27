@@ -523,3 +523,55 @@ test('coming back to the Library re-reads saved searches', async () => {
   await lib.show(parse('#/library/schedules'), { entering: true });
   assert.equal(calls.filter((c) => c.url === '/pubmed/api/queries').length, 2);
 });
+
+// ---- Collections ----
+
+test('downloaded papers in the library and in search results can be added to a collection; others cannot', async () => {
+  const { $, a, ctx } = await library();
+  const added = [];
+  ctx.sections.collections = { addToCollection: async (commands, what) => { added.push([commands, what]); return { collection_id: 'c1' }; } };
+  globalThis.fetch = async () => response(libraryResult(1, 2, [
+    { paper: { pmid: '1', title: 'Downloaded' }, artifacts: [{ storage_prefix: 'pubmed/papers', storage_key: '1.pdf', content_sha256: 'a'.repeat(64) }] },
+    { paper: { pmid: '2', title: 'Not downloaded' }, artifacts: [] },
+  ]));
+  await a.library();
+  const [downloaded, missing] = $('lib-papers').children;
+  assert.equal(missing.lastElementChild.children.length, 0);
+  const button = downloaded.lastElementChild.children[0];
+  assert.equal(button.textContent, 'Add to collection');
+  await Promise.all(button.listeners.click.map((h) => h({})));
+  assert.deepEqual(added[0], [[{ paper: { pmid: '1' } }], '"Downloaded"']);
+
+  a.renderPreview([{ pmid: '3', title: 'Previewed', artifacts: [{}] }, { pmid: '4', title: 'Only a record', pmcid: 'PMC4' }]);
+  const [previewed, record] = $('lib-preview').children;
+  assert.equal(record.lastElementChild.children.length, 0);
+  await Promise.all(previewed.lastElementChild.children[0].listeners.click.map((h) => h({})));
+  assert.deepEqual(added[1][0], [{ paper: { pmid: '3' } }]);
+});
+
+test('a saved search can join a collection as a whole, so its later downloads join too', async () => {
+  const { $, a, ctx } = await library();
+  const added = [];
+  ctx.sections.collections = { addToCollection: async (commands, what) => { added.push([commands, what]); return null; } };
+  globalThis.fetch = routeFetch({
+    '/pubmed/api/queries/q1/papers': { papers: [], total: 0 },
+    '/pubmed/api/queries': { queries: [{ query_id: 'q1', query: 'solitude', created_at: '2026-09-17T10:00:00Z' }] },
+  });
+  await a.history();
+  a.renderPreview([]);
+  assert.equal($('lib-collect-query').disabled, true, 'no saved search is chosen yet');
+  await a.chooseQuery('q1');
+  assert.equal($('lib-collect-query').disabled, false);
+  await Promise.all($('lib-collect-query').listeners.click.map((h) => h({})));
+  assert.deepEqual(added[0][0], [{ pubmed_query: { query_id: 'q1' } }]);
+  assert.match(added[0][1], /the search "solitude" \(papers it downloads later join too\)/);
+});
+
+test('a failure to open the collection picker is shown next to the paper list', async () => {
+  const { $, a, ctx } = await library();
+  ctx.sections.collections = { addToCollection: async () => { throw new Error('Could not load collections.'); } };
+  globalThis.fetch = async () => response(libraryResult(1, 1, [{ paper: { pmid: '1', title: 'Downloaded' }, artifacts: [{}] }]));
+  await a.library();
+  await Promise.all($('lib-papers').children[0].lastElementChild.children[0].listeners.click.map((h) => h({})));
+  assert.equal($('lib-summary').textContent, 'Could not load collections.');
+});

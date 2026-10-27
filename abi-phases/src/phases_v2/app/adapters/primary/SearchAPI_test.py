@@ -291,3 +291,106 @@ def test_failed_search_or_export_returns_error_not_false_zero_or_partial_csv():
     response = client.get(f"{PREFIX}/export", params={"q": "claim", "mode": "keyword"})
     assert response.status_code == 503
     assert "text/csv" not in response.headers["content-type"]
+
+
+# -- limiting search to a collection ------------------------------------
+
+COLLECTION = "00000000-0000-4000-8000-00000000000a"
+
+
+def _collection_client(resolve) -> TestClient:
+    items = canonical_items()
+    service = SearchService(FakeSemanticIndex(items), FakeExtractedItems(items))
+    app = FastAPI()
+    register(app, service, collection_papers=resolve)
+    return TestClient(app)
+
+
+def _papers(by_collection):
+    def resolve(collection_id):
+        if collection_id not in by_collection:
+            raise KeyError(collection_id)
+        return by_collection[collection_id]
+
+    return resolve
+
+
+@pytest.mark.parametrize(
+    "mode, params",
+    [
+        ("semantic", {"q": "stress", "k": 10}),
+        ("keyword", {"q": "isolation"}),
+    ],
+)
+def test_a_collection_limits_results_to_its_papers(mode, params):
+    client = _collection_client(_papers({COLLECTION: ["paper-b"]}))
+
+    res = client.get(f"{PREFIX}/{mode}", params={**params, "collection": COLLECTION})
+
+    assert res.status_code == 200, res.text
+    assert [h["item_id"] for h in res.json()["hits"]] == ["item-causes"]
+
+
+def test_a_collection_combines_with_the_other_filters():
+    client = _collection_client(_papers({COLLECTION: ["paper-a", "paper-b"]}))
+
+    res = client.get(
+        f"{PREFIX}/semantic",
+        params=[
+            ("q", "stress"),
+            ("collection", COLLECTION),
+            ("prompt", "solitude_causes"),
+        ],
+    )
+
+    assert [h["item_id"] for h in res.json()["hits"]] == ["item-causes"]
+
+
+def test_a_collection_without_ingested_papers_finds_nothing_rather_than_everything():
+    client = _collection_client(_papers({COLLECTION: []}))
+
+    for mode in ("semantic", "keyword"):
+        res = client.get(
+            f"{PREFIX}/{mode}", params={"q": "solitude", "collection": COLLECTION}
+        )
+        assert res.json()["count"] == 0
+
+
+def test_the_export_is_limited_to_the_collection_too():
+    client = _collection_client(_papers({COLLECTION: ["paper-b"]}))
+
+    res = client.get(
+        f"{PREFIX}/export",
+        params={"mode": "semantic", "q": "stress", "collection": COLLECTION},
+    )
+
+    assert res.status_code == 200
+    assert "item-causes" in res.text
+    assert "item-effects" not in res.text
+
+
+def test_collection_filter_failures_say_why():
+    def unreadable(_collection_id):
+        raise ValueError("Some members of this collection could not be read: timeout")
+
+    missing = _collection_client(_papers({})).get(
+        f"{PREFIX}/semantic", params={"q": "x", "collection": COLLECTION}
+    )
+    assert missing.status_code == 404
+    assert "archived" in missing.json()["detail"]
+
+    malformed = _collection_client(_papers({})).get(
+        f"{PREFIX}/keyword", params={"q": "x", "collection": "../../etc"}
+    )
+    assert malformed.status_code == 422
+
+    partial = _collection_client(unreadable).get(
+        f"{PREFIX}/keyword", params={"q": "x", "collection": COLLECTION}
+    )
+    assert partial.status_code == 503
+    assert "could not be read" in partial.json()["detail"]
+
+    unwired = _client().get(
+        f"{PREFIX}/keyword", params={"q": "x", "collection": COLLECTION}
+    )
+    assert unwired.status_code == 503

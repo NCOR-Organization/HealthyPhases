@@ -229,6 +229,11 @@ PIPELINES = _spec(
     primary_key=("pipeline_id",),
 )
 
+# Collections as they were first stored: named groups of storage folders. Kept
+# read-only. ``ensure_datasets`` never alters an existing table, so the richer
+# collections below live in a dataset of their own; a legacy row is read as a
+# collection of folder members until its first edit writes it there under the
+# same id, which then takes precedence.
 INPUT_COLLECTIONS = _spec(
     "input_collections",
     (
@@ -240,6 +245,24 @@ INPUT_COLLECTIONS = _spec(
     primary_key=("collection_id",),
 )
 
+PAPER_COLLECTIONS = _spec(
+    "paper_collections",
+    (
+        ("collection_id", "string"),
+        ("name", "string"),
+        ("description", "string"),
+        # Folders, saved PubMed searches and single papers; see
+        # ``phases_v2.paper_collections.domain``. Resolved to papers on every use.
+        ("members", "json"),
+        ("archived", "boolean"),
+        ("created_at", "timestamp"),
+        ("updated_at", "timestamp"),
+    ),
+    primary_key=("collection_id",),
+)
+
+# The exact artifacts a request was submitted with. ``source_query_id`` names
+# where they came from: the PubMed query, or the collection.
 SOURCE_MANIFESTS = _spec(
     "source_manifests",
     (("request_id", "string"), ("source_query_id", "string"), ("artifacts", "json")),
@@ -249,6 +272,7 @@ SOURCE_MANIFESTS = _spec(
 DATASETS: tuple[DatasetSpec, ...] = (
     SOURCE_MANIFESTS,
     INPUT_COLLECTIONS,
+    PAPER_COLLECTIONS,
     PAPERS,
     CHUNKERS,
     CHUNKS,

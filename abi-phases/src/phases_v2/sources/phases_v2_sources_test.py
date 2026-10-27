@@ -6,6 +6,7 @@ import pytest
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
 from phases_v2.papers.factory import ingest_papers
+from phases_v2.papers.interfaces import ObjectNotFound
 from phases_v2.requests.factory import request_store
 from phases_v2.sources.adapters.secondary.phases_v2_pubmed_catalog import PubmedCatalog
 from phases_v2.sources.phases_v2_sources import manifest_for, submit_pubmed
@@ -144,6 +145,25 @@ def test_selected_artifact_is_verified_and_only_selected_objects_are_read(
     )
     with pytest.raises(ValueError, match="checksum"):
         ingest_papers(engine, ["pubmed/papers"], artifacts=artifacts)
+
+
+def test_a_manifest_document_without_a_known_checksum_is_read_as_listed(dataset):
+    from phases_v2.sources.adapters.secondary.phases_v2_artifact_source import (
+        ManifestSource,
+    )
+
+    _publisher, _query, engine = setup(dataset)
+    storage = engine.services.object_storage
+    storage.put_object("phases_v2/mine", "a.pdf", b"%PDF-1.7 mine")
+    storage.put_object("phases_v2/mine", "b.pdf", b"%PDF-1.7 not listed")
+    source = ManifestSource(
+        storage, [{"storage_prefix": "phases_v2/mine", "storage_key": "a.pdf"}]
+    )
+
+    assert source.list_objects_recursive("phases_v2/mine") == ["a.pdf"]
+    assert source.get_object("phases_v2/mine", "a.pdf") == b"%PDF-1.7 mine"
+    with pytest.raises(ObjectNotFound):
+        source.get_object("phases_v2/mine", "b.pdf")
 
 
 def test_empty_published_selection_never_queues_work(dataset):

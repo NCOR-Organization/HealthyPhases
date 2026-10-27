@@ -98,6 +98,7 @@ const template = () => `
         <div class="grow"><label for="lib-history">Previous searches</label><select id="lib-history"><option value="">Choose a search</option></select></div>
         <button id="lib-refresh-history" type="button">Refresh searches</button>
         <button id="lib-browse-query" type="button" disabled>Browse downloaded papers</button>
+        <button id="lib-collect-query" type="button" disabled>Add search to a collection</button>
         <a id="lib-schedule-query" class="button" href="#/library/schedules">Schedule this search</a>
         <button id="lib-enrich-query" type="button" hidden disabled>Enrich with OpenAlex</button>
       </div>
@@ -179,6 +180,20 @@ export function create(root, ctx) {
   const detailGuard = latest();
   const queryText = (id) => state.queries.find((q) => q.query_id === id)?.query || 'Saved search';
 
+  // ---- Collections ----
+
+  // A paper with a downloaded PDF, or a whole saved search, joins a collection
+  // through the picker Collections provides.
+  function collectButton(target, label, commands, what) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'small';
+    button.textContent = 'Add to collection';
+    button.setAttribute('aria-label', `Add ${label} to a collection`);
+    button.addEventListener('click', () => action(button, target, () => ctx.section('collections').addToCollection(commands, what)));
+    return button;
+  }
+
   // ---- Search PubMed ----
 
   function renderPreview(papers) {
@@ -188,11 +203,16 @@ export function create(root, ctx) {
     for (const p of papers) {
       const row = document.createElement('tr');
       row.innerHTML = `<td>${pubmedLink(p.pmid, p.title)}<small>${esc(p.journal)} · PMID ${esc(p.pmid)}</small></td><td>${esc(p.publication_date || '—')}</td><td>${p.artifacts?.length ? statusPill('published', 'Downloaded') : (p.pmcid ? 'Checked during ingestion' : 'No PMC record')}</td>`;
+      if (p.artifacts?.length) {
+        const title = p.title || `PMID ${p.pmid}`;
+        row.lastElementChild.append(collectButton('lib-message', title, [{ paper: { pmid: p.pmid } }], `"${title}"`));
+      }
       $('lib-preview').append(row);
     }
     $('lib-ingest').disabled = !papers.length;
     $('lib-ingest-all').disabled = !state.queryId;
     $('lib-browse-query').disabled = !state.queryId;
+    $('lib-collect-query').disabled = !state.queryId;
     $('lib-enrich-query').disabled = !state.queryId;
     $('lib-schedule-query').href = ctx.href('library', ['schedules'], { query: state.queryId });
   }
@@ -350,6 +370,10 @@ export function create(root, ctx) {
             : `OpenAlex: ${row.openalex.status}`;
           detail.addEventListener('click', () => paperDetail(p.pmid, p.title));
           tr.firstElementChild.append(detail);
+        }
+        if (row.artifacts?.length) {
+          const title = p.title || `PMID ${p.pmid}`;
+          tr.lastElementChild.append(collectButton('lib-summary', title, [{ paper: { pmid: p.pmid } }], `"${title}"`));
         }
         $('lib-papers').append(tr);
       }
@@ -597,6 +621,9 @@ export function create(root, ctx) {
   $('lib-history').addEventListener('change', () => action($('lib-history'), 'lib-message', () => chooseQuery()));
   $('lib-refresh-history').addEventListener('click', () => action($('lib-refresh-history'), 'lib-message', history));
   $('lib-browse-query').addEventListener('click', () => action($('lib-browse-query'), 'lib-message', () => openLibrary(state.queryId)));
+  $('lib-collect-query').addEventListener('click', () => action($('lib-collect-query'), 'lib-message', () => ctx.section('collections').addToCollection(
+    [{ pubmed_query: { query_id: state.queryId } }], `the search "${queryText(state.queryId)}" (papers it downloads later join too)`,
+  )));
   $('lib-enrich-query').addEventListener('click', () => action($('lib-enrich-query'), 'lib-message', () => openEnrichment(state.queryId)));
   $('lib-refresh-requests').addEventListener('click', () => action($('lib-refresh-requests'), 'lib-request-message', requests));
   $('lib-refresh-backfills').addEventListener('click', () => action($('lib-refresh-backfills'), 'lib-backfill-status', backfills));

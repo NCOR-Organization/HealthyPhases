@@ -63,16 +63,15 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
         other from mounting, or the engine from booting — the way v1's `api()`
         also degrades rather than taking the API down.
         """
+        pipeline = None
         try:
             from phases_v2.app.adapters.primary.PipelineAPI import register
             from phases_v2.app.factory import app_service
 
-            register(
-                app,
-                app_service(
-                    self._engine, papers_root=self._configuration.papers_root
-                ),
+            pipeline = app_service(
+                self._engine, papers_root=self._configuration.papers_root
             )
+            register(app, pipeline)
             logger.debug("Mounted phases_v2 pipeline API at /phases_v2/api")
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Failed to mount the phases_v2 pipeline app: {exc}")
@@ -84,7 +83,10 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
             from phases_v2.search.factory import search_service
 
             register_search(
-                app, search_service(self._engine, configuration=self._configuration)
+                app,
+                search_service(self._engine, configuration=self._configuration),
+                # Search can be limited to a collection's papers.
+                collection_papers=pipeline.resources.paper_ids if pipeline else None,
             )
             logger.debug("Mounted phases_v2 reverse-search API at /phases_v2/api/search")
         except Exception as exc:  # noqa: BLE001

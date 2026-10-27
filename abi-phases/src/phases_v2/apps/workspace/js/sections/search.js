@@ -5,7 +5,7 @@
 // snapshot, loaded by infinite scroll or the Load more button.
 
 import { fetchBlob, phases, PREFIXES, saveBlob, search as searchApi } from '../api.js';
-import { $, esc, message } from '../ui.js';
+import { $, esc, fill, message } from '../ui.js';
 import { highlight, parsePayload, probabilisticRelations, renderExtraction } from './search_render.js';
 
 export { highlight, keywordTerms, renderExtraction } from './search_render.js';
@@ -44,6 +44,8 @@ const template = () => `
         </div>
         <div class="facets" id="sr-prompt-facets" role="group" aria-label="Prompts"></div>
         <div class="facets" id="sr-model-facets" role="group" aria-label="Extraction models">Loading models...</div>
+        <div><label for="sr-collection">Collection</label><select id="sr-collection"><option value="">All papers</option></select>
+          <p class="hint">Only the papers in this collection, combined with the other filters. <a href="#/collections">Manage collections</a></p></div>
         <div><label for="sr-paths">Source folders</label><select id="sr-paths" multiple size="4" aria-describedby="sr-paths-help"></select>
           <div class="row"><span id="sr-paths-help" class="hint">Selecting a folder includes its subfolders. No selection searches every folder.</span><button type="button" class="small" id="sr-clear-paths">All folders</button></div>
           <p id="sr-paths-status" class="hint"></p></div>
@@ -59,7 +61,7 @@ export function create(root, ctx) {
   root.innerHTML = template();
   const state = {
     mode: 'semantic', prompts: new Set(), selected: new Set(), models: [], modelNames: {}, selectedModels: new Set(),
-    selectedPaths: new Set(), activeSearch: null, version: 0, loading: false, nextOffset: null, total: 0,
+    selectedPaths: new Set(), collection: '', collections: [], activeSearch: null, version: 0, loading: false, nextOffset: null, total: 0,
     seen: new Set(), controller: null, exportController: null, exporting: false, lastKey: '', started: false,
   };
   const modelName = (id) => state.modelNames[id] || id;
@@ -129,9 +131,17 @@ export function create(root, ctx) {
     }
   }
 
+  function renderCollections() {
+    const known = state.collections.some((c) => c.collection_id === state.collection);
+    const items = [{ collection_id: '', name: 'All papers' }, ...state.collections];
+    if (state.collection && !known) items.push({ collection_id: state.collection, name: 'Archived or unknown collection' });
+    fill($('sr-collection'), items, 'collection_id', (c) => c.name, [state.collection]);
+  }
+
   // Filter options are optional: search still works if one list cannot load.
   async function loadFacets() {
     await Promise.all([
+      phases('/collections?counts=false').then((data) => { state.collections = data.collections || []; renderCollections(); }).catch(() => {}),
       searchApi('/prompts').then((data) => { state.prompts = new Set(data.prompts || []); renderPromptFacets(); }).catch(() => {}),
       phases('/models').then((data) => { state.modelNames = Object.fromEntries((data.models || []).map((m) => [m.model_id, m.display_name])); }).catch(() => {}),
       searchApi('/models').then((data) => { state.models = data.models || []; }).catch(() => { $('sr-model-facets').textContent = 'Model filters are unavailable. Reload the app to retry.'; state.models = null; }),
@@ -254,6 +264,7 @@ export function create(root, ctx) {
     state.selected.forEach((p) => params.append('prompt', p));
     state.selectedModels.forEach((m) => params.append('model', m));
     state.selectedPaths.forEach((p) => params.append('path', p));
+    if (state.collection) params.set('collection', state.collection);
     params.set(state.mode === 'semantic' ? 'k' : 'limit', $('sr-size').value || MODES[state.mode].size);
     if (state.mode === 'semantic' && $('sr-threshold').value) params.set('score_threshold', $('sr-threshold').value);
     return params;
@@ -304,7 +315,9 @@ export function create(root, ctx) {
     state.selectedModels = new Set(params.getAll('model'));
     state.selectedPaths = new Set(params.getAll('path'));
     for (const option of $('sr-paths').options) option.selected = state.selectedPaths.has(option.value);
-    if (state.selected.size || state.selectedModels.size || state.selectedPaths.size) $('sr-filters').open = true;
+    state.collection = params.get('collection') || '';
+    renderCollections();
+    if (state.selected.size || state.selectedModels.size || state.selectedPaths.size || state.collection) $('sr-filters').open = true;
     renderPromptFacets();
     renderModelFacets();
   }
@@ -336,6 +349,7 @@ export function create(root, ctx) {
 
   for (const mode of Object.keys(MODES)) $(`sr-mode-${mode}`).addEventListener('click', () => setMode(mode));
   $('sr-form').addEventListener('submit', (event) => { event.preventDefault(); search(); });
+  $('sr-collection').addEventListener('change', () => { state.collection = $('sr-collection').value; });
   $('sr-paths').addEventListener('change', () => { state.selectedPaths = new Set([...$('sr-paths').selectedOptions].map((o) => o.value)); });
   $('sr-clear-paths').addEventListener('click', () => {
     state.selectedPaths.clear();

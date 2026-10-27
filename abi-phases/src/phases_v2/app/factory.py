@@ -33,16 +33,24 @@ def model_availability(engine):
 
 
 def app_service(engine, papers_root: str = "phases_v2") -> PipelineAppService:
+    from phases_v2.paper_collections.adapters.secondary.StoredMemberSources import (
+        StoredMemberSources,
+    )
     from phases_v2.sources.adapters.secondary.phases_v2_pubmed_catalog import (
         PubmedCatalog,
     )
 
+    pubmed = PubmedCatalog(engine.services.dataset)
+    rows = DatasetRowStore(engine.services.dataset)
     return PipelineAppService(
-        pubmed_catalog=PubmedCatalog(engine.services.dataset),
+        pubmed_catalog=pubmed,
+        collection_sources=StoredMemberSources(
+            rows, engine.services.object_storage, pubmed
+        ),
         papers_root=papers_root,
         request_store=request_store(engine),
         object_storage=engine.services.object_storage,
-        rows=DatasetRowStore(engine.services.dataset),
+        rows=rows,
         is_model_available=model_availability(engine),
         renderer=PdfTextRenderer(),
     )

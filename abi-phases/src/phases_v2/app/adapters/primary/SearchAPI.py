@@ -6,6 +6,7 @@ import csv
 import io
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import asdict
 from tempfile import SpooledTemporaryFile
 from typing import Annotated
@@ -54,6 +55,7 @@ def search_filters(
     direction: str = "",
     subject: str = "",
     participant: str = "",
+    collection: str = "",
 ):
     return {
         "query": q,
@@ -65,6 +67,7 @@ def search_filters(
         "direction": direction,
         "subject": subject,
         "participant": participant,
+        "collection": collection,
     }
 
 
@@ -90,7 +93,14 @@ def _csv_document(hits, query, mode):
         yield _csv_line(row[column] for column in CSV_COLUMNS)
 
 
-def build_router(service: SearchService) -> APIRouter:
+def build_router(
+    service: SearchService,
+    collection_papers: Callable[[str], list[str]] | None = None,
+) -> APIRouter:
+    """``collection_papers`` resolves a collection to its paper ids.
+
+    It raises ``KeyError`` for a collection that does not exist.
+    """
     router = APIRouter(prefix=PREFIX, tags=["phases_v2-search"])
 
     def view(mode, filters, limit=25, offset=0):
@@ -99,9 +109,30 @@ def build_router(service: SearchService) -> APIRouter:
             validate_message("SearchQuery", payload)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        options = {key: value for key, value in filters.items() if key != "snapshot"}
+        options = {
+            key: value
+            for key, value in filters.items()
+            if key not in ("snapshot", "collection")
+        }
+        if filters["collection"]:
+            options["papers"] = papers_of(filters["collection"])
         scoped, snapshot = service.read_view(filters["snapshot"])
         return scoped, snapshot, options
+
+    def papers_of(collection_id):
+        if collection_papers is None:
+            raise HTTPException(
+                status_code=503, detail="Collections are unavailable for search."
+            )
+        try:
+            return collection_papers(collection_id)
+        except KeyError as missing:
+            raise HTTPException(
+                status_code=404,
+                detail="Collection not found. It may have been archived.",
+            ) from missing
+        except ValueError as unreadable:
+            raise HTTPException(status_code=503, detail=str(unreadable)) from unreadable
 
     def unavailable(error):
         logging.getLogger(__name__).exception("Reverse search failed")
@@ -227,5 +258,9 @@ def build_router(service: SearchService) -> APIRouter:
     return router
 
 
-def register(app: FastAPI, service: SearchService) -> None:
-    app.include_router(build_router(service))
+def register(
+    app: FastAPI,
+    service: SearchService,
+    collection_papers: Callable[[str], list[str]] | None = None,
+) -> None:
+    app.include_router(build_router(service, collection_papers))

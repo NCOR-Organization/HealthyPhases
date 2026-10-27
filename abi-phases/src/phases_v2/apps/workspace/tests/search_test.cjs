@@ -283,3 +283,33 @@ test('refreshing re-reads the filter options without repeating the search', asyn
   assert.equal(calls.some((c) => /\/(semantic|keyword|effects)\?/.test(c.url)), false);
   assert.ok(calls.some((c) => c.url.endsWith('/search/paths')));
 });
+
+// ---- Collections ----
+
+test('search can be limited to a collection, combined with the other filters, and a link restores it', async () => {
+  const { $, a, section, calls, ctx, parse } = await search({
+    '/phases_v2/api/collections': { collections: [{ collection_id: 'c1', name: 'Research' }] },
+    '/search/semantic': page({ total: 0 }),
+  });
+  await section.show(parse('#/search'));
+  await settle();
+  assert.deepEqual($('sr-collection').options.map((o) => [o.value, o.textContent]), [['', 'All papers'], ['c1', 'Research']]);
+  assert.ok(calls.some((c) => c.url === '/phases_v2/api/collections?counts=false'));
+  $('sr-q').value = 'stress';
+  $('sr-collection').value = 'c1';
+  await Promise.all($('sr-collection').listeners.change.map((h) => h({})));
+  section.state.selectedModels.add('model-a');
+  await a.search();
+  const sent = lastSearch(calls).searchParams;
+  assert.equal(sent.get('collection'), 'c1');
+  assert.deepEqual(sent.getAll('model'), ['model-a']);
+  assert.match(ctx.replaced.at(-1), /collection=c1/);
+
+  const linked = await search({ '/phases_v2/api/collections': { collections: [] }, '/search/keyword': page({ mode: 'keyword' }) });
+  await linked.section.show(linked.parse('#/search?q=stress&mode=keyword&collection=c0'));
+  await settle();
+  assert.equal(linked.$('sr-collection').value, 'c0');
+  assert.match(linked.$('sr-collection').options.at(-1).textContent, /Archived or unknown collection/);
+  assert.equal(linked.$('sr-filters').open, true);
+  assert.equal(lastSearch(linked.calls).searchParams.get('collection'), 'c0');
+});

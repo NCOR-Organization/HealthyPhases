@@ -103,6 +103,8 @@ Namespace `phases_v2`. Every one is keyed and written only with `mode="upsert"`.
 | `extraction_runs` | invocation | `run_id` |
 | `projections` | key already projected to a target | `target` + `key` |
 | `run_requests` | requested run | `request_id` |
+| `paper_collections` | collection of papers | `collection_id` |
+| `source_manifests` | exact artifacts a manifest-sourced request reads | `request_id` |
 
 `extractions` keeps the model's output twice: `response` is a queryable JSON column, `raw_response`
 the verbatim text. The JSON column *rejects* unparseable output — which is exactly the case where
@@ -175,7 +177,7 @@ phases_v2/
 ├── identity.py             # every id derivation, in one place
 ├── sql.py                  # SQL literal escaping (the dataset port takes no parameters)
 ├── datasets/
-│   ├── schemas.py          # the ten DatasetSpecs
+│   ├── schemas.py          # every DatasetSpec
 │   └── store.py            # the ONLY code that writes to a dataset
 ├── papers/                 # ─┐
 ├── chunking/               #  │ each: interfaces.py, domain.py, fakes.py,
@@ -183,6 +185,7 @@ phases_v2/
 ├── projection/             #  │
 ├── requests/               #  │
 ├── search/                 # ─┘ reverse search: semantic + keyword, over extracted_items
+├── paper_collections/      # collections of papers and resolving one into exact documents
 ├── prompts/                # templates declared in code + their text
 ├── models/                 # the AI models a run may use
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
@@ -444,21 +447,25 @@ Search app; their HTTP APIs are unchanged. Its sections, in the left navigation:
   downloads (ingestion requests and full ingestions), scheduled searches and OpenAlex
   enrichment. See [`../pubmed/README.md`](../pubmed/README.md) and
   [`../openalex/README.md`](../openalex/README.md).
-- **Collections**: create, rename, edit, and archive named groups of storage folders.
-  The contents preview includes each folder's subfolders. Archiving a collection asks
-  for confirmation and leaves its source documents and queued requests intact. Create
-  storage folders and upload PDFs from this page as well.
+- **Collections**: sets of papers gathered four ways, on one screen: PDFs uploaded into
+  the collection, saved PubMed searches, storage folders (with their subfolders) and
+  single papers picked from the library. A collection's page lists its members with how
+  many papers each brings, and the papers themselves, each once, marked not ingested yet,
+  ingested, or with results. Rename it, describe it, remove members, archive it, run the
+  pipeline on it or search within it. Archiving and removing ask first and delete nothing.
+  Library rows with a downloaded PDF, and whole saved searches, have **Add to collection**.
+  Storage folders can still be created and uploaded into from this page.
 - **Prompts**: browse full prompt text, create prompts, and save edits as
   new versions. Prompt text must contain `{chunk_text}` and use one of the supported
   extraction output schemas. Old versions remain selectable and resolvable by workers.
-- **Runs**: **New run** selects a saved collection, storage folders or a PubMed search,
+- **Runs**: **New run** selects a collection, storage folders or a PubMed search,
   previews documents, saves the selected folders as a collection, chooses prompt versions,
   and queues a run; saved pipeline configurations can be saved, loaded, and run here.
   **Requests** filters the latest 100 requests by status and opens one to inspect
   timestamps, sources, all selected prompts, execution IDs, counts, and errors. The list
   refreshes every 10 seconds while it is visible.
 - **Search**: semantic, keyword and effects search over extracted items (see
-  [Reverse search](#reverse-search)).
+  [Reverse search](#reverse-search)), optionally limited to one collection.
 
 Every section has a deep link (`#/runs/<request_id>`, `#/search?q=...&mode=keyword`,
 `#/library/schedules`, ...), and the last route comes back when Nexus reloads the app.
@@ -468,19 +475,59 @@ changes made elsewhere appear. There is no build step: `index.html` loads ES mod
 `/app-html/phases_v2/workspace/`. [`apps/workspace/README.md`](apps/workspace/README.md)
 describes the files.
 
-Collections are stored in the new `input_collections` dataset through the existing
-row-store adapter. Restart the ABI API and Dagster processes after updating: normal
-module startup creates the missing dataset. No existing dataset needs to be dropped or recreated. Collection edits use
-last-write-wins semantics; a queued request stores a copy of its selected locations.
+### Collections of papers
+
+A collection is a name, a description and a list of members (`paper_collections`):
+
+- `folder`: a storage prefix under `papers_root`, including its subfolders. PDFs uploaded
+  into a collection (`POST /phases_v2/api/collections/<id>/documents`) are stored under
+  `<papers_root>/collections/<id>/`, which joins the collection as a folder member.
+- `pubmed_query`: a saved PubMed search. It is live: every use reads the search's
+  currently published PDFs, so newly downloaded papers join without any change.
+- `paper`: an ingested paper (`paper_id`) or a PubMed paper with a downloaded PDF (`pmid`).
+
+`paper_collections.domain.resolve` is the one function that turns a collection into the
+exact documents it holds, one per distinct content: a known checksum is the paper's
+identity, so the same PDF through two members, or at two paths, counts once. Folder
+documents nobody has read yet have no checksum; an upload's is in its key, and anything
+ingested before is matched by path. The collection page, run submission and search
+scoping all call it. A member that cannot be read is reported on the page; a run or a
+search on that collection is refused rather than covering part of it.
+
+Collections first stored in `input_collections` (storage folders only) still list, edit
+and run: each is read as a collection of folder members, and its first edit writes it to
+`paper_collections` under the same id, which takes precedence from then on. The old
+table is never altered, so no dataset needs to be dropped or recreated; restart the ABI
+API and Dagster processes and startup creates `paper_collections`. Edits are
+last-write-wins.
+
+Endpoints, under `/phases_v2/api/collections`: list with member and paper counts
+(`?counts=false` skips resolving), create, read one with its members and resolved
+papers, update the name and description, add members, remove a member
+(`DELETE .../members/<member_id>`), archive (`DELETE`) and upload PDFs into it.
+`GET /phases_v2/api/papers?q=` finds ingested papers to pick.
+
+A run on a collection (`POST /phases_v2/api/requests` or a saved configuration with
+`collection_id` instead of `locations`) resolves it, writes the artifacts to
+`source_manifests` and only then records the request with the location
+`dataset:collection:<collection_id>`. Ingestion reads exactly those artifacts, verifying
+each known checksum, so later changes to the collection never change a submitted run.
+An empty collection cannot be run. Runs show the collection's name, even once archived.
+
+Search endpoints accept `collection=<collection_id>`. It resolves to the collection's
+ingested paper ids and combines with the other filters: keyword and effects search filter
+in SQL, semantic search goes through the per-paper vector metadata filter. A collection
+with no ingested papers finds nothing.
 Prompts continue using the existing `prompts` dataset and content-based identities.
 Changing an output schema requires a changed name or text to preserve that identity.
 
 Location selection scopes ingestion, chunking, and extraction to the selected
 documents, preserving the current orchestrator behavior.
 
-Collection mutation commands are defined in
-`app/contracts/app_resources.proto` and validated server-side with Protovalidate.
-The checked-in descriptor is packaged with the module. `make proto` regenerates it
+Collection commands and manifests are defined in
+`app/contracts/app_resources.proto` and validated server-side with Protovalidate;
+run inputs and search queries in `pipeline_management.proto` and `search.proto`.
+The checked-in descriptors are packaged with the module. `make proto` regenerates them
 using the existing extraction descriptor's pinned validation dependency. Resource
 endpoints inherit the ABI API's existing access controls; no separate role model
 is introduced.
@@ -516,5 +563,6 @@ new-paper ingestion are a later phase. Existing object-storage collections remai
 available, with their own configured root; PubMed access is through its explicit
 published dataset, not by relaxing the collection root restriction.
 
-PubMed requests carry a `dataset:pubmed:<query_id>` source marker. If their
-manifest is missing, the job fails instead of treating the source as a prefix.
+PubMed requests carry a `dataset:pubmed:<query_id>` source marker, and collection
+requests `dataset:collection:<collection_id>`. Any `dataset:` request whose manifest is
+missing fails instead of treating the source as a prefix.

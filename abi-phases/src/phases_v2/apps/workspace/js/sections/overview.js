@@ -73,7 +73,7 @@ export function summarize({ papers, queries, collections, prompts, requests, res
 const SOURCES = {
   papers: [() => pubmed('/papers?status=published&page_size=1&page=1'), ['ov-papers']],
   queries: [() => pubmed('/queries'), ['ov-queries']],
-  collections: [() => phases('/collections'), ['ov-collections']],
+  collections: [() => phases('/collections?counts=false'), ['ov-collections']],
   prompts: [() => phases('/prompts'), ['ov-prompts', 'ov-versions']],
   requests: [() => phases('/requests?limit=100'), ['ov-active', 'ov-succeeded', 'ov-failed']],
   resultPrompts: [() => search('/prompts'), ['ov-result-prompts']],

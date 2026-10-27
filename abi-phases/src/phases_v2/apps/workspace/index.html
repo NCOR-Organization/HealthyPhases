@@ -41,5 +41,13 @@
   <p id="confirm-error" class="msg" role="alert"></p>
   <div class="dialog-actions"><button id="confirm-cancel" type="button">Cancel</button><button id="confirm-ok" type="button" class="primary">Confirm</button></div>
 </dialog>
+<dialog id="col-pick-dialog" aria-labelledby="col-pick-title" aria-describedby="col-pick-body">
+  <h2 id="col-pick-title">Add to a collection</h2>
+  <p id="col-pick-body"></p>
+  <label for="col-pick-select">Collection</label><select id="col-pick-select"></select>
+  <div id="col-pick-new" hidden><label for="col-pick-name" class="spaced">New collection name</label><input id="col-pick-name" maxlength="120" placeholder="e.g. Solitude research"></div>
+  <p id="col-pick-error" class="msg" role="alert"></p>
+  <div class="dialog-actions"><button id="col-pick-cancel" type="button">Cancel</button><button id="col-pick-ok" type="button" class="primary">Add</button></div>
+</dialog>
 </body>
 </html>

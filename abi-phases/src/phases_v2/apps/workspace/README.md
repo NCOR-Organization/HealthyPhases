@@ -10,7 +10,7 @@ endpoints with the user's Nexus session.
 ```
 workspace/
 ├── manifest.json         # catalog entry: name, description, category, icon
-├── index.html            # the shell: sidebar, one <section> per section, toasts, confirm dialog
+├── index.html            # the shell: sidebar, one <section> per section, toasts, confirm and collection-picker dialogs
 ├── css/app.css           # light and dark tokens, layout, components
 ├── js/
 │   ├── main.js           # entry point
@@ -18,7 +18,7 @@ workspace/
 │   ├── router.js         # hash routes and deep links; restores the last route after a reload
 │   ├── api.js            # the only module that calls fetch: base URL, auth, errors
 │   ├── ui.js             # escaping, messages, pills, empty states, pagination, toasts, confirmation
-│   ├── documents.js      # document previews shared by Collections and Runs
+│   ├── documents.js      # previews of what a run reads (folders, a PubMed search, a collection)
 │   └── sections/         # overview, library, collections, prompts, runs, search (+ search_render)
 ├── tests/                # node --test suites (*.cjs) and their small DOM stand-in
 ├── manifest_test.py      # catalog, serving and packaging checks
@@ -45,7 +45,7 @@ response sets.
 | `#/prompts`, `#/prompts/<prompt_id>`, `#/prompts/new` | The prompt library |
 | `#/runs`, `#/runs/<request_id>` | Run requests, with one opened |
 | `#/runs/new` | The new-run form and saved configurations |
-| `#/search?q=...&mode=semantic\|keyword\|effects&prompt=...&model=...&path=...` | Search results |
+| `#/search?q=...&mode=semantic\|keyword\|effects&prompt=...&model=...&path=...&collection=...` | Search results |
 
 Nexus gives the iframe a new URL, with a new access token, each time it reloads the app,
 which drops the hash. The router therefore keeps the last route in `sessionStorage` and
@@ -65,11 +65,15 @@ changes made outside the app appear. Sections that follow work in progress also 
 they are open and visible: run requests, downloads and enrichment progress.
 
 `ctx` gives a section `href`, `navigate`, `replace` (record state in the URL without
-re-rendering), `section(name)` (reach another section, for example to hand folders to
-the new-run form; hand-offs are applied the next time Runs loads its choices, which
-entering it does), `toast`, `confirm` and `every`.
+re-rendering), `section(name)` (reach another section, for example to hand a collection
+to the new-run form with `useCollection(id)`; hand-offs are applied the next time Runs
+loads its choices, which entering it does), `toast`, `confirm` and `every`.
+`ctx.section('collections').addToCollection(commands, what)` opens the collection picker
+from any section: it adds members to a chosen collection or a new one, and resolves with
+that collection, or `null` when cancelled.
 
-Every destructive or costly action asks first: archiving a collection, deleting a
+Every destructive or costly action asks first: archiving a collection, removing a
+collection member, deleting a
 schedule, starting a full ingestion, queueing OpenAlex enrichment and running a saved
 configuration. While the confirmed action is being sent, Cancel and Escape are held
 back, so the dialog only ever reports what actually happened.

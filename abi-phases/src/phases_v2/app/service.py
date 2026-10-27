@@ -10,6 +10,7 @@ import re
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
+from uuid import uuid4
 
 from phases_v2.app.app_resources import AppResources
 from phases_v2.app.pipeline_management import PipelineManagement
@@ -17,6 +18,9 @@ from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.requests.domain import submit
 from phases_v2.requests.interfaces import RunRequest
+
+#: A request over a collection reads only its manifest; see ``ingest_papers_op``.
+COLLECTION_SOURCE = "dataset:collection:"
 
 
 class PipelineAppService:
@@ -29,6 +33,7 @@ class PipelineAppService:
         renderer=None,
         papers_root: str = "phases_v2",
         pubmed_catalog=None,
+        collection_sources=None,
     ):
         self._pubmed = pubmed_catalog
         self._requests = request_store
@@ -47,9 +52,20 @@ class PipelineAppService:
         #: shared with every other module, so scanning it would offer their
         #: data as a paper source.
         self._papers_root = papers_root.strip("/")
-        self.resources = AppResources(rows, self._papers_root)
+        #: Reads collection members: folders, PubMed searches and papers.
+        self.collection_sources = collection_sources
+        self.resources = AppResources(
+            rows,
+            self._papers_root,
+            collection_sources,
+            supported=renderer.handles if renderer is not None else None,
+        )
         self.management = PipelineManagement(
-            rows, object_storage, self._papers_root, is_model_available
+            rows,
+            object_storage,
+            self._papers_root,
+            is_model_available,
+            paper_collections=self.resources,
         )
 
     def pubmed_queries(self):
@@ -59,6 +75,89 @@ class PipelineAppService:
 
     def pubmed_artifacts(self, query_id):
         return self._pubmed.artifacts(query_id) if self._pubmed else []
+
+    # -- collections ----------------------------------------------------
+
+    def upload_to_collection(
+        self, collection_id: str, filename: str, content: bytes
+    ) -> dict[str, Any]:
+        """Store a PDF in the collection's own folder, which joins it as a member."""
+        location = self.resources.upload_folder(collection_id)
+        uploaded = self.management.upload(location, filename, content)
+        self.resources.add_upload_folder(collection_id)
+        return uploaded
+
+    def ingested_papers(
+        self, search: str = "", limit: int = 50
+    ) -> list[dict[str, Any]]:
+        if self.collection_sources is None:
+            return []
+        return [
+            dict(row, discovered_at=_iso(row.get("discovered_at")))
+            for row in self.collection_sources.ingested_papers(search, limit)
+        ]
+
+    def submit_collection_run(
+        self,
+        *,
+        collection_id: str,
+        chunker_id: str,
+        prompt_ids: list[str],
+        model_id: str,
+        requested_by: str | None = None,
+    ) -> RunRequest:
+        """Queue a run over exactly the papers the collection holds right now.
+
+        The resolved artifacts are written as the request's manifest before the
+        request itself, so the orchestrator never sees the request without
+        them; ingestion then reads only those artifacts.
+        """
+        from google.protobuf.json_format import MessageToDict
+
+        from phases_v2.app.contracts.app_validation import validate_command
+
+        inputs = {
+            "locations": [],
+            "collection_id": collection_id,
+            "chunker_id": chunker_id,
+            "prompt_ids": prompt_ids,
+            "model_id": model_id,
+        }
+        self.management.validate_inputs(inputs)
+        collection = self.resources.collection(collection_id)
+        resolution = self.resources.resolve(collection)
+        if resolution.failed:
+            raise ValueError(
+                "Some members of this collection could not be read, so the run "
+                "would not cover the whole collection: "
+                + "; ".join(resolution.failed.values())
+            )
+        if not resolution.papers:
+            raise ValueError(
+                "This collection has no papers yet. Add papers before running it."
+            )
+        request_id = str(uuid4())
+        manifest = validate_command(
+            "CollectionManifest",
+            {
+                "request_id": request_id,
+                "source_query_id": collection_id,
+                "artifacts": resolution.manifest(),
+            },
+        )
+        self._rows.write_rows(
+            "source_manifests",
+            [MessageToDict(manifest, preserving_proto_field_name=True)],
+        )
+        return submit(
+            self._requests,
+            request_id=request_id,
+            locations=[f"{COLLECTION_SOURCE}{collection_id}"],
+            chunker_id=chunker_id,
+            prompt_ids=prompt_ids,
+            model_id=model_id,
+            requested_by=requested_by,
+        )
 
     def submit_pubmed(self, payload):
         if self._pubmed is None or self._rows is None:
@@ -212,6 +311,25 @@ class PipelineAppService:
 
     # -- submitting -----------------------------------------------------
 
+    def submit_inputs(self, inputs: dict[str, Any]) -> RunRequest:
+        """Queue a run from ``PipelineInputs``: storage folders or a collection."""
+        from phases_v2.app.contracts.pipeline_validation import validate_message
+
+        validate_message("PipelineInputs", inputs)
+        common = {
+            "chunker_id": inputs.get("chunker_id", ""),
+            "prompt_ids": inputs.get("prompt_ids", []),
+            "model_id": inputs.get("model_id", ""),
+            "requested_by": inputs.get("requested_by"),
+        }
+        if inputs.get("collection_id"):
+            if inputs.get("locations"):
+                raise ValueError("Choose a collection or storage folders, not both.")
+            return self.submit_collection_run(
+                collection_id=inputs["collection_id"], **common
+            )
+        return self.submit_run(locations=inputs.get("locations", []), **common)
+
     def submit_run(
         self,
         *,
@@ -240,13 +358,28 @@ class PipelineAppService:
         )
 
     def recent_requests(self, limit: int = 25) -> list[dict[str, Any]]:
-        return [_request_json(request) for request in self._requests.recent(limit)]
+        requests = self._requests.recent(limit)
+        names = self._collection_names(requests)
+        return [_request_json(request, names) for request in requests]
 
     def request(self, request_id: str) -> dict[str, Any]:
         request = self._requests.get(request_id)
-        data = _request_json(request)
+        data = _request_json(request, self._collection_names([request]))
         data["counts"] = self._counts_for(request)
         return data
+
+    def _collection_names(self, requests: list[RunRequest]) -> dict[str, dict]:
+        """The collections these requests ran on, archived ones included."""
+        if not any(_collection_of(r) for r in requests):
+            return {}
+        return {
+            c["collection_id"]: {
+                "collection_id": c["collection_id"],
+                "name": c["name"],
+                "archived": c["archived"],
+            }
+            for c in self.resources.collections(include_archived=True)
+        }
 
     def _counts_for(self, request: RunRequest) -> dict[str, int] | None:
         """What the run actually did, summed across its prompts.
@@ -299,10 +432,28 @@ class PipelineAppService:
         )
 
 
-def _request_json(request: RunRequest) -> dict[str, Any]:
+def _iso(value: Any) -> Any:
+    return value.isoformat() if isinstance(value, datetime) else value
+
+
+def _collection_of(request: RunRequest) -> str | None:
+    for location in request.locations:
+        if location.startswith(COLLECTION_SOURCE):
+            return location[len(COLLECTION_SOURCE) :]
+    return None
+
+
+def _request_json(
+    request: RunRequest, collections: dict[str, dict] | None = None
+) -> dict[str, Any]:
     data = asdict(request)
     for field in ("requested_at", "started_at", "finished_at"):
-        value = data.get(field)
-        if isinstance(value, datetime):
-            data[field] = value.isoformat()
+        data[field] = _iso(data.get(field))
+    collection_id = _collection_of(request)
+    if collection_id:
+        data["collection"] = (collections or {}).get(collection_id) or {
+            "collection_id": collection_id,
+            "name": None,
+            "archived": None,
+        }
     return data

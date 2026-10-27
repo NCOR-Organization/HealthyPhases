@@ -12,6 +12,7 @@ import { promptLabel } from './prompts.js';
 
 const STATUSES = ['pending', 'running', 'succeeded', 'failed'];
 const PUBMED_LOCATION = 'dataset:pubmed:';
+const COLLECTION_LOCATION = 'dataset:collection:';
 
 export function pubmedQueryLabel(q) {
   if (!q.query_id) return q.query;
@@ -42,7 +43,7 @@ const template = () => `
     <section class="card" id="run-detail" hidden aria-labelledby="run-detail-title">
       <div class="card-head"><h2 id="run-detail-title" tabindex="-1">Run details</h2><a id="run-detail-close" class="button" href="#/runs">Close</a></div>
       <div id="run-detail-content"></div>
-      <div class="row actions"><a id="run-detail-results" class="button" href="#/search" hidden>Search with this run's prompts and model</a></div>
+      <div class="row actions"><a id="run-detail-collection" class="button" href="#/collections" hidden>Open the collection</a><a id="run-detail-results" class="button" href="#/search" hidden>Search with this run's prompts and model</a></div>
     </section>
   </div>
 
@@ -56,16 +57,16 @@ const template = () => `
     <section class="card">
       <h2>1. Choose papers</h2>
       <div class="grid">
-        <div><label for="run-source">Paper source</label><select id="run-source"><option value="storage">Storage folders</option><option value="pubmed">PubMed search</option></select>
-          <p class="hint">A PubMed source contains the papers downloaded for that search.</p></div>
+        <div><label for="run-source">Paper source</label><select id="run-source"><option value="storage">Storage folders</option><option value="collection">Collection</option><option value="pubmed">PubMed search</option></select>
+          <p class="hint">A collection holds the papers you gathered; a PubMed source contains the papers downloaded for that search.</p></div>
+        <div id="run-collection-picker" hidden><label for="run-collection">Collection</label><select id="run-collection"></select>
+          <p class="hint">The run covers the collection's papers as they are when you submit it. <a id="run-manage-collection" href="#/collections">Manage collections</a></p></div>
         <div id="run-pubmed-picker" hidden><label for="run-pubmed-query">Downloaded PubMed search</label><select id="run-pubmed-query"><option value="">Choose a search</option></select>
           <div class="row actions"><button id="run-refresh-pubmed" type="button">Refresh searches</button><a href="#/library/search">Search PubMed</a></div>
           <p id="run-pubmed-message" class="msg" role="status"></p></div>
-        <div class="storage-only"><label for="run-collection">Collection</label><select id="run-collection"><option value="">Choose folders directly</option></select>
-          <p class="hint">A collection is a saved group of storage folders. <a id="run-manage-collection" href="#/collections">Manage collections</a></p></div>
         <div class="storage-only"><label for="run-locations">Storage folders</label><select id="run-locations" multiple></select><p class="hint">Use Ctrl or Command to select several folders.</p></div>
       </div>
-      <div class="row actions storage-only"><label class="sr-only" for="run-quick-name">New collection name</label><input id="run-quick-name" class="grow" placeholder="Name this group of folders" maxlength="120"><button id="run-quick-save" type="button">Save as collection</button></div>
+      <div class="row actions storage-only"><label class="sr-only" for="run-quick-name">New collection name</label><input id="run-quick-name" class="grow" placeholder="Name a collection of these folders" maxlength="120"><button id="run-quick-save" type="button">Save as collection</button></div>
       <p id="run-collection-message" class="msg" role="status"></p>
     </section>
     <section class="card">
@@ -80,8 +81,8 @@ const template = () => `
         <div class="stack"><div><label for="run-model">Model</label><select id="run-model"></select></div><div><label for="run-chunker">Chunker</label><select id="run-chunker"></select></div></div>
       </div>
       <p id="run-chunker-warning" class="msg warn" role="status"></p>
-      <div class="row actions storage-only"><label class="sr-only" for="run-config-name">Configuration name</label><input id="run-config-name" class="grow" maxlength="100" placeholder="Name this configuration"><button id="run-save-config" type="button">Save configuration</button></div>
-      <p class="note">Each run processes the chosen papers with every selected prompt and the chosen model. A PubMed run keeps exactly the papers available when you submit it.</p>
+      <div id="run-config-row" class="row actions"><label class="sr-only" for="run-config-name">Configuration name</label><input id="run-config-name" class="grow" maxlength="100" placeholder="Name this configuration"><button id="run-save-config" type="button">Save configuration</button></div>
+      <p class="note">Each run processes the chosen papers with every selected prompt and the chosen model. A run on a collection or a PubMed search keeps exactly the papers available when you submit it.</p>
       <div class="row actions"><button id="run-submit" class="primary" type="button" disabled>Request run</button><span class="hint">Queued requests start when the orchestrator is available.</span></div>
       <p id="run-message" class="msg" role="status"></p><a id="run-view-request" href="#/runs" hidden>Follow this run</a>
     </section>
@@ -95,9 +96,10 @@ export function create(root, ctx) {
     requests: [], requestId: '', requestsLoading: false, warningVersion: 0,
     pending: { locations: null, collectionId: '', addPrompts: [], removePrompts: [] },
   };
+  const source = () => $('run-source').value || 'storage';
   const folderName = (prefix) => state.locations.find((l) => l.prefix === prefix)?.name || prefix;
   const preview = documentPreview($('run-documents'), $('run-documents-summary'), folderName);
-  const isPubmed = () => $('run-source').value === 'pubmed';
+  const isPubmed = () => source() === 'pubmed';
 
   const promptName = (id) => {
     const prompt = state.prompts.find((p) => p.prompt_id === id);
@@ -108,13 +110,20 @@ export function create(root, ctx) {
     const chunker = state.chunkers.find((c) => c.chunker_id === id);
     return chunker ? `${chunker.name} v${chunker.version}` : id;
   };
-  const sourceName = (location) => {
+  const collectionName = (id, request) => request?.collection?.name
+    || state.collections.find((c) => c.collection_id === id)?.name;
+  // `request` carries the collection's name, which outlives an archived collection.
+  const sourceName = (location, request) => {
+    if (location.startsWith(COLLECTION_LOCATION)) {
+      const name = collectionName(location.slice(COLLECTION_LOCATION.length), request);
+      return `Collection: ${name || 'archived collection'}`;
+    }
     if (!location.startsWith(PUBMED_LOCATION)) return folderName(location);
     const query = state.pubmedQueries.find((q) => q.query_id === location.slice(PUBMED_LOCATION.length));
     return `PubMed: ${query ? query.query : 'saved search'}`;
   };
-  function sourcesLabel(locations = []) {
-    const names = locations.map(sourceName);
+  function sourcesLabel(locations = [], request) {
+    const names = locations.map((location) => sourceName(location, request));
     if (names.length <= 2) return names.join(', ') || 'No source recorded';
     return `${names.slice(0, 2).join(', ')} and ${names.length - 2} more`;
   }
@@ -129,26 +138,35 @@ export function create(root, ctx) {
     return collection;
   }
 
+  function useSource(value) {
+    $('run-source').value = value;
+    sourceChanged(false);
+  }
+
   function applyPending() {
     const { locations, collectionId, addPrompts, removePrompts } = state.pending;
-    if (locations) {
-      $('run-source').value = 'storage';
-      sourceChanged(false);
-      selectValues($('run-locations'), locations, folderName);
+    if (collectionId) {
+      useSource('collection');
       chooseCollection(collectionId);
+    } else if (locations) {
+      useSource('storage');
+      selectValues($('run-locations'), locations, folderName);
     }
     for (const option of $('run-prompts').options) {
       if (addPrompts.includes(option.value)) option.selected = true;
       if (removePrompts.includes(option.value)) option.selected = false;
     }
     state.pending = { locations: null, collectionId: '', addPrompts: [], removePrompts: [] };
-    if (locations) refreshDocuments();
+    if (locations || collectionId) refreshDocuments();
   }
 
   function renderCollections() {
     const current = $('run-collection').value;
-    fill($('run-collection'), [{ collection_id: '', name: 'Choose folders directly' }, ...state.collections], 'collection_id', (c) => c.name, [current || '']);
-    chooseCollection(current);
+    const choices = state.collections.length
+      ? state.collections
+      : [{ collection_id: '', name: 'No collections yet. Create one in Collections.' }];
+    fill($('run-collection'), choices, 'collection_id', (c) => (c.collection_id ? `${c.name} · ${plural(c.member_count ?? 0, 'member')}` : c.name), [current]);
+    chooseCollection($('run-collection').value);
   }
 
   function renderPipelines(pick) {
@@ -164,7 +182,7 @@ export function create(root, ctx) {
   // Reads every list the form offers, keeping whatever is already chosen.
   async function loadChoices() {
     const [locations, chunkers, prompts, models, collections] = await Promise.all([
-      phases('/locations'), phases('/chunkers'), phases('/prompts'), phases('/models'), phases('/collections'),
+      phases('/locations'), phases('/chunkers'), phases('/prompts'), phases('/models'), phases('/collections?counts=false'),
     ]);
     const first = !state.ready;
     const keep = {
@@ -224,16 +242,23 @@ export function create(root, ctx) {
   }
 
   function sourceChanged(preview = true) {
-    const pubmed = isPubmed();
-    $('run-pubmed-picker').hidden = !pubmed;
-    for (const el of root.querySelectorAll('.storage-only')) el.hidden = pubmed;
-    for (const id of ['run-locations', 'run-collection', 'run-quick-save', 'run-quick-name', 'run-save-config', 'run-config-name']) $(id).disabled = pubmed;
-    if (pubmed) loadPubmed();
+    const chosen = source();
+    $('run-pubmed-picker').hidden = chosen !== 'pubmed';
+    $('run-collection-picker').hidden = chosen !== 'collection';
+    // A PubMed run is queued from the search itself, so it is not saved as a configuration.
+    $('run-config-row').hidden = chosen === 'pubmed';
+    for (const el of root.querySelectorAll('.storage-only')) el.hidden = chosen !== 'storage';
+    for (const id of ['run-locations', 'run-quick-save', 'run-quick-name']) $(id).disabled = chosen !== 'storage';
+    $('run-collection').disabled = chosen !== 'collection';
+    for (const id of ['run-save-config', 'run-config-name']) $(id).disabled = chosen === 'pubmed';
+    if (chosen === 'pubmed') loadPubmed();
     if (preview) refreshDocuments();
   }
 
   function refreshDocuments() {
-    return isPubmed() ? preview.pubmed($('run-pubmed-query').value) : preview.storage(selected($('run-locations')));
+    if (isPubmed()) return preview.pubmed($('run-pubmed-query').value);
+    if (source() === 'collection') return preview.collection($('run-collection').value);
+    return preview.storage(selected($('run-locations')));
   }
 
   async function refreshWarning() {
@@ -251,8 +276,10 @@ export function create(root, ctx) {
 
   // ---- Submitting ----
 
+  // Papers come from storage folders or from one collection, never both.
   function runInputs() {
-    return { locations: selected($('run-locations')), chunker_id: $('run-chunker').value, prompt_ids: selected($('run-prompts')), model_id: $('run-model').value };
+    const papers = source() === 'collection' ? { collection_id: $('run-collection').value } : { locations: selected($('run-locations')) };
+    return { ...papers, chunker_id: $('run-chunker').value, prompt_ids: selected($('run-prompts')), model_id: $('run-model').value };
   }
 
   function queued(request, text) {
@@ -266,10 +293,10 @@ export function create(root, ctx) {
     $('run-view-request').hidden = true;
     const inputs = runInputs();
     const pubmed = isPubmed();
-    if ((pubmed ? !$('run-pubmed-query').value : !inputs.locations.length) || !inputs.prompt_ids.length || !inputs.chunker_id || !inputs.model_id) {
-      throw new Error(pubmed
-        ? 'Choose a PubMed search, at least one prompt, a chunker and an available model.'
-        : 'Choose at least one storage folder, one prompt, a chunker and an available model.');
+    const papers = pubmed ? $('run-pubmed-query').value : inputs.collection_id ?? inputs.locations.length;
+    if (!papers || !inputs.prompt_ids.length || !inputs.chunker_id || !inputs.model_id) {
+      const what = { pubmed: 'a PubMed search', collection: 'a collection', storage: 'at least one storage folder' }[source()];
+      throw new Error(`Choose ${what}, at least one prompt, a chunker and an available model.`);
     }
     const request = pubmed
       ? await phases('/sources/pubmed/requests', { method: 'POST', body: { query_id: $('run-pubmed-query').value, chunker_id: inputs.chunker_id, prompt_ids: inputs.prompt_ids, model_id: inputs.model_id } })
@@ -288,11 +315,14 @@ export function create(root, ctx) {
   async function loadConfiguration() {
     const pipeline = state.pipelines.find((p) => p.pipeline_id === $('run-saved').value);
     if (!pipeline) throw new Error('Choose a saved configuration.');
-    $('run-source').value = 'storage';
-    sourceChanged(false);
+    const { collection_id: collectionId, locations = [] } = pipeline.inputs;
+    useSource(collectionId ? 'collection' : 'storage');
     await loadChoices();
-    selectValues($('run-locations'), pipeline.inputs.locations, folderName);
-    chooseCollection('');
+    if (collectionId) {
+      if (!chooseCollection(collectionId)) throw new Error('This configuration runs on a collection that has been archived. Choose another collection.');
+    } else {
+      selectValues($('run-locations'), locations, folderName);
+    }
     for (const option of $('run-prompts').options) option.selected = pipeline.inputs.prompt_ids.includes(option.value);
     $('run-model').value = pipeline.inputs.model_id;
     $('run-chunker').value = pipeline.inputs.chunker_id;
@@ -310,7 +340,7 @@ export function create(root, ctx) {
     const confirmed = await ctx.confirm({
       title: `Run "${pipeline.name}"?`,
       body: [
-        `Papers: ${sourcesLabel(inputs.locations)}.`,
+        `Papers: ${inputs.collection_id ? `collection "${collectionName(inputs.collection_id) || 'archived collection'}", as it is now` : sourcesLabel(inputs.locations)}.`,
         `Prompts: ${inputs.prompt_ids.map(promptName).join(', ')}.`,
         `Model: ${modelName(inputs.model_id)}. Chunker: ${chunkerName(inputs.chunker_id)}.`,
         'The run is queued and starts when the orchestrator is available.',
@@ -324,13 +354,16 @@ export function create(root, ctx) {
     return request;
   }
 
+  // The folders become a collection, and the run is on that collection from then on.
   async function quickSave() {
     const saved = await phases('/collections', { method: 'POST', body: { name: $('run-quick-name').value.trim(), locations: selected($('run-locations')) } });
-    state.collections = (await phases('/collections')).collections;
+    state.collections = (await phases('/collections?counts=false')).collections;
     renderCollections();
+    useSource('collection');
     chooseCollection(saved.collection_id);
     $('run-quick-name').value = '';
-    message('run-collection-message', `Collection "${saved.name}" saved.`, 'ok');
+    message('run-collection-message', `Collection "${saved.name}" saved. The run now uses it.`, 'ok');
+    refreshDocuments();
   }
 
   // ---- Requests ----
@@ -345,7 +378,7 @@ export function create(root, ctx) {
     for (const request of requests) {
       const row = document.createElement('tr');
       if (request.request_id === state.requestId) row.className = 'current';
-      row.innerHTML = `<td><a class="row-link" href="${esc(ctx.href('runs', [request.request_id]))}">${esc(sourcesLabel(request.locations))}</a><small>Submitted ${esc(formatDate(request.requested_at))}</small></td><td>${statusPill(request.status)}</td><td>${esc((request.prompt_ids || []).map(promptName).join(', '))}</td><td>${esc(modelName(request.model_id))}</td>`;
+      row.innerHTML = `<td><a class="row-link" href="${esc(ctx.href('runs', [request.request_id]))}">${esc(sourcesLabel(request.locations, request))}</a><small>Submitted ${esc(formatDate(request.requested_at))}</small></td><td>${statusPill(request.status)}</td><td>${esc((request.prompt_ids || []).map(promptName).join(', '))}</td><td>${esc(modelName(request.model_id))}</td>`;
       $('run-requests').append(row);
     }
   }
@@ -358,7 +391,7 @@ export function create(root, ctx) {
       const request = await phases(`/requests/${encodeURIComponent(id)}`);
       if (id !== state.requestId) return;
       const fields = {
-        Source: (request.locations || []).map(sourceName).join('\n'),
+        Source: (request.locations || []).map((location) => sourceName(location, request)).join('\n'),
         Status: request.status,
         Submitted: formatDate(request.requested_at), Started: formatDate(request.started_at), Finished: formatDate(request.finished_at),
         Prompts: (request.prompt_ids || []).map(promptName).join('\n'),
@@ -370,6 +403,9 @@ export function create(root, ctx) {
       const names = (request.prompt_ids || []).map((pid) => state.prompts.find((p) => p.prompt_id === pid)?.name).filter(Boolean);
       $('run-detail-results').href = ctx.href('search', [], { mode: 'semantic', prompt: [...new Set(names)], model: request.model_id });
       $('run-detail-results').hidden = request.status !== 'succeeded';
+      const collection = request.collection;
+      $('run-detail-collection').hidden = !collection || collection.archived !== false;
+      if (collection) $('run-detail-collection').href = ctx.href('collections', [collection.collection_id]);
     } catch (error) {
       if (id === state.requestId) $('run-detail-content').textContent = `Could not load this run: ${error.message}`;
     }
@@ -397,13 +433,10 @@ export function create(root, ctx) {
   $('run-source').addEventListener('change', () => sourceChanged());
   $('run-pubmed-query').addEventListener('change', refreshDocuments);
   $('run-refresh-pubmed').addEventListener('click', loadPubmed);
-  $('run-locations').addEventListener('change', () => { chooseCollection(''); refreshDocuments(); });
+  $('run-locations').addEventListener('change', refreshDocuments);
   $('run-chunker').addEventListener('change', refreshWarning);
   $('run-refresh-documents').addEventListener('click', refreshDocuments);
-  $('run-collection').addEventListener('change', () => {
-    const collection = chooseCollection($('run-collection').value);
-    if (collection) { selectValues($('run-locations'), collection.locations, folderName); refreshDocuments(); }
-  });
+  $('run-collection').addEventListener('change', () => { chooseCollection($('run-collection').value); refreshDocuments(); });
   $('run-quick-save').addEventListener('click', () => action($('run-quick-save'), 'run-collection-message', quickSave));
   $('run-save-config').addEventListener('click', () => action($('run-save-config'), 'run-saved-message', saveConfiguration));
   $('run-load-saved').addEventListener('click', () => action($('run-load-saved'), 'run-saved-message', loadConfiguration));
@@ -449,10 +482,16 @@ export function create(root, ctx) {
     hide() { state.active = false; },
     refresh,
     state,
-    // Called from Collections ("Use in a new run").
     // Hand-offs wait for the next load of the choices, which entering Runs triggers.
+    // Storage folders; with a collection id, that collection instead.
     useLocations(locations, collectionId = '') {
       state.pending.locations = locations;
+      state.pending.collectionId = collectionId;
+      return state.active ? ensureChoices(true) : undefined;
+    },
+    // Called from Collections ("Run on this collection").
+    useCollection(collectionId) {
+      state.pending.locations = null;
       state.pending.collectionId = collectionId;
       return state.active ? ensureChoices(true) : undefined;
     },

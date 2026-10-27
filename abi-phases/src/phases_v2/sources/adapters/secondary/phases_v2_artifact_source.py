@@ -1,4 +1,8 @@
-"""Only manifest objects can be read, and each must match its published checksum."""
+"""Only manifest objects can be read, and each must match its known checksum.
+
+A collection's folder documents nothing has read yet have no checksum in the
+manifest; they are read as listed, and ingestion identifies them by content.
+"""
 
 from hashlib import sha256
 
@@ -18,7 +22,8 @@ class ManifestSource:
         if artifact is None:
             raise ObjectNotFound("Object is not in the submitted manifest")
         content = self.storage.get_object(prefix, key)
-        if sha256(content).hexdigest() != artifact["content_sha256"]:
+        expected = artifact.get("content_sha256")
+        if expected and sha256(content).hexdigest() != expected:
             raise ValueError(f"Published artifact checksum mismatch: {prefix}/{key}")
         return content
 

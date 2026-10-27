@@ -128,6 +128,7 @@ class DatasetExtractedItemsAdapter:
         prompts=None,
         models=None,
         paths=None,
+        papers=None,
     ) -> tuple[list[SearchHit], int]:
         filters = []
         if direction:
@@ -149,8 +150,8 @@ class DatasetExtractedItemsAdapter:
             filters.append(f"pr.name IN {in_list(prompts)}")
         if models:
             filters.append(f"e.model_id IN {in_list(models)}")
-        if paths:
-            filters.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
+        if (scope := self._paper_scope(paths, papers)) is not None:
+            filters.append(f"ei.paper_id IN {in_list(scope)}")
         source = _FROM + " JOIN probabilistic_relations r ON r.item_id = ei.item_id "
         where = " WHERE " + " AND ".join(filters) if filters else ""
         total = int(
@@ -184,14 +185,16 @@ class DatasetExtractedItemsAdapter:
             )
         return hits, total
 
-    def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
+    def matching_item_ids(
+        self, prompts=None, models=None, paths=None, papers=None
+    ) -> set[str]:
         where = []
         if prompts:
             where.append(f"pr.name IN {in_list(prompts)}")
         if models:
             where.append(f"e.model_id IN {in_list(models)}")
-        if paths:
-            where.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
+        if (scope := self._paper_scope(paths, papers)) is not None:
+            where.append(f"ei.paper_id IN {in_list(scope)}")
         sql = "SELECT ei.item_id FROM extracted_items ei "
         if prompts:
             sql += "LEFT JOIN prompts pr ON pr.prompt_id = ei.prompt_id "
@@ -224,7 +227,15 @@ class DatasetExtractedItemsAdapter:
             self._rows.at_snapshot(snapshot), self._storage, self._papers_root
         )
 
-    def _keyword_where(self, tokens, prompts, models, paths) -> str:
+    def _paper_scope(self, paths, papers) -> list[str] | None:
+        """Paper ids allowed by the folder and paper filters; None if neither."""
+        if papers is None:
+            return self.paper_ids_for_paths(paths) if paths else None
+        if not paths:
+            return sorted(set(papers))
+        return sorted(set(self.paper_ids_for_paths(paths)) & set(papers))
+
+    def _keyword_where(self, tokens, prompts, models, paths, papers=None) -> str:
         if not tokens:
             return "WHERE FALSE"
         clauses = []
@@ -240,12 +251,14 @@ class DatasetExtractedItemsAdapter:
             where += f" AND pr.name IN {in_list(prompts)}"
         if models:
             where += f" AND e.model_id IN {in_list(models)}"
-        if paths:
-            where += f" AND ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}"
+        if (scope := self._paper_scope(paths, papers)) is not None:
+            where += f" AND ei.paper_id IN {in_list(scope)}"
         return where
 
-    def keyword_count(self, tokens, prompts=None, models=None, paths=None) -> int:
-        where = self._keyword_where(tokens, prompts, models, paths)
+    def keyword_count(
+        self, tokens, prompts=None, models=None, paths=None, papers=None
+    ) -> int:
+        where = self._keyword_where(tokens, prompts, models, paths, papers)
         source = "FROM extracted_items ei"
         if prompts:
             source += " LEFT JOIN prompts pr ON pr.prompt_id = ei.prompt_id"
@@ -263,8 +276,9 @@ class DatasetExtractedItemsAdapter:
         models: list[str] | None = None,
         paths: list[str] | None = None,
         offset: int = 0,
+        papers: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
-        where = self._keyword_where(tokens, prompts, models, paths)
+        where = self._keyword_where(tokens, prompts, models, paths, papers)
         sql = (
             f"SELECT {_COLUMNS} {_FROM} {where} "
             f"ORDER BY p.file_name, c.seq, ei.item_id LIMIT {int(limit)} OFFSET {int(offset)}"

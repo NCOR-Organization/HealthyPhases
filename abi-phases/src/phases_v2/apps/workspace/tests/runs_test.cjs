@@ -12,7 +12,12 @@ const CHOICES = {
     { prompt_id: 'causes-cccccccc', name: 'Causes', template: 'c {chunk_text}', output_key: 'causes' },
   ] },
   '/phases_v2/api/models': { models: [{ model_id: 'model', display_name: 'Model One' }, { model_id: 'gone', display_name: 'Retired model', available: false }] },
-  '/phases_v2/api/collections': { collections: [{ collection_id: 'c1', name: 'Research', locations: ['phases_v2/b'] }] },
+  '/phases_v2/api/collections': { collections: [{ collection_id: 'c1', name: 'Research', member_count: 2, locations: ['phases_v2/b'] }] },
+  '/phases_v2/api/collections/c1': {
+    collection_id: 'c1', name: 'Research', paper_count: 2, status_counts: { not_ingested: 1, ingested: 0, results: 1 }, truncated: false,
+    members: [{ member_id: 'm1', kind: 'pubmed_query', label: 'solitude', paper_count: 2 }],
+    papers: [{ name: '<b>Bold</b> study', path: 'pubmed/papers/1.pdf', status: 'results' }, { name: 'new.pdf', path: 'phases_v2/b/new.pdf', status: 'not_ingested' }],
+  },
   '/phases_v2/api/pipelines': { pipelines: [{ pipeline_id: 'p1', name: 'Weekly', created_at: '2026-09-01T10:00:00Z', inputs: { locations: ['phases_v2/a'], prompt_ids: ['causes-cccccccc'], model_id: 'model', chunker_id: 'chunker' } }] },
   '/phases_v2/api/chunker-warning': { warning: null },
   '/phases_v2/api/documents': { documents: [], total: 0, ingestable: 0, already_ingested: 0, unsupported: 0 },
@@ -111,23 +116,48 @@ test('PubMed search options show paper counts and local ingestion dates while ke
   assert.equal(options[3].innerHTML, '');
 });
 
-test('choosing a collection selects its folders and previews them', async () => {
-  const { $, calls } = await runs();
+test('a collection run previews the papers the collection holds now and sends only its id', async () => {
+  const { $, a, calls } = await runs({ 'POST /phases_v2/api/requests': { request_id: 'on-collection', status: 'pending' } });
+  $('run-source').value = 'collection';
+  await Promise.all($('run-source').listeners.change.map((h) => h({})));
   $('run-collection').value = 'c1';
   await Promise.all($('run-collection').listeners.change.map((h) => h({})));
   await settle();
-  assert.deepEqual($('run-locations').selectedOptions.map((o) => o.value), ['phases_v2/b']);
   assert.equal($('run-manage-collection').href, '#/collections/c1');
-  assert.ok(calls.some((c) => c.url === '/phases_v2/api/documents?location=phases_v2%2Fb'));
+  assert.ok(calls.some((c) => c.url === '/phases_v2/api/collections/c1'));
+  assert.match($('run-documents-summary').textContent, /2 papers: 1 new, 1 already ingested\. The run keeps exactly these papers/);
+  assert.match($('run-documents').children[0].innerHTML, /&lt;b&gt;Bold/);
+  choose($('run-prompts'), ['causes-cccccccc']);
+  await a.submit();
+  assert.deepEqual(calls.at(-1).body, { collection_id: 'c1', chunker_id: 'chunker', prompt_ids: ['causes-cccccccc'], model_id: 'model' });
+  assert.equal($('run-view-request').href, '#/runs/on-collection');
+});
+
+test('a collection run with no collection chosen explains what is missing', async () => {
+  const { $, a, calls } = await runs({ '/phases_v2/api/collections': { collections: [] } });
+  $('run-source').value = 'collection';
+  const before = calls.length;
+  await assert.rejects(a.submit(), /Choose a collection, at least one prompt/);
+  assert.equal(calls.length, before);
+  assert.match($('run-collection').options[0].textContent, /No collections yet/);
 });
 
 test('folders sent from Collections land in the form, even before it has loaded', async () => {
   const { $, section } = await runs({}, { loaded: false });
-  section.useLocations(['phases_v2/a', 'phases_v2/new'], 'c1');
+  section.useLocations(['phases_v2/a', 'phases_v2/new']);
   await section.actions.loadChoices();
   assert.deepEqual($('run-locations').selectedOptions.map((o) => o.value), ['phases_v2/a', 'phases_v2/new']);
-  assert.equal($('run-collection').value, 'c1');
   assert.equal($('run-source').value, 'storage');
+});
+
+test('a collection sent from Collections is chosen as the source, even before the form has loaded', async () => {
+  const { $, section, calls } = await runs({}, { loaded: false });
+  section.useCollection('c1');
+  await section.actions.loadChoices();
+  await settle();
+  assert.equal($('run-source').value, 'collection');
+  assert.equal($('run-collection').value, 'c1');
+  assert.ok(calls.some((c) => c.url === '/phases_v2/api/collections/c1'));
 });
 
 test('a prompt version saved in Prompts replaces the one it came from in the next run', async () => {
@@ -152,7 +182,7 @@ test('a refresh keeps the draft and shows newly added options', async () => {
   assert.equal($('run-locations').options.length, 3);
 });
 
-test('saving folders as a collection selects the new collection', async () => {
+test('saving folders as a collection makes the run use that collection', async () => {
   const quick = { collection_id: 'c2', name: 'Quick', locations: ['phases_v2/a'] };
   const { $, a, calls } = await runs({
     'POST /phases_v2/api/collections': quick,
@@ -163,6 +193,7 @@ test('saving folders as a collection selects the new collection', async () => {
   await a.quickSave();
   assert.deepEqual(calls.find((c) => c.method === 'POST').body, { name: 'Quick', locations: ['phases_v2/a'] });
   assert.equal($('run-collection').value, 'c2');
+  assert.equal($('run-source').value, 'collection');
 });
 
 test('saved configurations are saved from the form, loaded back into it, and run after confirmation', async () => {
@@ -330,6 +361,57 @@ test('the Manage collections link follows a collection chosen by saving, by a ha
 
   $('run-saved').value = 'p1';
   await a.loadConfiguration();
-  assert.equal($('run-collection').value, '');
-  assert.equal($('run-manage-collection').href, '#/collections');
+  assert.equal($('run-source').value, 'storage');
+  assert.deepEqual($('run-locations').selectedOptions.map((o) => o.value), ['phases_v2/a']);
+});
+
+// ---- Collections ----
+
+const ON_COLLECTION = { pipeline_id: 'p3', name: 'On research', created_at: '2026-09-02T10:00:00Z', inputs: { collection_id: 'c1', prompt_ids: ['causes-cccccccc'], model_id: 'model', chunker_id: 'chunker' } };
+
+test('a configuration can target a collection: saved with its id, loaded back and run after naming it', async () => {
+  const { $, a, calls } = await runs({
+    'POST /phases_v2/api/pipelines': { pipeline_id: 'p3', name: 'On research' },
+    '/phases_v2/api/pipelines': { pipelines: [ON_COLLECTION] },
+    'POST /phases_v2/api/pipelines/p3/requests': { request_id: 'from-collection' },
+  });
+  $('run-source').value = 'collection';
+  $('run-collection').value = 'c1';
+  choose($('run-prompts'), ['causes-cccccccc']);
+  $('run-config-name').value = 'On research';
+  await a.saveConfiguration();
+  assert.deepEqual(calls.find((c) => c.url.endsWith('/pipelines') && c.method === 'POST').body.inputs, ON_COLLECTION.inputs);
+
+  $('run-source').value = 'storage';
+  $('run-saved').value = 'p3';
+  await a.loadConfiguration();
+  assert.equal($('run-source').value, 'collection');
+  assert.equal($('run-collection').value, 'c1');
+
+  const pending = a.runConfiguration();
+  assert.match($('confirm-body').children.map((p) => p.textContent).join(' '), /collection "Research", as it is now/);
+  await $('confirm-ok').onclick();
+  await pending;
+  assert.equal($('run-view-request').href, '#/runs/from-collection');
+});
+
+test('loading a configuration whose collection was archived says so', async () => {
+  const { $, a } = await runs({ '/phases_v2/api/pipelines': { pipelines: [{ ...ON_COLLECTION, inputs: { ...ON_COLLECTION.inputs, collection_id: 'gone' } }] } });
+  $('run-saved').value = 'p3';
+  await assert.rejects(a.loadConfiguration(), /archived/);
+});
+
+test('requests on a collection are named by it, even once it is archived, and link to it while it exists', async () => {
+  const onCollection = { request_id: 'r-c', status: 'succeeded', requested_at: '2026-09-17T10:00:00Z', locations: ['dataset:collection:c1'], prompt_ids: ['causes-cccccccc'], model_id: 'model', collection: { collection_id: 'c1', name: 'Research', archived: false } };
+  const archived = { ...onCollection, request_id: 'r-old', locations: ['dataset:collection:c0'], collection: { collection_id: 'c0', name: 'Retired set', archived: true } };
+  const { $, section, parse } = await runs({
+    '/phases_v2/api/requests?limit=100': { requests: [onCollection, archived] },
+    '/phases_v2/api/requests/r-c': onCollection,
+  });
+  await section.show(parse('#/runs/r-c'));
+  assert.match($('run-requests').children[0].innerHTML, /Collection: Research/);
+  assert.match($('run-requests').children[1].innerHTML, /Collection: Retired set/);
+  assert.match($('run-detail-content').innerHTML, /Collection: Research/);
+  assert.equal($('run-detail-collection').hidden, false);
+  assert.equal($('run-detail-collection').href, '#/collections/c1');
 });

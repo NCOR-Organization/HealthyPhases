@@ -16,7 +16,6 @@ from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
 from naas_abi_core.apps.api.abi_api_key_auth import require_abi_api_token
 from starlette.concurrency import run_in_threadpool
 
-from phases_v2.app.contracts.pipeline_validation import validate_message
 from phases_v2.app.pipeline_management import MAX_UPLOAD_BYTES, ManagementUnavailable
 from phases_v2.app.service import PipelineAppService
 from phases_v2.requests.interfaces import RequestNotFound
@@ -64,18 +63,9 @@ def build_router(service: PipelineAppService) -> APIRouter:
         "/requests", status_code=201, dependencies=[Depends(require_abi_api_token)]
     )
     def submit(body: dict):
-        try:
-            validate_message("PipelineInputs", body)
-            request = service.submit_run(
-                locations=body.get("locations", []),
-                chunker_id=body.get("chunker_id", ""),
-                prompt_ids=body.get("prompt_ids", []),
-                model_id=body.get("model_id", ""),
-                requested_by=body.get("requested_by"),
-            )
-        except ValueError as invalid:
-            # The user left something out — say which, rather than 500.
-            raise HTTPException(status_code=422, detail=str(invalid)) from invalid
+        # Papers come from storage folders or from a collection. A missing input
+        # is a 422 naming the field, rather than a 500.
+        request = management_call(service.submit_inputs, body)
         return {"request_id": request.request_id, "status": request.status}
 
     @router.get("/requests")
@@ -95,7 +85,9 @@ def build_router(service: PipelineAppService) -> APIRouter:
         except ValueError as invalid:
             raise HTTPException(status_code=422, detail=str(invalid)) from invalid
         except KeyError as missing:
-            raise HTTPException(status_code=404, detail=str(missing)) from missing
+            # str() of a KeyError quotes its message; show the message itself.
+            detail = missing.args[0] if missing.args else "Not found."
+            raise HTTPException(status_code=404, detail=str(detail)) from missing
         except ManagementUnavailable as unavailable:
             raise HTTPException(
                 status_code=503, detail=str(unavailable)
@@ -127,20 +119,65 @@ def build_router(service: PipelineAppService) -> APIRouter:
         return {"request_id": request.request_id, "status": request.status}
 
     @router.get("/collections")
-    def collections():
-        return {"collections": management_call(service.resources.collections)}
+    def collections(counts: bool = True):
+        """Every collection, with how many papers each holds unless ``counts=false``."""
+        return {"collections": management_call(service.resources.summaries, counts)}
+
+    @router.get("/collections/{collection_id}")
+    def collection(collection_id: str):
+        """Members and the papers they resolve to now, each with its status."""
+        return management_call(service.resources.detail, collection_id)
 
     @router.post(
         "/collections", status_code=201, dependencies=[Depends(require_abi_api_token)]
     )
     def create_collection(body: dict):
-        return management_call(service.resources.save_collection, body)
+        return management_call(service.resources.create_collection, body)
 
     @router.put(
         "/collections/{collection_id}", dependencies=[Depends(require_abi_api_token)]
     )
     def update_collection(collection_id: str, body: dict):
-        return management_call(service.resources.save_collection, body, collection_id)
+        return management_call(service.resources.update_collection, collection_id, body)
+
+    @router.post(
+        "/collections/{collection_id}/members",
+        dependencies=[Depends(require_abi_api_token)],
+    )
+    def add_members(collection_id: str, body: dict):
+        return management_call(service.resources.add_members, collection_id, body)
+
+    @router.delete(
+        "/collections/{collection_id}/members/{member_id}",
+        dependencies=[Depends(require_abi_api_token)],
+    )
+    def remove_member(collection_id: str, member_id: str):
+        return management_call(
+            service.resources.remove_member, collection_id, member_id
+        )
+
+    @router.post(
+        "/collections/{collection_id}/documents",
+        status_code=201,
+        dependencies=[Depends(require_abi_api_token)],
+    )
+    async def upload_to_collection(request: Request, collection_id: str, filename: str):
+        content = await _read_pdf(request)
+        return await run_in_threadpool(
+            management_call,
+            service.upload_to_collection,
+            collection_id,
+            filename,
+            content,
+        )
+
+    @router.get("/papers")
+    def ingested_papers(
+        q: str = Query(default="", max_length=300),
+        limit: int = Query(default=50, ge=1, le=200),
+    ):
+        """Ingested papers, to pick single papers for a collection."""
+        return {"papers": management_call(service.ingested_papers, q, limit)}
 
     @router.delete(
         "/collections/{collection_id}", dependencies=[Depends(require_abi_api_token)]
@@ -165,20 +202,13 @@ def build_router(service: PipelineAppService) -> APIRouter:
         "/documents", status_code=201, dependencies=[Depends(require_abi_api_token)]
     )
     async def upload_document(request: Request, location: str, filename: str):
-        # Raw PDF streaming puts a bound on memory before parsing or storing it.
-        content = bytearray()
-        async for chunk in request.stream():
-            if len(content) + len(chunk) > MAX_UPLOAD_BYTES:
-                raise HTTPException(
-                    status_code=413, detail="PDFs must not exceed 25 MiB."
-                )
-            content.extend(chunk)
+        content = await _read_pdf(request)
         return await run_in_threadpool(
             management_call,
             service.management.upload,
             location,
             filename,
-            bytes(content),
+            content,
         )
 
     @router.get("/pipelines")
@@ -201,6 +231,16 @@ def build_router(service: PipelineAppService) -> APIRouter:
         return submit(pipeline["inputs"])
 
     return router
+
+
+async def _read_pdf(request: Request) -> bytes:
+    # Raw PDF streaming puts a bound on memory before parsing or storing it.
+    content = bytearray()
+    async for chunk in request.stream():
+        if len(content) + len(chunk) > MAX_UPLOAD_BYTES:
+            raise HTTPException(status_code=413, detail="PDFs must not exceed 25 MiB.")
+        content.extend(chunk)
+    return bytes(content)
 
 
 def register(app: FastAPI, service: PipelineAppService) -> None:

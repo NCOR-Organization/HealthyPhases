@@ -218,6 +218,12 @@ dl.details dd { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .resource-list { display: grid; gap: .45rem; max-height: 34rem; overflow-y: auto; margin-top: .9rem; }
 .resource { text-align: left; width: 100%; overflow-wrap: anywhere; font-weight: 500; display: block; white-space: normal; }
 .resource[aria-pressed='true'] { border-color: var(--accent); background: var(--tint); }
+.pick { display: flex; align-items: center; justify-content: space-between; gap: .6rem; padding: .45rem .7rem; border: 1px solid var(--rule); border-radius: 7px; overflow-wrap: anywhere; font-weight: 500; }
+.pick button { flex-shrink: 0; }
+textarea.short { min-height: 4.5rem; font: inherit; }
+small.bad { color: var(--bad); }
+.folders-panel > summary { cursor: pointer; font-weight: 700; }
+.folders-panel > .grid { margin-top: .9rem; }
 
 /* Overview */
 .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 1.1rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
