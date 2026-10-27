@@ -245,6 +245,18 @@ def test_a_second_upload_reuses_the_collection_folder(env):
         f"{PREFIX}/locations"
     ).json()["locations"]
 
+    # The folder keeps the collection's name, within the folder name limit.
+    long_name = "L" * 120
+    renamed = env.client.put(
+        f"{PREFIX}/collections/{collection['collection_id']}", json={"name": long_name}
+    )
+    assert renamed.status_code == 200, renamed.text
+    names = {
+        loc["prefix"]: loc["name"]
+        for loc in env.client.get(f"{PREFIX}/locations").json()["locations"]
+    }
+    assert names[prefix] == "L" * 92 + " uploads"
+
 
 def test_an_ingested_paper_can_be_found_to_be_picked(env):
     found = env.client.get(f"{PREFIX}/papers", params={"q": "X.P"}).json()["papers"]
@@ -369,6 +381,55 @@ def test_a_run_on_a_collection_ingests_exactly_its_resolved_papers(env, monkeypa
     [listed] = env.client.get(f"{PREFIX}/requests").json()["requests"]
     assert listed["collection"]["name"] == "Mixed"
     assert listed["collection"]["archived"] is True
+
+
+def test_a_copy_of_an_ingested_pdf_elsewhere_becomes_that_paper_once_run(
+    env, monkeypatch
+):
+    from phases_v2.papers.adapters.secondary.PdfTextRenderer import PdfTextRenderer
+    from phases_v2.papers.factory import ingest_papers
+
+    # Byte-identical to x.pdf, placed outside the app: its key names no checksum.
+    env.storage.put_object("phases_v2/copies", "y.pdf", INGESTED_PDF)
+    both = create(
+        env,
+        members=[
+            {"folder": {"prefix": "phases_v2/copies"}},
+            {"folder": {"prefix": "phases_v2/old"}},
+        ],
+    )
+    only_copy = create(env, members=[{"folder": {"prefix": "phases_v2/copies"}}])
+    # Nothing has read y.pdf yet, so its content is unknown.
+    assert detail(env, both["collection_id"])["paper_count"] == 2
+    assert detail(env, only_copy["collection_id"])["papers"][0]["status"] == (
+        "not_ingested"
+    )
+
+    submitted = env.client.post(
+        f"{PREFIX}/requests",
+        json={"collection_id": only_copy["collection_id"], **run_choices()},
+    )
+    manifest = manifest_for(env.rows, submitted.json()["request_id"])
+    monkeypatch.setattr(PdfTextRenderer, "render", lambda self, content, name: "Text")
+    engine = SimpleNamespace(
+        services=SimpleNamespace(dataset=env.dataset, object_storage=env.storage)
+    )
+    report = ingest_papers(engine, ["phases_v2/copies"], artifacts=manifest)
+    assert (report.ingested, report.skipped) == (0, 1)
+
+    [copy] = detail(env, only_copy["collection_id"])["papers"]
+    assert (copy["paper_id"], copy["status"], copy["path"]) == (
+        env.ingested,
+        "results",
+        "phases_v2/copies/y.pdf",
+    )
+    shown = detail(env, both["collection_id"])
+    assert shown["paper_count"] == 1
+    assert shown["papers"][0]["member_ids"] == [
+        m["member_id"] for m in shown["members"]
+    ]
+    # In a collection-scoped search, its existing results are found.
+    assert env.service.resources.paper_ids(only_copy["collection_id"]) == [env.ingested]
 
 
 def test_an_empty_collection_cannot_be_run(env):

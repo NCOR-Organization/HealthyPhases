@@ -94,7 +94,7 @@ export function create(root, ctx) {
     active: false, view: 'list', ready: false, loading: null,
     prompts: [], models: [], chunkers: [], locations: [], collections: [], pipelines: [], pubmedQueries: [],
     requests: [], requestId: '', requestsLoading: false, warningVersion: 0,
-    pending: { locations: null, collectionId: '', addPrompts: [], removePrompts: [] },
+    pending: { collectionId: '', addPrompts: [], removePrompts: [] },
   };
   const source = () => $('run-source').value || 'storage';
   const folderName = (prefix) => state.locations.find((l) => l.prefix === prefix)?.name || prefix;
@@ -144,20 +144,17 @@ export function create(root, ctx) {
   }
 
   function applyPending() {
-    const { locations, collectionId, addPrompts, removePrompts } = state.pending;
+    const { collectionId, addPrompts, removePrompts } = state.pending;
     if (collectionId) {
       useSource('collection');
       chooseCollection(collectionId);
-    } else if (locations) {
-      useSource('storage');
-      selectValues($('run-locations'), locations, folderName);
     }
     for (const option of $('run-prompts').options) {
       if (addPrompts.includes(option.value)) option.selected = true;
       if (removePrompts.includes(option.value)) option.selected = false;
     }
-    state.pending = { locations: null, collectionId: '', addPrompts: [], removePrompts: [] };
-    if (locations || collectionId) refreshDocuments();
+    state.pending = { collectionId: '', addPrompts: [], removePrompts: [] };
+    if (collectionId) refreshDocuments();
   }
 
   function renderCollections() {
@@ -483,15 +480,8 @@ export function create(root, ctx) {
     refresh,
     state,
     // Hand-offs wait for the next load of the choices, which entering Runs triggers.
-    // Storage folders; with a collection id, that collection instead.
-    useLocations(locations, collectionId = '') {
-      state.pending.locations = locations;
-      state.pending.collectionId = collectionId;
-      return state.active ? ensureChoices(true) : undefined;
-    },
     // Called from Collections ("Run on this collection").
     useCollection(collectionId) {
-      state.pending.locations = null;
       state.pending.collectionId = collectionId;
       return state.active ? ensureChoices(true) : undefined;
     },

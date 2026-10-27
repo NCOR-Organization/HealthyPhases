@@ -104,6 +104,7 @@ Namespace `phases_v2`. Every one is keyed and written only with `mode="upsert"`.
 | `projections` | key already projected to a target | `target` + `key` |
 | `run_requests` | requested run | `request_id` |
 | `paper_collections` | collection of papers | `collection_id` |
+| `paper_paths` | storage path a paper was read from | `path` |
 | `source_manifests` | exact artifacts a manifest-sourced request reads | `request_id` |
 
 `extractions` keeps the model's output twice: `response` is a queryable JSON column, `raw_response`
@@ -489,8 +490,11 @@ A collection is a name, a description and a list of members (`paper_collections`
 `paper_collections.domain.resolve` is the one function that turns a collection into the
 exact documents it holds, one per distinct content: a known checksum is the paper's
 identity, so the same PDF through two members, or at two paths, counts once. Folder
-documents nobody has read yet have no checksum; an upload's is in its key, and anything
-ingested before is matched by path. The collection page, run submission and search
+documents nobody has read yet have no checksum; an upload's is in its key (a 64-hex
+folder holding that one file), and anything read before is matched by path. Ingestion
+records every path it reads in `paper_paths`, the copies it skips as already known
+included, because `papers` keeps only the first path of each paper: after one run, a
+copy elsewhere is recognised as that paper, with its status and its search results. The collection page, run submission and search
 scoping all call it. A member that cannot be read is reported on the page; a run or a
 search on that collection is refused rather than covering part of it.
 
@@ -502,7 +506,8 @@ API and Dagster processes and startup creates `paper_collections`. Edits are
 last-write-wins.
 
 Endpoints, under `/phases_v2/api/collections`: list with member and paper counts
-(`?counts=false` skips resolving), create, read one with its members and resolved
+(`?counts=false` skips resolving every collection; the app asks for counts on its first
+visit only), create, read one with its members and resolved
 papers, update the name and description, add members, remove a member
 (`DELETE .../members/<member_id>`), archive (`DELETE`) and upload PDFs into it.
 `GET /phases_v2/api/papers?q=` finds ingested papers to pick.

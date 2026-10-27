@@ -70,6 +70,7 @@ def test_the_expected_datasets_are_declared():
     assert {spec.name for spec in DATASETS} == {
         "input_collections",
         "paper_collections",
+        "paper_paths",
         "source_manifests",
         "papers",
         "chunkers",

@@ -133,19 +133,30 @@ export function create(root, ctx) {
     $('col-add-pubmed').disabled = !state.pubmedQueries.length;
   }
 
-  async function loadCollections() {
-    state.collections = (await phases('/collections')).collections;
+  // Paper counts resolve every collection on the server, so they are read on the
+  // first visit only. Afterwards the list keeps the counts it had, and the open
+  // collection's come from its detail, which is read anyway.
+  function withKnownCounts(listed) {
+    const before = new Map(state.collections.map((c) => [c.collection_id, c]));
+    return listed.map((c) => (c.paper_count == null && before.get(c.collection_id)?.paper_count != null
+      ? { ...c, paper_count: before.get(c.collection_id).paper_count } : c));
+  }
+
+  async function loadCollections({ counts = false } = {}) {
+    const listed = (await phases(counts ? '/collections' : '/collections?counts=false')).collections;
+    state.collections = counts ? listed : withKnownCounts(listed);
     renderCollections();
   }
 
   async function reload() {
+    const counts = !state.loaded;
     const [locations, collections, searches] = await Promise.all([
-      phases('/locations'), phases('/collections'),
+      phases('/locations'), phases(counts ? '/collections' : '/collections?counts=false'),
       // A deployment without PubMed still manages folders and uploads.
       phases('/sources/pubmed').catch(() => ({ queries: [] })),
     ]);
     state.locations = locations.locations;
-    state.collections = collections.collections;
+    state.collections = counts ? collections.collections : withKnownCounts(collections.collections);
     state.pubmedQueries = searches.queries || [];
     state.loaded = true;
     fillChoices();
@@ -231,6 +242,10 @@ export function create(root, ctx) {
       const detail = await phases(`/collections/${encodeURIComponent(id)}`);
       if (version !== state.detailVersion) return;
       state.detail = detail;
+      state.collections = state.collections.map((c) => (c.collection_id === id
+        ? { ...c, name: detail.name, member_count: detail.members.length, paper_count: detail.paper_count, updated_at: detail.updated_at }
+        : c));
+      renderCollections();
     } catch (error) {
       if (version !== state.detailVersion) return;
       message('col-papers-summary', `Could not read this collection's papers: ${error.message}`, 'bad');

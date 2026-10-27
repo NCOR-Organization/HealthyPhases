@@ -390,6 +390,21 @@ def test_collection_filter_failures_say_why():
     assert partial.status_code == 503
     assert "could not be read" in partial.json()["detail"]
 
+    def unconfigured(_collection_id):
+        from phases_v2.app.pipeline_management import ManagementUnavailable
+
+        raise ManagementUnavailable(
+            "Collection contents are unavailable in this deployment."
+        )
+
+    no_sources = _collection_client(unconfigured).get(
+        f"{PREFIX}/keyword", params={"q": "x", "collection": COLLECTION}
+    )
+    assert no_sources.status_code == 503
+    assert no_sources.json()["detail"] == (
+        "Collection contents are unavailable in this deployment."
+    )
+
     unwired = _client().get(
         f"{PREFIX}/keyword", params={"q": "x", "collection": COLLECTION}
     )

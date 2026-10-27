@@ -13,7 +13,6 @@ from typing import Any, Protocol
 FOLDER = "folder"
 PUBMED_QUERY = "pubmed_query"
 PAPER = "paper"
-KINDS = (FOLDER, PUBMED_QUERY, PAPER)
 
 
 class MemberUnavailable(Exception):

@@ -17,6 +17,7 @@ from fastapi.responses import Response, StreamingResponse
 from starlette.background import BackgroundTask
 
 from phases_v2.app.contracts.pipeline_validation import validate_message
+from phases_v2.app.pipeline_management import ManagementUnavailable
 from phases_v2.search.domain import SearchService
 
 PREFIX = "/phases_v2/api/search"
@@ -133,6 +134,10 @@ def build_router(
             ) from missing
         except ValueError as unreadable:
             raise HTTPException(status_code=503, detail=str(unreadable)) from unreadable
+        except ManagementUnavailable as unavailable:
+            raise HTTPException(
+                status_code=503, detail=str(unavailable)
+            ) from unavailable
 
     def unavailable(error):
         logging.getLogger(__name__).exception("Reverse search failed")

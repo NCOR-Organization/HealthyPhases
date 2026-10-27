@@ -261,6 +261,15 @@ PAPER_COLLECTIONS = _spec(
     primary_key=("collection_id",),
 )
 
+# Every path a paper has been read from. `papers` keeps the first path only:
+# ingestion skips content it already knows, so a copy at a second path would
+# otherwise never be recognised as that paper.
+PAPER_PATHS = _spec(
+    "paper_paths",
+    (("path", "string"), ("paper_id", "string"), ("seen_at", "timestamp")),
+    primary_key=("path",),
+)
+
 # The exact artifacts a request was submitted with. ``source_query_id`` names
 # where they came from: the PubMed query, or the collection.
 SOURCE_MANIFESTS = _spec(
@@ -273,6 +282,7 @@ DATASETS: tuple[DatasetSpec, ...] = (
     SOURCE_MANIFESTS,
     INPUT_COLLECTIONS,
     PAPER_COLLECTIONS,
+    PAPER_PATHS,
     PAPERS,
     CHUNKERS,
     CHUNKS,

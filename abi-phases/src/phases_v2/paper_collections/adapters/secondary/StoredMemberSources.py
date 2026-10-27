@@ -24,6 +24,8 @@ from phases_v2.sql import in_list, literal
 
 logger = logging.getLogger(__name__)
 
+_PATH = "rtrim(storage_prefix, '/') || '/' || ltrim(storage_key, '/')"
+_PATH_BATCH = 1000
 _PAPERS = (
     "SELECT paper_id, storage_prefix, storage_key, file_name FROM papers "
     "WHERE text_key IS NOT NULL"
@@ -91,12 +93,22 @@ class StoredMemberSources:
         return _paper_artifact(rows[0]) if rows else None
 
     def paper_ids_by_path(self, paths: list[str]) -> dict[str, str]:
-        wanted = set(paths)
-        found = {}
-        for row in self._rows.query(_PAPERS):
-            path = f"{row['storage_prefix'].rstrip('/')}/{row['storage_key']}"
-            if path in wanted:
-                found[path] = row["paper_id"]
+        """Every path a paper was read from is in ``paper_paths``; ``papers``
+        holds the first one, which is all there was before that dataset."""
+        found: dict[str, str] = {}
+        wanted = sorted(set(paths))
+        for start in range(0, len(wanted), _PATH_BATCH):
+            batch = in_list(wanted[start : start + _PATH_BATCH])
+            for row in self._rows.query(
+                "SELECT path, paper_id FROM paper_paths "  # nosec B608 - paths go through sql.literal
+                f"WHERE path IN {batch}"
+            ):
+                found[row["path"]] = row["paper_id"]
+            for row in self._rows.query(
+                f"SELECT {_PATH} AS path, paper_id FROM papers "  # nosec B608
+                f"WHERE text_key IS NOT NULL AND {_PATH} IN {batch}"
+            ):
+                found.setdefault(row["path"], row["paper_id"])
         return found
 
     # -- what the collection pages show ---------------------------------

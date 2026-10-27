@@ -164,7 +164,7 @@ def resolve(
 def _artifacts(member: dict[str, Any], sources: MemberSources) -> list[Artifact]:
     kind = member["kind"]
     if kind == FOLDER:
-        return [_with_upload_checksum(a) for a in sources.folder(member["prefix"])]
+        return _with_upload_checksums(sources.folder(member["prefix"]))
     if kind == PUBMED_QUERY:
         return sources.pubmed_query(member["query_id"])
     if kind == PAPER:
@@ -175,16 +175,28 @@ def _artifacts(member: dict[str, Any], sources: MemberSources) -> list[Artifact]
     raise ValueError(f"Unknown collection member kind: {kind}")
 
 
-def _with_upload_checksum(artifact: Artifact) -> Artifact:
+def _with_upload_checksums(artifacts: list[Artifact]) -> list[Artifact]:
     """Uploads are stored as ``<sha256>/<file name>``; the folder names the content.
 
-    Ingestion verifies a manifest checksum against the bytes it reads, so a
-    folder that only looks like an upload fails loudly rather than ingesting
-    the wrong document.
+    Only a 64-hex folder holding exactly one file is taken for an upload: one
+    holding several files is something else, and guessing would merge
+    different documents into one paper. Ingestion still verifies a manifest
+    checksum against the bytes it reads, so a lone file in a folder that only
+    looks like an upload fails loudly rather than ingesting the wrong document.
     """
-    if artifact.content_sha256:
-        return artifact
-    parent = artifact.path.rsplit("/", 2)[-2]
-    if _SHA256.fullmatch(parent):
-        return replace(artifact, content_sha256=parent)
-    return artifact
+    parents: dict[str, int] = {}
+    for artifact in artifacts:
+        parent = artifact.path.rsplit("/", 1)[0]
+        parents[parent] = parents.get(parent, 0) + 1
+    out = []
+    for artifact in artifacts:
+        parent = artifact.path.rsplit("/", 1)[0]
+        name = parent.rsplit("/", 1)[-1]
+        if (
+            not artifact.content_sha256
+            and _SHA256.fullmatch(name)
+            and parents[parent] == 1
+        ):
+            artifact = replace(artifact, content_sha256=name)
+        out.append(artifact)
+    return out

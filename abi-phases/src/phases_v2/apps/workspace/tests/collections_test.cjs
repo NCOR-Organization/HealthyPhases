@@ -10,7 +10,7 @@ async function mount(name, routes) {
   const dom = install();
   const { href, parse } = await load('router.js');
   const { confirmAction } = await load('ui.js');
-  const runs = { located: [], prompts: [], useLocations(l, c) { runs.located.push([l, c]); }, selectPrompts(a, r = []) { runs.prompts.push([a, r]); } };
+  const runs = { prompts: [], selectPrompts(a, r = []) { runs.prompts.push([a, r]); } };
   const ctx = context({ href, confirm: confirmAction, sections: { runs } });
   const calls = [];
   globalThis.fetch = routeFetch(routes, calls);

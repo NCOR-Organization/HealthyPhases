@@ -181,3 +181,21 @@ def test_adding_a_member_twice_keeps_one():
     ]
     # An ingested paper and a PMID never share an id.
     assert first["member_id"] != other["member_id"]
+
+
+def test_only_a_lone_file_in_a_checksum_named_folder_is_taken_for_an_upload():
+    sources = FakeMemberSources(
+        folders={
+            "phases_v2/mine": [
+                Artifact("phases_v2/mine", f"{SHA_A}/upload.pdf"),
+                # Two different files under one hex-named folder are not an upload.
+                Artifact("phases_v2/mine", f"{SHA_B}/one.pdf"),
+                Artifact("phases_v2/mine", f"{SHA_B}/two.pdf"),
+            ]
+        }
+    )
+
+    resolution = resolve([folder_member("phases_v2/mine")], sources)
+
+    assert len(resolution.papers) == 3
+    assert resolution.paper_ids() == [SHA_A]

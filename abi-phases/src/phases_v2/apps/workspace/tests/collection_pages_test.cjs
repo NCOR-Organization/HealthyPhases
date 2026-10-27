@@ -124,6 +124,27 @@ test('on a saved collection, a folder or a search is added straight away and the
   assert.match($('col-add-message').textContent, /solitude: added to the collection/);
 });
 
+test('paper counts are read on the first visit only; after a change the open collection takes its counts from its page', async () => {
+  const { $, a, section, parse, calls } = await mount({ 'POST /phases_v2/api/collections/c1/members': { collection_id: 'c1', name: 'Research' } });
+  await section.show(parse('#/collections/c1'));
+  const withoutCounts = { collections: SUMMARIES.collections.map(({ paper_count, ...rest }) => rest) };
+  globalThis.fetch = routeFetch({
+    '/phases_v2/api/locations': LOCATIONS, '/phases_v2/api/sources/pubmed': PUBMED,
+    'POST /phases_v2/api/collections/c1/members': { collection_id: 'c1', name: 'Research' },
+    '/phases_v2/api/collections?counts=false': withoutCounts,
+    '/phases_v2/api/collections/c1': { ...DETAIL, members: [...DETAIL.members, { member_id: 'm3', kind: 'folder', prefix: 'phases_v2', label: 'All', paper_count: 9 }], paper_count: 12 },
+  }, calls);
+  $('col-folder').value = 'phases_v2';
+  await a.addFolder();
+  await section.show(parse('#/collections/c1'), { entering: true });
+  const lists = calls.filter((c) => c.method === 'GET' && /\/collections(\?|$)/.test(c.url)).map((c) => c.url);
+  assert.deepEqual(lists.filter((url) => !url.includes('counts=false')), ['/phases_v2/api/collections'], 'counts are computed once');
+  assert.ok(lists.length >= 3);
+  const [open, other] = $('col-list').children;
+  assert.match(open.innerHTML, /3 members · 12 papers/);
+  assert.match(other.innerHTML, /1 member · 1 paper/, 'other collections keep the counts read first');
+});
+
 test('uploads go into the collection, report each file and never send one over 25 MiB', async () => {
   const { $, a, section, parse, calls } = await mount({
     'POST /phases_v2/api/collections/c1/documents': (url) => (url.includes('bad.pdf') ? response({ detail: 'The file does not have a PDF header.' }, { ok: false }) : response({ key: 'ok' })),

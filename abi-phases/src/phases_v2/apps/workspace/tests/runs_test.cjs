@@ -142,14 +142,6 @@ test('a collection run with no collection chosen explains what is missing', asyn
   assert.match($('run-collection').options[0].textContent, /No collections yet/);
 });
 
-test('folders sent from Collections land in the form, even before it has loaded', async () => {
-  const { $, section } = await runs({}, { loaded: false });
-  section.useLocations(['phases_v2/a', 'phases_v2/new']);
-  await section.actions.loadChoices();
-  assert.deepEqual($('run-locations').selectedOptions.map((o) => o.value), ['phases_v2/a', 'phases_v2/new']);
-  assert.equal($('run-source').value, 'storage');
-});
-
 test('a collection sent from Collections is chosen as the source, even before the form has loaded', async () => {
   const { $, section, calls } = await runs({}, { loaded: false });
   section.useCollection('c1');
@@ -354,7 +346,7 @@ test('the Manage collections link follows a collection chosen by saving, by a ha
   assert.equal($('run-collection').value, 'c2');
   assert.equal($('run-manage-collection').href, '#/collections/c2');
 
-  section.useLocations(['phases_v2/b'], 'c1');
+  section.useCollection('c1');
   await section.show(parse('#/runs/new'), { entering: true });
   assert.equal($('run-collection').value, 'c1');
   assert.equal($('run-manage-collection').href, '#/collections/c1');

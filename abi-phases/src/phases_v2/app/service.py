@@ -10,7 +10,6 @@ import re
 from dataclasses import asdict
 from datetime import datetime
 from typing import Any
-from uuid import uuid4
 
 from phases_v2.app.app_resources import AppResources
 from phases_v2.app.pipeline_management import PipelineManagement
@@ -112,9 +111,7 @@ class PipelineAppService:
         request itself, so the orchestrator never sees the request without
         them; ingestion then reads only those artifacts.
         """
-        from google.protobuf.json_format import MessageToDict
-
-        from phases_v2.app.contracts.app_validation import validate_command
+        from phases_v2.sources.phases_v2_sources import submit_with_manifest
 
         inputs = {
             "locations": [],
@@ -136,23 +133,13 @@ class PipelineAppService:
             raise ValueError(
                 "This collection has no papers yet. Add papers before running it."
             )
-        request_id = str(uuid4())
-        manifest = validate_command(
-            "CollectionManifest",
-            {
-                "request_id": request_id,
-                "source_query_id": collection_id,
-                "artifacts": resolution.manifest(),
-            },
-        )
-        self._rows.write_rows(
-            "source_manifests",
-            [MessageToDict(manifest, preserving_proto_field_name=True)],
-        )
-        return submit(
+        return submit_with_manifest(
+            self._rows,
             self._requests,
-            request_id=request_id,
-            locations=[f"{COLLECTION_SOURCE}{collection_id}"],
+            contract="CollectionManifest",
+            source_id=collection_id,
+            artifacts=resolution.manifest(),
+            location=f"{COLLECTION_SOURCE}{collection_id}",
             chunker_id=chunker_id,
             prompt_ids=prompt_ids,
             model_id=model_id,

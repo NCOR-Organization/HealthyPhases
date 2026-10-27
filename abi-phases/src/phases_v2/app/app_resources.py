@@ -35,6 +35,7 @@ from phases_v2.paper_collections.interfaces import (
     ResolvedPaper,
 )
 from phases_v2.ports import RowStore
+from phases_v2.sql import literal
 
 MAX_MEMBERS = 500
 #: Papers listed on a collection's page; counts always cover all of them.
@@ -272,19 +273,22 @@ class AppResources:
     ) -> dict[str, Any]:
         self._writable()
         command = validate_command("UpdateCollection", payload)
-        return self._save(
-            self.collection(collection_id),
-            name=command.name.strip(),
-            description=command.description.strip(),
-        )
+        current = self.collection(collection_id)
+        name = command.name.strip()
+        if self.upload_folder(collection_id) in current["locations"]:
+            self._name_upload_folder(collection_id, name)
+        return self._save(current, name=name, description=command.description.strip())
 
     def add_members(
         self, collection_id: str, payload: dict[str, Any]
     ) -> dict[str, Any]:
         self._writable()
         command = validate_command("AddCollectionMembers", payload)
-        current = self.collection(collection_id)
+        self.collection(collection_id)
         added = self._members(self._commands(command), datetime.now(UTC))
+        # Checking members reads storage and PubMed; re-read the collection only
+        # now, so a change saved meanwhile is kept rather than overwritten.
+        current = self.collection(collection_id)
         members = add_members(current["members"], added)
         self._limit(members)
         return self._save(current, members=members)
@@ -308,26 +312,40 @@ class AppResources:
 
     def add_upload_folder(self, collection_id: str) -> dict[str, Any]:
         """Make the upload folder a member, and name it in the folder lists."""
-        rows = self._writable()
+        self._writable()
         current = self.collection(collection_id)
         prefix = self.upload_folder(collection_id)
         if prefix in current["locations"]:
             return current
         now = datetime.now(UTC)
-        rows.write_rows(
-            "input_locations",
-            [
-                {
-                    "prefix": prefix,
-                    "name": f"{current['name']} uploads",
-                    "created_at": now,
-                }
-            ],
-        )
+        self._name_upload_folder(collection_id, current["name"], now)
         member = folder_member(prefix, uploads=True, added_at=now)
         return self._save(current, members=add_members(current["members"], [member]))
 
     # -- helpers --------------------------------------------------------
+
+    def _name_upload_folder(
+        self, collection_id: str, name: str, created_at: datetime | None = None
+    ) -> None:
+        """Name the upload folder after the collection, in the folder lists."""
+        prefix = self.upload_folder(collection_id)
+        if created_at is None:
+            existing = self._writable().query(
+                f"SELECT created_at FROM input_locations WHERE prefix = {literal(prefix)}"
+            )
+            created_at = existing[0]["created_at"] if existing else datetime.now(UTC)
+        suffix = " uploads"
+        self._writable().write_rows(
+            "input_locations",
+            [
+                {
+                    "prefix": prefix,
+                    # Folder names are at most 100 characters, as when created.
+                    "name": name[: 100 - len(suffix)] + suffix,
+                    "created_at": created_at,
+                }
+            ],
+        )
 
     def _save(self, current: dict[str, Any], **changes: Any) -> dict[str, Any]:
         row = {
