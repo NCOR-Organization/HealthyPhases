@@ -11,7 +11,7 @@ function recorders() {
     create(root, ctx) {
       log.push(['create', name]);
       return {
-        show: (route) => log.push(['show', name, ...route.parts]),
+        show: (route, options = {}) => log.push(['show', name, ...route.parts, ...(options.entering ? ['entering'] : [])]),
         hide: () => log.push(['hide', name]),
         refresh: () => log.push(['refresh', name]),
         ctx,
@@ -105,4 +105,15 @@ test('the theme follows the Nexus page when it is readable', async () => {
   boot({ modules, every() {} });
   assert.equal(dom.document.documentElement.dataset.theme, 'dark');
   delete globalThis.MutationObserver;
+});
+
+test('a section re-entered from another one is told so, and only then', async () => {
+  const dom = install({ hash: '#/collections' });
+  const { boot } = await load('shell.js');
+  const { log, modules } = recorders();
+  boot({ modules, every() {} });
+  for (const hash of ['#/runs/new', '#/collections/c9', '#/collections/new']) { dom.location.hash = hash; dom.hashchange(); }
+  assert.deepEqual(log.filter(([kind]) => kind === 'show'), [
+    ['show', 'collections'], ['show', 'runs', 'new'], ['show', 'collections', 'c9', 'entering'], ['show', 'collections', 'new'],
+  ]);
 });

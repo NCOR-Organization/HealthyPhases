@@ -145,14 +145,17 @@ export function create(root, ctx) {
     return edit(prompt);
   }
 
-  async function show(route) {
+  // `entering` means coming back from another section: the lists are re-read first,
+  // so anything created elsewhere is there, and an open draft is kept. Within the
+  // section, following a link to what is already open (New, or a list item) re-renders it.
+  async function show(route, { entering = false } = {}) {
     const id = route.parts[0] || '';
-    if (!state.loaded) {
-      try { await reload(); } catch (error) { message('pr-message', `Could not load prompts: ${error.message}`, 'bad'); return; }
+    if (!state.loaded || entering) {
+      try { await reload(); } catch (error) { message('pr-message', `Could not load prompts: ${error.message}`, 'bad'); if (!state.loaded) return; }
     }
     // The sidebar link has no id: come back to what was open, draft included.
     if (!id && state.current) { ctx.replace(ctx.href('prompts', [state.current])); return; }
-    if (state.current && id === state.current) return;
+    if (entering && state.current && id === state.current) return;
     state.current = id;
     select(id);
     if (!id) state.current = state.promptId || 'new';

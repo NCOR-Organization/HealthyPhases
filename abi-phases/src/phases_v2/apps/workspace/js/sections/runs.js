@@ -42,7 +42,7 @@ const template = () => `
     <section class="card" id="run-detail" hidden aria-labelledby="run-detail-title">
       <div class="card-head"><h2 id="run-detail-title" tabindex="-1">Run details</h2><a id="run-detail-close" class="button" href="#/runs">Close</a></div>
       <div id="run-detail-content"></div>
-      <div class="row actions"><a id="run-detail-results" class="button" href="#/search" hidden>Search this run's findings</a></div>
+      <div class="row actions"><a id="run-detail-results" class="button" href="#/search" hidden>Search with this run's prompts and model</a></div>
     </section>
   </div>
 
@@ -121,13 +121,21 @@ export function create(root, ctx) {
 
   // ---- Choices ----
 
+  // Every way of choosing a collection goes through here, so its link follows.
+  function chooseCollection(id) {
+    const collection = state.collections.find((c) => c.collection_id === id);
+    $('run-collection').value = collection ? id : '';
+    $('run-manage-collection').href = ctx.href('collections', collection ? [collection.collection_id] : []);
+    return collection;
+  }
+
   function applyPending() {
     const { locations, collectionId, addPrompts, removePrompts } = state.pending;
     if (locations) {
       $('run-source').value = 'storage';
       sourceChanged(false);
       selectValues($('run-locations'), locations, folderName);
-      $('run-collection').value = collectionId;
+      chooseCollection(collectionId);
     }
     for (const option of $('run-prompts').options) {
       if (addPrompts.includes(option.value)) option.selected = true;
@@ -140,6 +148,7 @@ export function create(root, ctx) {
   function renderCollections() {
     const current = $('run-collection').value;
     fill($('run-collection'), [{ collection_id: '', name: 'Choose folders directly' }, ...state.collections], 'collection_id', (c) => c.name, [current || '']);
+    chooseCollection(current);
   }
 
   function renderPipelines(pick) {
@@ -181,16 +190,17 @@ export function create(root, ctx) {
     await refreshPipelines().catch((error) => message('run-saved-message', error.message, 'bad'));
   }
 
-  function ensureChoices() {
-    if (!state.loading) {
-      message('run-app-message', 'Loading the run options...');
-      state.loading = loadChoices()
-        .then(() => message('run-app-message'))
-        .catch((error) => {
-          state.loading = null;
-          message('run-app-message', `Could not load the run options: ${error.message}. Use Refresh, or reload the app.`, 'bad');
-        });
-    }
+  // Loads the choices once, or again when `reload` asks for lists changed elsewhere.
+  function ensureChoices(reload = false) {
+    if (state.loading && !reload) return state.loading;
+    if (!state.ready) message('run-app-message', 'Loading the run options...');
+    state.loading = (state.loading || Promise.resolve())
+      .then(loadChoices)
+      .then(() => message('run-app-message'))
+      .catch((error) => {
+        state.loading = null;
+        message('run-app-message', `Could not load the run options: ${error.message}. Use Refresh, or reload the app.`, 'bad');
+      });
     return state.loading;
   }
 
@@ -282,7 +292,7 @@ export function create(root, ctx) {
     sourceChanged(false);
     await loadChoices();
     selectValues($('run-locations'), pipeline.inputs.locations, folderName);
-    $('run-collection').value = '';
+    chooseCollection('');
     for (const option of $('run-prompts').options) option.selected = pipeline.inputs.prompt_ids.includes(option.value);
     $('run-model').value = pipeline.inputs.model_id;
     $('run-chunker').value = pipeline.inputs.chunker_id;
@@ -318,7 +328,7 @@ export function create(root, ctx) {
     const saved = await phases('/collections', { method: 'POST', body: { name: $('run-quick-name').value.trim(), locations: selected($('run-locations')) } });
     state.collections = (await phases('/collections')).collections;
     renderCollections();
-    $('run-collection').value = saved.collection_id;
+    chooseCollection(saved.collection_id);
     $('run-quick-name').value = '';
     message('run-collection-message', `Collection "${saved.name}" saved.`, 'ok');
   }
@@ -387,12 +397,11 @@ export function create(root, ctx) {
   $('run-source').addEventListener('change', () => sourceChanged());
   $('run-pubmed-query').addEventListener('change', refreshDocuments);
   $('run-refresh-pubmed').addEventListener('click', loadPubmed);
-  $('run-locations').addEventListener('change', () => { $('run-collection').value = ''; refreshDocuments(); });
+  $('run-locations').addEventListener('change', () => { chooseCollection(''); refreshDocuments(); });
   $('run-chunker').addEventListener('change', refreshWarning);
   $('run-refresh-documents').addEventListener('click', refreshDocuments);
   $('run-collection').addEventListener('change', () => {
-    const collection = state.collections.find((c) => c.collection_id === $('run-collection').value);
-    $('run-manage-collection').href = ctx.href('collections', collection ? [collection.collection_id] : []);
+    const collection = chooseCollection($('run-collection').value);
     if (collection) { selectValues($('run-locations'), collection.locations, folderName); refreshDocuments(); }
   });
   $('run-quick-save').addEventListener('click', () => action($('run-quick-save'), 'run-collection-message', quickSave));
@@ -405,7 +414,9 @@ export function create(root, ctx) {
 
   ctx.every(10000, () => { if (state.active && state.view === 'list' && !document.hidden) loadRequests(); });
 
-  async function show(route) {
+  // Coming back from another section re-reads the lists, so a collection, folder or
+  // prompt created there is offered here; the draft is kept.
+  async function show(route, { entering = false } = {}) {
     state.active = true;
     const part = route.parts[0] || '';
     state.view = part === 'new' ? 'new' : 'list';
@@ -414,12 +425,12 @@ export function create(root, ctx) {
     for (const [id, view] of [['run-tab-list', 'list'], ['run-tab-new', 'new']]) {
       if (view === state.view) $(id).setAttribute('aria-current', 'page'); else $(id).removeAttribute('aria-current');
     }
-    if (state.view === 'new') return ensureChoices();
+    if (state.view === 'new') return ensureChoices(entering);
     const opened = part !== state.requestId;
     state.requestId = part;
     // Names for prompts, models and sources come with the choices.
-    ensureChoices();
-    if (!state.pubmedQueries.length) loadPubmed();
+    ensureChoices(entering);
+    if (!state.pubmedQueries.length || entering) loadPubmed();
     await state.loading;
     await loadRequests();
     if (part && opened) $('run-detail-title').focus();
@@ -439,20 +450,17 @@ export function create(root, ctx) {
     refresh,
     state,
     // Called from Collections ("Use in a new run").
+    // Hand-offs wait for the next load of the choices, which entering Runs triggers.
     useLocations(locations, collectionId = '') {
       state.pending.locations = locations;
       state.pending.collectionId = collectionId;
-      if (state.ready) applyPending();
+      return state.active ? ensureChoices(true) : undefined;
     },
     // Called from Prompts ("Add to a new run", and after saving a new version).
     selectPrompts(add = [], remove = []) {
       state.pending.addPrompts.push(...add);
       state.pending.removePrompts.push(...remove);
-      if (!state.ready) return undefined;
-      // A version saved a moment ago is not among the options yet.
-      const known = new Set([...$('run-prompts').options].map((option) => option.value));
-      if (add.every((id) => known.has(id))) return applyPending();
-      return loadChoices().catch((error) => message('run-app-message', `Could not refresh the run options: ${error.message}`, 'bad'));
+      return state.active ? ensureChoices(true) : undefined;
     },
     actions: {
       submit, saveConfiguration, loadConfiguration, runConfiguration, quickSave, loadRequests, loadRequestDetail,

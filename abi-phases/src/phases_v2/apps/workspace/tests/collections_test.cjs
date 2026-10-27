@@ -298,3 +298,64 @@ test('the relations output format points to the full example', async () => {
   assert.match(formatExample('relations'), /probabilistic_processes/);
   await settle(1);
 });
+
+// ---- Review round 1 ----
+
+test('coming back to Collections shows a collection saved in Runs, and its link opens it', async () => {
+  const { $, section, parse } = await collections();
+  await section.show(parse('#/collections/c1'));
+  globalThis.fetch = routeFetch({
+    '/phases_v2/api/locations': LOCATIONS, '/phases_v2/api/documents': preview('paper.pdf'),
+    '/phases_v2/api/collections': { collections: [...COLLECTIONS.collections, { collection_id: 'c9', name: 'Saved in Runs', locations: ['phases_v2/a'] }] },
+  });
+  await section.show(parse('#/collections/c9'), { entering: true });
+  assert.equal($('col-name').value, 'Saved in Runs');
+  assert.doesNotMatch($('col-message').textContent, /no longer exists/);
+  assert.ok($('col-list').children.some((b) => /Saved in Runs/.test(b.innerHTML)));
+});
+
+test('coming back keeps an open collection draft while re-reading the lists', async () => {
+  const { $, section, parse, calls } = await collections();
+  await section.show(parse('#/collections/c1'));
+  $('col-name').value = 'Edited but not saved';
+  const before = calls.filter((c) => c.url.endsWith('/collections')).length;
+  await section.show(parse('#/collections/c1'), { entering: true });
+  assert.equal($('col-name').value, 'Edited but not saved');
+  assert.ok(calls.filter((c) => c.url.endsWith('/collections')).length > before);
+});
+
+test('New collection always gives a blank form, even over a draft or after an archive', async () => {
+  const { $, a, section, parse } = await collections({ 'DELETE /phases_v2/api/collections/c1': { archived: true } });
+  await section.show(parse('#/collections/new'));
+  $('col-name').value = 'Abandoned draft';
+  await section.show(parse('#/collections/new'));
+  assert.equal($('col-name').value, '');
+  await section.show(parse('#/collections/c1'));
+  const archived = a.archive();
+  await $('confirm-ok').onclick();
+  await archived;
+  $('col-name').value = 'Typed after archiving';
+  await section.show(parse('#/collections/new'));
+  assert.equal($('col-name').value, '');
+});
+
+test('New prompt gives a blank form after Duplicate', async () => {
+  const { $, a, section, parse } = await prompts();
+  await section.show(parse('#/prompts/causes-cccccccc'));
+  a.duplicate();
+  assert.equal($('pr-name').value, '<b>Causes</b> copy');
+  await section.show(parse('#/prompts/new'));
+  assert.equal($('pr-name').value, '');
+  assert.equal($('pr-template').value, '');
+});
+
+test('coming back to Prompts lists a version saved elsewhere and keeps the open draft', async () => {
+  const added = { prompt_id: 'later-eeeeeeee', name: 'Later', template: 'L {chunk_text}', output_key: 'results' };
+  const { $, section, parse } = await prompts();
+  await section.show(parse('#/prompts/causes-cccccccc'));
+  $('pr-template').value = 'Draft {chunk_text}';
+  globalThis.fetch = routeFetch({ '/phases_v2/api/prompts': { prompts: [...PROMPTS.prompts, added] } });
+  await section.show(parse('#/prompts/causes-cccccccc'), { entering: true });
+  assert.equal($('pr-template').value, 'Draft {chunk_text}');
+  assert.ok($('pr-list').children.some((b) => /^Later/.test(b.innerHTML)));
+});

@@ -46,16 +46,14 @@ Mounted onto the existing ABI FastAPI app via `ABIModule.api()`
 | --- | --- | --- |
 | GET | `/phases/api/search/semantic` | `q`, `k`, `score_threshold`, `pipeline[]` |
 | GET | `/phases/api/search/keyword` | `q`, `limit`, `pipeline[]` |
-| GET | `/phases/api/pipelines` | distinct pipeline names (UI facets) |
-| GET | `/phases/app/` | the single-page UI |
+| GET | `/phases/api/pipelines` | distinct pipeline names (facets) |
 
 `pipeline` is repeatable and filters by extraction pipeline
 (`causes` / `how` / `when` / `where` / `effects` / `conditional_statement` / ...).
 
 ## Running
 
-The app is part of the `phases` module, so it comes up with the ABI API server.
-Open the UI at `/phases/app/` (or hit `/phases` for a redirect to the page).
+The search API is part of the `phases` module, so it comes up with the ABI API server.
 It requires `OPENAI_API_KEY` in the environment for query embeddings, and a
 triple/vector store already populated by the ingestion + extraction +
 embedding Dagster jobs.

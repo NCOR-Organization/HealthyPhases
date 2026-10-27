@@ -303,6 +303,7 @@ mark { background: var(--mark); color: inherit; padding: 0 .1rem; border-radius:
   .nav svg { display: none; }
   main { padding: 1.2rem 1rem 3rem; }
   h1 { font-size: 1.5rem; }
+  button, .button { white-space: normal; text-align: center; }
   .card { padding: 1rem; }
   .grid, .grid.three, .grid.four, .steps { grid-template-columns: 1fr; }
   .segmented { grid-template-columns: 1fr; }

@@ -119,3 +119,10 @@ test('binary downloads check the content type and explain a missing file', async
   globalThis.fetch = async () => ({ ok: false, status: 404 });
   await assert.rejects(fetchBlob('/paper', { notFound: 'Source PDF is unavailable.' }), /Source PDF is unavailable/);
 });
+
+test('a download answered with HTML by the wrong server keeps the connection diagnostic', async () => {
+  install();
+  const { fetchBlob } = await load('api.js');
+  globalThis.fetch = async () => response('<html>Next.js</html>', { type: 'text/html' });
+  await assert.rejects(fetchBlob('/export', { accept: 'text/csv' }), /Expected JSON from \/export but got 200/);
+});

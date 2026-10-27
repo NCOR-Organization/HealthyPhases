@@ -4,7 +4,7 @@
 // so a link or a reload shows the same results. Pages come from one dataset
 // snapshot, loaded by infinite scroll or the Load more button.
 
-import { fetchBlob, phases, saveBlob, search as searchApi } from '../api.js';
+import { fetchBlob, phases, PREFIXES, saveBlob, search as searchApi } from '../api.js';
 import { $, esc, message } from '../ui.js';
 import { highlight, parsePayload, probabilisticRelations, renderExtraction } from './search_render.js';
 
@@ -150,7 +150,7 @@ export function create(root, ctx) {
     status.textContent = '';
     try {
       const params = new URLSearchParams({ item_id: hit.item_id });
-      const blob = await fetchBlob(`/phases_v2/api/search/paper?${params}`, { notFound: 'Source PDF is unavailable.' });
+      const blob = await fetchBlob(`${PREFIXES.search}/paper?${params}`, { notFound: 'Source PDF is unavailable.' });
       saveBlob(blob, hit.paper_name || 'paper.pdf');
     } catch (error) {
       status.textContent = error.status && error.status !== 404 ? `Download failed (${error.status}). Please try again.` : error.message;
@@ -322,7 +322,7 @@ export function create(root, ctx) {
     params.delete('offset');
     params.set('mode', active.mode);
     try {
-      const blob = await fetchBlob(`/phases_v2/api/search/export?${params}`, { signal: state.exportController.signal, accept: 'text/csv' });
+      const blob = await fetchBlob(`${PREFIXES.search}/export?${params}`, { signal: state.exportController.signal, accept: 'text/csv' });
       if (active !== state.activeSearch) return;
       saveBlob(blob, `healthyphases-search-${new Date().toISOString().slice(0, 10)}.csv`);
       message('sr-export-status', 'CSV downloaded with every matching result.', 'ok');
@@ -350,8 +350,8 @@ export function create(root, ctx) {
   }
   setMode('semantic');
 
-  async function show(route) {
-    if (!state.started) {
+  async function show(route, { entering = false } = {}) {
+    if (!state.started || entering) {
       state.started = true;
       loadFacets();
     }

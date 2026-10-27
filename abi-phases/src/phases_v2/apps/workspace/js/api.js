@@ -108,8 +108,9 @@ export async function fetchBlob(path, { signal, accept, notFound } = {}) {
   const type = response.headers?.get?.('content-type') || '';
   if (!response.ok || (accept && !type.includes(accept))) {
     if (response.status === 404 && notFound) throw new ApiError(notFound, 404);
-    let message = statusMessage(response.status);
-    try { message = errorMessage(await readJson(response, url), response.status); } catch (_notJson) { /* keep the status message */ }
+    // A body that is not JSON keeps readJson's diagnostic: usually the wrong server answered.
+    let message;
+    try { message = errorMessage(await readJson(response, url), response.status); } catch (notJson) { message = notJson.message; }
     throw new ApiError(message, response.status);
   }
   return response.blob();

@@ -132,9 +132,10 @@ test('folders sent from Collections land in the form, even before it has loaded'
 
 test('a prompt version saved in Prompts replaces the one it came from in the next run', async () => {
   const added = { prompt_id: 'newest-dddddddd', name: 'Causes', template: 'd {chunk_text}', output_key: 'causes' };
-  const { $, section } = await runs();
+  const { $, section, parse } = await runs();
   globalThis.fetch = routeFetch({ ...CHOICES, '/phases_v2/api/prompts': { prompts: [...CHOICES['/phases_v2/api/prompts'].prompts, added] } });
-  await section.selectPrompts(['newest-dddddddd'], ['causes-cccccccc']);
+  section.selectPrompts(['newest-dddddddd'], ['causes-cccccccc']);
+  await section.show(parse('#/runs/new'), { entering: true });
   const chosen = $('run-prompts').selectedOptions.map((o) => o.value);
   assert.ok(chosen.includes('newest-dddddddd'));
   assert.ok(!chosen.includes('causes-cccccccc'));
@@ -152,7 +153,11 @@ test('a refresh keeps the draft and shows newly added options', async () => {
 });
 
 test('saving folders as a collection selects the new collection', async () => {
-  const { $, a, calls } = await runs({ 'POST /phases_v2/api/collections': { collection_id: 'c2', name: 'Quick', locations: ['phases_v2/a'] } });
+  const quick = { collection_id: 'c2', name: 'Quick', locations: ['phases_v2/a'] };
+  const { $, a, calls } = await runs({
+    'POST /phases_v2/api/collections': quick,
+    'GET /phases_v2/api/collections': { collections: [...CHOICES['/phases_v2/api/collections'].collections, quick] },
+  });
   choose($('run-locations'), ['phases_v2/a']);
   $('run-quick-name').value = ' Quick ';
   await a.quickSave();
@@ -279,4 +284,52 @@ test('the new-run view and the list are separate views with their own tab', asyn
   assert.equal($('run-view-list').hidden, true);
   assert.equal($('run-tab-new').attributes['aria-current'], 'page');
   assert.equal($('run-tab-list').attributes['aria-current'], undefined);
+});
+
+// ---- Review round 1 ----
+
+test('coming back to Runs offers a folder and a collection created in Collections, keeping the draft', async () => {
+  const { $, section, parse } = await runs();
+  await section.show(parse('#/runs/new'));
+  choose($('run-prompts'), ['causes-cccccccc']);
+  choose($('run-locations'), ['phases_v2/a']);
+  section.hide();
+  globalThis.fetch = routeFetch({
+    ...CHOICES,
+    '/phases_v2/api/locations': { locations: [...CHOICES['/phases_v2/api/locations'].locations, { prefix: 'phases_v2/fresh', name: 'Fresh folder' }] },
+    '/phases_v2/api/collections': { collections: [...CHOICES['/phases_v2/api/collections'].collections, { collection_id: 'c9', name: 'Made elsewhere', locations: ['phases_v2/fresh'] }] },
+  });
+  await section.show(parse('#/runs/new'), { entering: true });
+  assert.ok($('run-locations').options.some((o) => o.value === 'phases_v2/fresh'));
+  assert.ok($('run-collection').options.some((o) => o.value === 'c9'));
+  assert.deepEqual($('run-prompts').selectedOptions.map((o) => o.value), ['causes-cccccccc']);
+  assert.deepEqual($('run-locations').selectedOptions.map((o) => o.value), ['phases_v2/a']);
+});
+
+test('without re-entering, Runs does not reload its choices on every route change', async () => {
+  const { section, parse, calls } = await runs();
+  await section.show(parse('#/runs/new'));
+  const before = calls.filter((c) => c.url.endsWith('/phases_v2/api/locations')).length;
+  await section.show(parse('#/runs/new'));
+  assert.equal(calls.filter((c) => c.url.endsWith('/phases_v2/api/locations')).length, before);
+});
+
+test('the Manage collections link follows a collection chosen by saving, by a hand-off or by loading a configuration', async () => {
+  const { $, a, section, parse } = await runs({ 'POST /phases_v2/api/collections': { collection_id: 'c2', name: 'Quick', locations: ['phases_v2/a'] } });
+  globalThis.fetch = routeFetch({ ...CHOICES, 'POST /phases_v2/api/collections': { collection_id: 'c2', name: 'Quick', locations: ['phases_v2/a'] }, '/phases_v2/api/collections': { collections: [...CHOICES['/phases_v2/api/collections'].collections, { collection_id: 'c2', name: 'Quick', locations: ['phases_v2/a'] }] } });
+  choose($('run-locations'), ['phases_v2/a']);
+  $('run-quick-name').value = 'Quick';
+  await a.quickSave();
+  assert.equal($('run-collection').value, 'c2');
+  assert.equal($('run-manage-collection').href, '#/collections/c2');
+
+  section.useLocations(['phases_v2/b'], 'c1');
+  await section.show(parse('#/runs/new'), { entering: true });
+  assert.equal($('run-collection').value, 'c1');
+  assert.equal($('run-manage-collection').href, '#/collections/c1');
+
+  $('run-saved').value = 'p1';
+  await a.loadConfiguration();
+  assert.equal($('run-collection').value, '');
+  assert.equal($('run-manage-collection').href, '#/collections');
 });

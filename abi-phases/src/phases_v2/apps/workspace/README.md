@@ -54,19 +54,25 @@ restores it when the app opens without one.
 ## Sections
 
 Each module in `js/sections/` exports `create(root, ctx)` and returns
-`{ show(route), hide(), refresh() }`. The shell creates a section on its first visit and
-keeps it, so a draft survives a visit elsewhere. It calls `refresh()` on the open section
-when the page becomes visible again or the window regains focus, so changes made outside
-the app appear. Sections that follow work in progress also poll every 10 seconds while
+`{ show(route, { entering }), hide(), refresh() }`. The shell creates a section on its
+first visit and keeps it, so a draft survives a visit elsewhere. When the user comes back
+to a section from another one, `show` receives `entering: true` and the section re-reads
+its lists first, so a collection, folder, prompt or saved search created elsewhere is
+there; an open draft is kept. Within a section, following a link to what is already open
+(New collection, New prompt, a list item) re-renders it. The shell also calls `refresh()`
+on the open section when the page becomes visible again or the window regains focus, so
+changes made outside the app appear. Sections that follow work in progress also poll every 10 seconds while
 they are open and visible: run requests, downloads and enrichment progress.
 
 `ctx` gives a section `href`, `navigate`, `replace` (record state in the URL without
 re-rendering), `section(name)` (reach another section, for example to hand folders to
-the new-run form), `toast`, `confirm` and `every`.
+the new-run form; hand-offs are applied the next time Runs loads its choices, which
+entering it does), `toast`, `confirm` and `every`.
 
 Every destructive or costly action asks first: archiving a collection, deleting a
 schedule, starting a full ingestion, queueing OpenAlex enrichment and running a saved
-configuration.
+configuration. While the confirmed action is being sent, Cancel and Escape are held
+back, so the dialog only ever reports what actually happened.
 
 ## Tests
 

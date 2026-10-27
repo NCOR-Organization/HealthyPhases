@@ -69,8 +69,10 @@ export function boot({ modules = MODULES, every = (ms, work) => setInterval(work
     }
     document.title = `${TITLES[route.section]} · HealthyPhases`;
     const first = !active;
+    const existed = Boolean(instances[route.section]);
     active = route.section;
-    section(route.section).show(route);
+    // A section created earlier is told it is being re-entered, so it re-reads its lists.
+    section(route.section).show(route, { entering: entering && existed });
     if (entering && !first) $(`section-${route.section}`).querySelector('h1')?.focus();
   }
 

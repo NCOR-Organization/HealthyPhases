@@ -495,3 +495,31 @@ test('an older enrichment status response cannot replace newer progress', async 
   await old;
   assert.match($('lib-enrichment-requests').children[0].innerHTML, /new/);
 });
+
+// ---- Review round 1 ----
+
+test('the Enrichment view navigates to Papers when OpenAlex is unavailable', async () => {
+  const { lib, ctx, parse } = await library();
+  globalThis.fetch = routeFetch({ '/pubmed/api/queries': { queries: [] }, '/openalex/api/status': () => response({ detail: 'Not found' }, { ok: false, status: 404 }), '/openalex/api/requests': { requests: [] } });
+  await lib.show(parse('#/library/enrichment'));
+  await settle();
+  assert.equal(ctx.navigated.at(-1), '#/library');
+});
+
+test('a saved search that no longer exists falls back to the placeholder in every picker', async () => {
+  const { $, a } = await library();
+  $('lib-filter-query').value = 'gone';
+  globalThis.fetch = async () => response({ queries: [{ query_id: 'q1', query: 'solitude', created_at: '2026-09-17' }] });
+  await a.history();
+  assert.equal($('lib-filter-query').value, '');
+  assert.equal($('lib-filter-query').children[0].textContent, 'All searches');
+});
+
+test('coming back to the Library re-reads saved searches', async () => {
+  const { lib, parse } = await library();
+  const calls = [];
+  globalThis.fetch = routeFetch({ '/pubmed/api/queries': { queries: [] }, '/openalex/api/status': { available: false }, '/pubmed/api/schedules': { schedules: [] } }, calls);
+  await lib.show(parse('#/library/schedules'));
+  await lib.show(parse('#/library/schedules'), { entering: true });
+  assert.equal(calls.filter((c) => c.url === '/pubmed/api/queries').length, 2);
+});

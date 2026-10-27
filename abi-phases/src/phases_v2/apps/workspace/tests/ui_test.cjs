@@ -139,3 +139,39 @@ test('toasts appear in the live region', async () => {
   assert.equal(dom.$('toasts').children[0].textContent, 'Saved.');
   assert.equal(dom.$('toasts').children[0].className, 'toast ok');
 });
+
+test('confirmation: while the action is sending, Cancel and Escape cannot report a cancel', async () => {
+  const dom = install();
+  const { confirmAction } = await load('ui.js');
+  let finish;
+  const pending = confirmAction({ title: 'Queue?', confirmLabel: 'Queue', run: () => new Promise((resolve) => { finish = resolve; }) });
+  let outcome;
+  pending.then((value) => { outcome = value; });
+  const sending = dom.$('confirm-ok').onclick();
+  assert.equal(dom.$('confirm-cancel').disabled, true);
+  assert.equal(dom.$('confirm-ok').disabled, true);
+  dom.$('confirm-cancel').onclick();
+  const escape = { prevented: false, preventDefault() { this.prevented = true; } };
+  dom.$('confirm-dialog').oncancel(escape);
+  assert.equal(escape.prevented, true, 'Escape is held back while sending');
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(outcome, undefined, 'nothing is reported before the action returns');
+  assert.equal(dom.$('confirm-dialog').open, true);
+  finish();
+  await sending;
+  assert.equal(await pending, true, 'the real outcome is reported');
+  assert.equal(dom.$('confirm-dialog').open, false);
+});
+
+test('confirmation: after a failed send, Cancel works again', async () => {
+  const dom = install();
+  const { confirmAction } = await load('ui.js');
+  const pending = confirmAction({ title: 'Queue?', confirmLabel: 'Queue', run: async () => { throw new Error('Busy'); } });
+  await dom.$('confirm-ok').onclick();
+  assert.equal(dom.$('confirm-cancel').disabled, false);
+  const escape = { prevented: false, preventDefault() { this.prevented = true; } };
+  dom.$('confirm-dialog').oncancel(escape);
+  assert.equal(escape.prevented, false);
+  dom.$('confirm-cancel').onclick();
+  assert.equal(await pending, false);
+});

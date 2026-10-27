@@ -141,6 +141,8 @@ export function toast(text, kind = 'ok') {
 
 // A confirmation dialog for destructive or costly actions. `run` does the work
 // once confirmed; if it fails the dialog stays open with the error, ready to retry.
+// While it is sending, Cancel and Escape do nothing: the outcome is not known yet,
+// and reporting "cancelled" for work that then happens invites a duplicate.
 // Resolves true once the work succeeded, false when the user cancels.
 export function confirmAction({ title, body = [], confirmLabel, danger = false, option, run = async () => {} }) {
   const dialog = $('confirm-dialog');
@@ -163,30 +165,44 @@ export function confirmAction({ title, body = [], confirmLabel, danger = false, 
   confirm.disabled = false;
   message('confirm-error');
 
+  const cancel = $('confirm-cancel');
+  cancel.disabled = false;
+
   return new Promise((resolve) => {
     let settled = false;
+    let sending = false;
     const finish = (result) => {
       if (settled) return;
       settled = true;
       dialog.onclose = null;
+      dialog.oncancel = null;
       if (dialog.open) dialog.close();
       resolve(result);
     };
-    dialog.onclose = () => finish(false);
-    $('confirm-cancel').onclick = () => finish(false);
+    dialog.oncancel = (event) => { if (sending) event.preventDefault(); };
+    dialog.onclose = () => { if (!sending) finish(false); };
+    cancel.onclick = () => { if (!sending) finish(false); };
     confirm.onclick = async () => {
+      if (sending) return;
+      sending = true;
       confirm.disabled = true;
+      cancel.disabled = true;
       message('confirm-error');
       try {
         await run(optionInput.checked);
+        sending = false;
         finish(true);
       } catch (error) {
+        sending = false;
         message('confirm-error', error?.message || String(error), 'bad');
+        // Closed some other way while sending: the work failed, so this is a cancel.
+        if (!dialog.open) finish(false);
       } finally {
         confirm.disabled = false;
+        cancel.disabled = false;
       }
     };
     dialog.showModal();
-    $('confirm-cancel').focus();
+    cancel.focus();
   });
 }

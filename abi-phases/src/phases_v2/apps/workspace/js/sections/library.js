@@ -5,7 +5,7 @@
 
 import { openalex, pubmed } from '../api.js';
 import {
-  $, action, emptyRow, esc, formatDate, latest, message, pagination, plural, statusPill, tableHtml,
+  $, action, emptyRow, esc, fill, formatDate, latest, message, pagination, plural, statusPill, tableHtml,
 } from '../ui.js';
 
 const VIEWS = {
@@ -259,20 +259,9 @@ export function create(root, ctx) {
 
   async function history() {
     state.queries = (await pubmed('/queries')).queries;
+    // A choice that no longer exists falls back to the placeholder rather than a blank select.
     const fillQueries = (id, placeholder, label = queryLabel, chosen = $(id).value) => {
-      const select = $(id);
-      select.replaceChildren();
-      const empty = document.createElement('option');
-      empty.value = '';
-      empty.textContent = placeholder;
-      select.append(empty);
-      for (const q of state.queries) {
-        const option = document.createElement('option');
-        option.value = q.query_id;
-        option.textContent = label(q);
-        select.append(option);
-      }
-      select.value = chosen;
+      fill($(id), [{ query_id: '', placeholder }, ...state.queries], 'query_id', (q) => (q.query_id ? label(q) : q.placeholder), [chosen || '']);
     };
     fillQueries('lib-history', 'Choose a search', queryLabel, state.queryId);
     fillQueries('lib-schedule-search', 'Choose a search', (q) => `${q.query} (${q.start_date || 'any start'} to ${q.end_date || 'any end'}) · ${formatDate(q.created_at)}`);
@@ -527,7 +516,8 @@ export function create(root, ctx) {
     }
     for (const id of ['lib-tab-enrichment', 'lib-enrich-query', 'lib-enrich-library']) $(id).hidden = !state.oaAvailable;
     for (const el of root.querySelectorAll('.oa-filter')) el.hidden = !state.oaAvailable;
-    if (state.view === 'enrichment' && !state.oaAvailable) ctx.replace(ctx.href('library'));
+    // Leave the Enrichment view for Papers, re-rendering it, when OpenAlex is not enabled.
+    if (state.view === 'enrichment' && !state.oaAvailable) ctx.navigate(ctx.href('library'));
   }
 
   function openEnrichment(queryId) {
@@ -648,7 +638,7 @@ export function create(root, ctx) {
   }
 
   let started = false;
-  async function show(route) {
+  async function show(route, { entering = false } = {}) {
     state.active = true;
     const view = VIEWS[route.parts[0]] ? route.parts[0] : 'papers';
     state.view = view;
@@ -660,6 +650,9 @@ export function create(root, ctx) {
     if (!started) {
       started = true;
       initializeEnrichment();
+      await history().catch(report('lib-message'));
+    } else if (entering) {
+      // Searches saved elsewhere since the last visit appear in every picker.
       await history().catch(report('lib-message'));
     }
     if (view === 'papers') {
