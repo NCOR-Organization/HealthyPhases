@@ -5,7 +5,9 @@ upserts. That is not a stylistic preference: ``DatasetSpec.primary_key`` is
 advisory — the store matches upserts against it but enforces no uniqueness — so
 an ``append`` into a keyed dataset duplicates rows silently, with no error to
 notice. Keeping one function in one file makes that invariant reviewable, and
-``store_test`` fails if any other module file writes directly.
+``store_test`` fails if any other module file writes directly. The two ways to
+remove rows, :func:`delete_rows` and :func:`truncate`, live here for the same
+reason.
 """
 
 from __future__ import annotations
@@ -21,6 +23,7 @@ from naas_abi_core.services.dataset.DatasetPort import (
 from naas_abi_core.services.dataset.DatasetService import DatasetService
 
 from phases_v2.datasets.schemas import DATASETS, NAMESPACE
+from phases_v2.sql import in_list
 
 _BY_NAME: dict[str, DatasetSpec] = {spec.name: spec for spec in DATASETS}
 
@@ -76,6 +79,45 @@ def write_rows(
         raise KeyError(f"{name} has no column(s) {', '.join(unknown)}")
 
     dataset.write(name, complete, namespace=NAMESPACE, mode="upsert")
+
+
+# Bounds one DELETE statement; the dataset service takes SQL as a string.
+_DELETE_BATCH = 500
+
+
+def delete_rows(
+    dataset: DatasetService, name: str, column: str, values: list[str]
+) -> int:
+    """Delete the rows of ``name`` whose ``column`` is one of ``values``.
+
+    Nothing in the pipeline deletes: results are corrected by upserting over
+    their own key. This exists for the one case an upsert cannot express — a
+    row whose key has changed, as when ids derived from a prompt's name are
+    re-derived under a new name, leaving the old rows to be removed. Returns
+    how many rows went.
+    """
+    spec = _BY_NAME.get(name)
+    if spec is None:
+        raise KeyError(f"{name!r} is not a phases_v2 dataset")
+    if column not in {c.name for c in spec.columns}:
+        raise KeyError(f"{name} has no column {column!r}")
+
+    deleted = 0
+    unique = sorted(set(values))
+    for start in range(0, len(unique), _DELETE_BATCH):
+        batch = in_list(unique[start : start + _DELETE_BATCH])
+        matching = dataset.query(
+            f"SELECT count(*) AS total FROM {name} WHERE {column} IN {batch}",  # nosec B608 - name and column are checked against the schema above
+            namespace=NAMESPACE,
+        ).rows[0]["total"]
+        if not matching:
+            continue
+        dataset.query(
+            f"DELETE FROM {name} WHERE {column} IN {batch}",  # nosec B608
+            namespace=NAMESPACE,
+        )
+        deleted += int(matching)
+    return deleted
 
 
 def truncate(dataset: DatasetService, name: str) -> None:

@@ -14,13 +14,18 @@ successful extraction whose items never arrived.
 from __future__ import annotations
 
 import json
+import random
+import time
 import uuid
+from collections.abc import Callable
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from phases_v2 import identity
 from phases_v2.extraction.interfaces import (
     FAILED,
+    LEGACY_OUTPUT_KEYS,
     SUCCEEDED,
     ChunkRef,
     ExtractedItemRecord,
@@ -38,6 +43,39 @@ class UnusableResponse(Exception):
     """The model answered, but not in a shape this prompt can use."""
 
 
+@dataclass(frozen=True)
+class RetryPolicy:
+    """How hard to try a call that failed for a reason that may pass.
+
+    Applies only to failures the model adapter marks transient — a dropped
+    connection, a timeout, a rate limit, a provider 5xx. Unusable output is
+    never retried: it is recorded as failed with its reason, so the cost of a
+    prompt that does not produce valid output stays one call per chunk.
+    """
+
+    max_attempts: int = 5
+    base_delay: float = 2.0
+    max_delay: float = 60.0
+
+    def __post_init__(self) -> None:
+        if self.max_attempts < 1:
+            raise ValueError("max_attempts must be at least 1")
+        if self.base_delay < 0 or self.max_delay < 0:
+            raise ValueError("delays must not be negative")
+
+    def delay_before_retry(self, attempt: int) -> float:
+        """Seconds to wait after the ``attempt``-th failure.
+
+        Exponential, capped, with the upper half jittered so the workers of
+        one run do not all come back in the same instant after a shared outage.
+        """
+        ceiling = min(self.max_delay, self.base_delay * 2 ** (attempt - 1))
+        return ceiling * random.uniform(0.5, 1.0)  # nosec B311 - not security
+
+
+DEFAULT_RETRY = RetryPolicy()
+
+
 def parse_items(raw: str, output_key: str) -> tuple[object, list[str]]:
     """Return ``(parsed_response, items)`` or raise :class:`UnusableResponse`.
 
@@ -51,6 +89,11 @@ def parse_items(raw: str, output_key: str) -> tuple[object, list[str]]:
 
     if not isinstance(parsed, dict):
         raise UnusableResponse("response was not a JSON object")
+    if output_key not in parsed:
+        output_key = next(
+            (key for key in LEGACY_OUTPUT_KEYS.get(output_key, ()) if key in parsed),
+            output_key,
+        )
     if output_key not in parsed:
         raise UnusableResponse(
             f"response has no {output_key!r} key; keys were "
@@ -79,8 +122,13 @@ def run_extraction(
     max_chunks: int | None = None,
     run_id: str | None = None,
     workers: int = 20,
+    retry: RetryPolicy = DEFAULT_RETRY,
+    sleep: Callable[[float], None] = time.sleep,
 ) -> ExtractionReport:
     """Extract from every chunk that has no succeeded extraction yet.
+
+    A call that fails transiently is retried per ``retry`` before the chunk is
+    recorded as failed; ``sleep`` is injectable so tests need not wait.
 
     ``run_id`` may be supplied so a caller that already has an identity for the
     work — a run request, say — can find this run's counts later by that id
@@ -114,6 +162,8 @@ def run_extraction(
                 prompt=prompt,
                 model_id=model_id,
                 run_id=run_id,
+                retry=retry,
+                sleep=sleep,
             )
 
         pending = {submit(chunk) for chunk in outstanding[:workers]}
@@ -163,12 +213,16 @@ def _extract_one(
     prompt: PromptTemplate,
     model_id: str,
     run_id: str,
+    retry: RetryPolicy,
+    sleep: Callable[[float], None],
 ) -> tuple[ExtractionRecord, list[ExtractedItemRecord]]:
     extraction_id = identity.extraction_id(chunk.chunk_id, model_id, prompt.prompt_id)
     raw: str | None = None
 
     try:
-        raw = model.complete(prompt.rendered_for(chunk.text))
+        raw = _complete_with_retry(
+            model, prompt.rendered_for(chunk.text), retry=retry, sleep=sleep
+        )
         response, items = parse_items(raw, prompt.output_key)
     except (ModelFailed, UnusableResponse) as failure:
         if isinstance(failure, ModelFailed):
@@ -218,6 +272,35 @@ def _extract_one(
             for seq, text in enumerate(items)
         ],
     )
+
+
+def _complete_with_retry(
+    model: ExtractionModel,
+    prompt: str,
+    *,
+    retry: RetryPolicy,
+    sleep: Callable[[float], None],
+) -> str:
+    """Call the model, retrying only failures it says are transient.
+
+    The last failure is re-raised with the attempt count in its message, so a
+    chunk that stays failed says it was not for want of trying.
+    """
+    attempt = 1
+    while True:
+        try:
+            return model.complete(prompt)
+        except ModelFailed as failure:
+            if not failure.transient or attempt >= retry.max_attempts:
+                if attempt > 1:
+                    raise ModelFailed(
+                        f"{failure} (gave up after {attempt} attempts)",
+                        raw_response=failure.raw_response,
+                        transient=failure.transient,
+                    ) from failure
+                raise
+            sleep(retry.delay_before_retry(attempt))
+            attempt += 1
 
 
 def _record(

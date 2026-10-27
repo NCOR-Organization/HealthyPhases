@@ -185,6 +185,7 @@ phases_v2/
 ├── search/                 # ─┘ reverse search: semantic + keyword, over extracted_items
 ├── prompts/                # templates declared in code + their text
 ├── models/                 # the AI models a run may use
+├── migrations/             # one-off data migrations (re-keying rows, clearing projections)
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
 ├── app/                    # the pipeline and reverse-search apps' services and HTTP endpoints
@@ -271,10 +272,45 @@ model HTTP calls. Set `modules[].config.extraction_workers` on `phases_v2`
 engine and prompt-bound model are reused. Database writes and report updates
 stay on the coordinating thread, with items saved before success records.
 Only a pool-sized window is submitted, so queued work and completed responses
-remain bounded. Failed calls remain individually retryable on the next run.
-Provider retry/timeout behavior is unchanged; lower the worker count if provider
-rate limits are encountered. This setting applies to newly started execution,
-not an already-running extraction process.
+remain bounded. Failed calls remain individually retryable on the next run. This setting
+applies to newly started execution, not an already-running extraction process.
+
+### Transient provider failures
+
+A model call that fails for a reason that may pass — a dropped connection, a
+timeout, a rate limit (429), a provider 5xx — is retried before the chunk is
+recorded as failed: up to 5 attempts, with exponential backoff from 2 s capped
+at 60 s and jittered so the workers do not return together. The adapter marks
+such failures (`ModelFailed.transient`); the retry loop is in
+`extraction/domain.py` (`RetryPolicy`). A chunk that stays failed records the
+provider's message and `(gave up after N attempts)`.
+
+Invalid output is never retried. A response that is not valid for the prompt's
+schema costs one call and is recorded as failed with its reason, as before.
+
+### Renaming a prompt
+
+Ids derive from content (`identity.py`), so renaming a prompt re-keys every row
+extracted under it. `conditional_statement` has two declared versions: the
+current text, and the earlier wording it had when it was called
+`logical_sentences` (`prompts/templates/conditional_statement_v1.txt`, kept
+byte-for-byte because its id is a hash of that text). That wording asks the
+model for its answer under the old key, and `LEGACY_OUTPUT_KEYS` makes parsing
+accept it. Rows extracted under the old name were moved with
+`migrations/rename_prompt.py`:
+
+```
+uv run abi run script src/phases_v2/migrations/rename_prompt.py --dry-run
+uv run abi run script src/phases_v2/migrations/rename_prompt.py
+```
+
+It re-derives each extraction and item id under the new prompt id, repoints
+`extraction_runs`, `pipelines` and `run_requests`, deletes the old projection
+ledger entries and Qdrant points (so the next vector projection embeds the items
+under their new ids), then deletes the old rows. It prints before/after counts,
+changes nothing on `--dry-run`, and a second run finds nothing to do. Stored
+templates and responses are not edited: they are what the model received and
+returned.
 
 
 ## Authoring pipelines in the web app
