@@ -5,7 +5,7 @@ install:
 APP_TESTS = src/phases_v2/apps/workspace/tests
 
 test:
-	uv run pytest src/phases_v2 src/pubmed src/openalex
+	uv run pytest tests src/phases_v2 src/pubmed src/openalex
 	node --test $(APP_TESTS)/*_test.cjs
 
 # The HealthyPhases workspace app on its own: manifest/packaging checks and browser logic.
@@ -18,7 +18,7 @@ test-search:
 	node --test $(APP_TESTS)/search_test.cjs
 
 lint:
-	uv run ruff check src/phases_v2 src/pubmed src/openalex
+	uv run ruff check tests src/phases_v2 src/pubmed src/openalex
 
 build:
 	uv build

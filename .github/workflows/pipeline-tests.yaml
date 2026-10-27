@@ -8,6 +8,9 @@ on:
       - 'abi-phases/src/phases_v2/papers/**'
       - 'abi-phases/pyproject.toml'
       - 'abi-phases/uv.lock'
+      - 'abi-phases/.abi'
+      - 'abi-phases/docker-compose.yml'
+      - 'abi-phases/tests/**'
       - 'abi-phases/src/phases_v2/app/**'
       - 'abi-phases/src/phases_v2/apps/**'
       - 'abi-phases/src/phases_v2/datasets/**'
@@ -36,5 +39,5 @@ jobs:
       - name: Test pipeline resources, PubMed publisher, API, and the HealthyPhases app
         working-directory: abi-phases
         run: |
-          uv run --with pytest pytest src/openalex src/pubmed src/phases_v2/sources src/phases_v2/papers src/phases_v2/app src/phases_v2/apps/workspace src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
+          uv run --with pytest pytest tests src/openalex src/pubmed src/phases_v2/sources src/phases_v2/papers src/phases_v2/app src/phases_v2/apps/workspace src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
           node --test src/phases_v2/apps/workspace/tests/*_test.cjs

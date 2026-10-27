@@ -51,7 +51,11 @@ jobs:
             # stack.
             # Build changes to native runtime dependencies before replacing services.
             # BuildKit reuses cached layers when the Dockerfile is unchanged.
-            docker compose up -d --build --no-deps --force-recreate abi dagster
+            #
+            # nexus-web is a prebuilt image pinned in docker-compose.yml to the
+            # same ABI release as the .abi submodule. Recreating it here (with
+            # pull_policy: always) is what moves the web app with the API.
+            docker compose up -d --build --no-deps --force-recreate abi dagster nexus-web
 
       - name: Verify the API came back
         uses: appleboy/ssh-action@v1.2.0
@@ -74,4 +78,31 @@ jobs:
             done
             echo "API did not return 200 within 240s" >&2
             docker compose logs --tail=40 abi >&2
+            exit 1
+
+      - name: Verify Nexus web came back
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ubuntu
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script_stop: true
+          script: |
+            set -euo pipefail
+            cd ~/HealthyPhases/abi-phases
+            # `/` redirects to the sign-in page; that page answers 200 once the
+            # server is up. busybox wget exits non-zero on any other status.
+            # 127.0.0.1, not localhost: busybox resolves localhost to ::1 and
+            # the server listens on IPv4 only.
+            for i in $(seq 1 12); do
+              sleep 5
+              if docker compose exec -T nexus-web wget -q -O /dev/null -T 8 \
+                   http://127.0.0.1:3000/auth/login 2>/dev/null; then
+                echo "Nexus web healthy after ~$((i*5))s"
+                docker compose images nexus-web
+                exit 0
+              fi
+            done
+            echo "Nexus web did not answer within 60s" >&2
+            docker compose logs --tail=40 nexus-web >&2
             exit 1
