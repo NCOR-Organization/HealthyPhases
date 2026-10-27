@@ -313,32 +313,24 @@ class PipelineAppService:
         from phases_v2.playground.adapters.secondary.DatasetPlaygroundStore import (
             DatasetPlaygroundStore,
         )
-        from phases_v2.playground.domain import MAX_CHUNKS, TryRefused, try_prompt
-        from phases_v2.prompts.domain import CHUNK_PLACEHOLDER, PromptTemplate
+        from phases_v2.playground.domain import check_request, try_prompt
+        from phases_v2.prompts.domain import PromptTemplate
 
         if self._rows is None or self._model_factory is None:
             raise ManagementUnavailable(
                 "Trying prompts is unavailable in this deployment."
             )
-        # The refusals users meet most, said plainly before the contract's
-        # field-by-field wording.
-        if ("draft" in payload) == ("prompt_id" in payload):
-            raise TryRefused(
-                "Try one thing at a time: either a draft or a saved prompt version."
-            )
+        # Plain words first; the contract's field-by-field wording is for the rest.
         seqs = payload.get("seqs")
-        if isinstance(seqs, list) and len(seqs) > MAX_CHUNKS:
-            raise TryRefused(
-                f"Try at most {MAX_CHUNKS} chunks at a time; {len(seqs)} were chosen."
-            )
         draft = payload.get("draft")
-        if isinstance(draft, dict) and CHUNK_PLACEHOLDER not in str(
-            draft.get("template", "")
-        ):
-            raise TryRefused(
-                "The prompt text must contain {chunk_text}, where each chunk's "
-                "text is placed."
-            )
+        check_request(
+            has_prompt_id="prompt_id" in payload,
+            has_draft="draft" in payload,
+            seq_count=len(seqs) if isinstance(seqs, list) else 0,
+            template=str(draft.get("template", ""))
+            if isinstance(draft, dict)
+            else None,
+        )
         validate_message("TryPrompt", payload)
 
         report = try_prompt(
@@ -350,7 +342,7 @@ class PipelineAppService:
             prompt_id=payload.get("prompt_id"),
             draft=PromptTemplate(**draft) if isinstance(draft, dict) else None,
             seqs=payload.get("seqs") or None,
-            first=payload.get("first") or None,
+            first=payload.get("first"),
             baseline_prompt_id=payload.get("baseline_prompt_id") or None,
             is_model_available=self._is_model_available,
             timeout_seconds=self._try_timeout_seconds,

@@ -63,8 +63,6 @@ class TryReport:
     prompt_id: str
     name: str
     output_key: str
-    #: Whether this exact text is already a version in the library.
-    saved: bool
     model_id: str
     paper_id: str
     chunker_id: str

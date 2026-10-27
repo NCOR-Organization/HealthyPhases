@@ -34,6 +34,9 @@ OTHER_MODEL = "openai/gpt-5-mini"
 CHUNKER = WINDOW_512_128.chunker_id
 OLD = PromptTemplate("Claims", "Old {chunk_text}", "results")
 NEW = PromptTemplate("Claims", "New {chunk_text}", "results")
+# Stamped by a restart in September, but already run in January.
+RESTARTED = PromptTemplate("Effects", "Built in {chunk_text}", "effects")
+LATER = PromptTemplate("Effects", "Saved in May {chunk_text}", "effects")
 LONG_TEXT = "word " * 100
 
 
@@ -162,8 +165,33 @@ def _seed(rows):
         ],
     )
     rows.write_rows(
+        "prompts",
+        [
+            {
+                "prompt_id": p.prompt_id,
+                "name": p.name,
+                "prompt_sha256": identity.prompt_sha256(p.template),
+                "template": p.template,
+                "output_key": p.output_key,
+                "registered_at": at(month),
+            }
+            for p, month in ((RESTARTED, 9), (LATER, 5))
+        ],
+    )
+    rows.write_rows(
         "extraction_runs",
         [
+            {
+                "run_id": f"req-0:{RESTARTED.prompt_id}",
+                "chunker_id": CHUNKER,
+                "model_id": MODEL,
+                "prompt_id": RESTARTED.prompt_id,
+                "started_at": at(1),
+                "finished_at": at(1),
+                "succeeded": 1,
+                "failed": 0,
+                "skipped": 0,
+            },
             {
                 "run_id": f"req-1:{OLD.prompt_id}",
                 "chunker_id": CHUNKER,
@@ -174,7 +202,7 @@ def _seed(rows):
                 "succeeded": 1,
                 "failed": 1,
                 "skipped": 0,
-            }
+            },
         ],
     )
     rows.write_rows(
@@ -330,7 +358,6 @@ def test_a_try_returns_items_per_chunk_beside_the_baseline_and_writes_nothing(en
     assert all(c["status"] == "succeeded" for c in report["chunks"])
     assert report["chunks"][0]["items"] == ["a new claim"]
     assert report["chunks"][0]["text"] == "Paper one chunk 0"
-    assert report["saved"] is False
     baseline = [c["baseline"] for c in report["chunks"]]
     assert baseline[0] == {
         "status": "succeeded",
@@ -359,7 +386,7 @@ def test_a_saved_version_can_be_tried_on_the_first_chunks(env):
 
     assert response.status_code == 200, response.text
     assert [c["seq"] for c in response.json()["chunks"]] == [0, 1]
-    assert response.json()["saved"] is True
+    assert response.json()["prompt_id"] == NEW.prompt_id
     assert model["current"].prompts[0].startswith("New ")
     assert rows.writes == []
 
@@ -405,6 +432,7 @@ def test_unusable_model_output_is_shown_with_the_raw_answer_and_writes_nothing(e
         ({"paper_id": "p2"}, "has not been chunked with"),
         ({"paper_id": "p3"}, "has not been ingested"),
         ({"seqs": [9]}, "no chunk 9"),
+        ({"seqs": None, "first": 0}, "first"),
         ({"prompt_id": NEW.prompt_id}, "either a draft or a saved"),
         ({"draft": None}, "either a draft or a saved"),
     ],
@@ -483,3 +511,16 @@ def test_versions_include_the_prompts_declared_in_code(env):
     body = client.get(f"{PREFIX}/prompts/versions?name=solitude_what").json()
 
     assert body["versions"][0]["declared"] is True
+
+
+def test_versions_are_ordered_by_first_appearance_not_by_a_later_restart(env):
+    client, _, _ = env
+
+    body = client.get(f"{PREFIX}/prompts/versions?name=Effects").json()
+
+    assert [v["prompt_id"] for v in body["versions"]] == [
+        LATER.prompt_id,
+        RESTARTED.prompt_id,
+    ]
+    assert body["versions"][1]["first_seen"].startswith("2026-01-01")
+    assert body["versions"][0]["first_seen"].startswith("2026-05-01")

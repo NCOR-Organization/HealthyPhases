@@ -3,11 +3,17 @@
 A version is one template text under a name (``prompt_id`` hashes both), so
 this lists them side by side with the runs and requests that used each and how
 many items each produced. Read-only.
+
+Versions are ordered by when each first appeared: the earliest of its
+``registered_at``, its first run and its first request. Declared versions were
+re-registered on every engine start before registration learned to leave
+existing rows alone, so on older data ``registered_at`` alone can be a restart.
 """
 
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from phases_v2.app.app_resources import ResourceNotFound
@@ -28,17 +34,27 @@ class PromptVersions:
         if not versions:
             raise ResourceNotFound(f"No prompt is named {name!r}.")
         ids = list(versions)
+        # Every date a version is known by; it first appeared at the earliest.
+        seen = {
+            prompt_id: [_instant(version["registered_at"])]
+            for prompt_id, version in versions.items()
+        }
         for prompt_id, runs in self._runs(ids).items():
             versions[prompt_id]["runs"] = runs[:LISTED]
             versions[prompt_id]["run_count"] = len(runs)
+            seen[prompt_id] += [_instant(run["started_at"]) for run in runs]
         for prompt_id, requests in self._requests(ids).items():
             versions[prompt_id]["requests"] = requests[:LISTED]
             versions[prompt_id]["request_count"] = len(requests)
+            seen[prompt_id] += [_instant(r["requested_at"]) for r in requests]
         for prompt_id, usage in self._usage(ids).items():
             versions[prompt_id].update(usage)
+        for prompt_id, version in versions.items():
+            known = [instant for instant in seen[prompt_id] if instant is not None]
+            version["first_seen"] = min(known).isoformat() if known else None
         ordered = sorted(
             versions.values(),
-            key=lambda v: (v["registered_at"] or "", v["prompt_id"]),
+            key=lambda v: (_instant(v["first_seen"]) or _EPOCH, v["prompt_id"]),
             reverse=True,
         )
         return {"name": name, "versions": ordered}
@@ -150,6 +166,7 @@ def _version(
         "template": template,
         "output_key": output_key,
         "registered_at": registered_at,
+        "first_seen": registered_at,
         "declared": False,
         "runs": [],
         "run_count": 0,
@@ -159,6 +176,20 @@ def _version(
         "chunk_count": 0,
         "by_model": {},
     }
+
+
+_EPOCH = datetime.min.replace(tzinfo=UTC)
+
+
+def _instant(value: Any) -> datetime | None:
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value)
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
 
 
 def _iso(value: Any) -> Any:

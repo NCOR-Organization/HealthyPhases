@@ -272,8 +272,8 @@ test('versions list when each was saved, the runs that used it and its items', a
   assert.match(rows[1].innerHTML, /and 1 more/);
   assert.match(rows[1].innerHTML, /12<small>openai\/gpt-4.1-mini: 12 items from 5 chunks, 1 failed/);
   // The version in the editor has no Open button; the others do.
-  assert.deepEqual(rows[0].lastElementChild.children.map((b) => b.textContent), ['Use in new run', 'Compare with editor']);
-  assert.deepEqual(rows[1].lastElementChild.children.map((b) => b.textContent), ['Open', 'Use in new run', 'Compare with editor']);
+  assert.deepEqual(rows[0].lastElementChild.children.map((b) => b.textContent), ['Use in new run', 'Compare']);
+  assert.deepEqual(rows[1].lastElementChild.children.map((b) => b.textContent), ['Open', 'Use in new run', 'Compare']);
 });
 
 test('a version can be opened in the editor or used in a new run', async () => {
@@ -298,6 +298,14 @@ test('the comparison starts with the previous version against the editor, and an
   assert.match($('pr-ver-diff').innerHTML, /second line/);
 });
 
+test('a version is dated by when it first appeared, not by a later save of the same text', async () => {
+  const restarted = { ...VERSIONS, versions: [{ ...VERSIONS.versions[0], registered_at: '2026-09-01T00:00:00+00:00', first_seen: '2026-02-01T00:00:00+00:00' }, VERSIONS.versions[1]] };
+  const { $ } = await opened({ '/phases_v2/api/prompts/versions': restarted });
+  const date = new Date('2026-02-01T00:00:00+00:00').toLocaleDateString();
+  assert.match($('pr-ver-rows').children[0].innerHTML, new RegExp(`>${date.replace(/[/.]/g, '\\$&')}</td>`));
+  assert.ok($('pr-ver-a').options[1].textContent.endsWith(date));
+});
+
 test('a new prompt has no history yet and compares nothing', async () => {
   const { $, section, parse } = await mount();
   await section.show(parse('#/prompts/new'));
@@ -311,4 +319,71 @@ test('a comparison with the editor follows what is typed', async () => {
   $('pr-template').value = 'A {chunk_text}\nsecond line\nthird line';
   $('pr-form').listeners.input[0]();
   assert.equal($('pr-ver-summary').textContent, '1 line added, 0 lines removed.');
+});
+
+// ---- Review round 1 ----
+
+test('searching papers keeps the picked chunks while the same paper stays selected', async () => {
+  const { $, a, section, calls } = await opened();
+  $('pr-try-chunks').options[4].selected = true;
+  $('pr-try-chunks').options[7].selected = true;
+  const loads = () => calls.filter((c) => c.url.includes('/papers/p1/chunks')).length;
+  const before = loads();
+  $('pr-try-paper-q').value = 'sle';
+  await section.tryPanel.searchPapers();
+  $('pr-try-paper-q').value = 'sleep';
+  await section.tryPanel.searchPapers();
+  assert.equal(loads(), before);
+  await a.tryIt();
+  assert.deepEqual(tries(calls)[0].body.seqs, [4, 7]);
+  assert.equal(tries(calls)[0].body.first, undefined);
+});
+
+test('changing the paper or the chunker reloads the chunks', async () => {
+  const two = { papers: [...PAPERS.papers, { paper_id: 'p2', file_name: 'Other.pdf', chunks: { window_512_128: 2 } }], total: 2 };
+  const { $, section, calls } = await opened({
+    '/phases_v2/api/papers': two, '/phases_v2/api/papers/p2/chunks': { chunks: [{ seq: 0, preview: 'Other' }] },
+  });
+  $('pr-try-chunks').options[4].selected = true;
+  $('pr-try-paper').value = 'p2';
+  await section.tryPanel.loadChunks();
+  assert.equal(calls.filter((c) => c.url.includes('/papers/p2/chunks')).length, 1);
+  assert.deepEqual($('pr-try-chunks').options.map((o) => o.selected), [false]);
+});
+
+test('trying the first 0, a fraction or too many chunks is refused; an empty field means 3', async () => {
+  const { $, a, calls } = await opened();
+  for (const value of ['0', '2.5', '11', '-1', 'x']) {
+    $('pr-try-first').value = value;
+    await a.tryIt();
+    assert.match($('pr-try-message').textContent, /Try between 1 and 10 chunks at a time/, value);
+  }
+  assert.equal(tries(calls).length, 0);
+  $('pr-try-first').value = '';
+  await a.tryIt();
+  assert.equal(tries(calls)[0].body.first, 3);
+});
+
+test('saving from the Try panel says so there, and runs the editor checks first', async () => {
+  const saved = { prompt_id: 'effects-cccccccc', name: 'Effects', template: 'C {chunk_text}', output_key: 'effects' };
+  const { $, calls } = await opened({ 'POST /phases_v2/api/prompts': saved });
+  const click = () => $('pr-try-save').listeners.click[0]();
+  for (const [name, template, expected] of [
+    ['', 'C {chunk_text}', /Name the prompt before saving it/],
+    ['../bad', 'C {chunk_text}', /Use letters, digits, spaces/],
+    ['Effects', 'No placeholder', /must contain \{chunk_text\}/],
+  ]) {
+    $('pr-name').value = name;
+    $('pr-template').value = template;
+    await click();
+    assert.match($('pr-try-message').textContent, expected);
+    assert.equal($('pr-try-message').className, 'msg bad');
+  }
+  assert.equal(calls.filter((c) => c.method === 'POST').length, 0);
+  $('pr-name').value = 'Effects';
+  $('pr-template').value = 'C {chunk_text}';
+  await click();
+  await settle(10);
+  assert.match($('pr-try-message').textContent, /Saved as version cccccccc and selected for your next run/);
+  assert.equal($('pr-try-message').className, 'msg ok');
 });

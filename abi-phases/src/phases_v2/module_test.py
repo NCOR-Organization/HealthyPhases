@@ -128,5 +128,42 @@ def test_declarations_reach_the_real_store_through_module_load(tmp_path):
     assert {row["prompt_id"] for row in rows} == set(published["prompts"])
 
 
+def test_a_restart_leaves_a_built_in_version_below_one_saved_after_it(tmp_path):
+    # Re-registering on every start used to stamp built-in prompts with the
+    # restart time, listing them above versions users saved after them.
+    from phases_v2.app.pipeline_management import PipelineManagement
+    from phases_v2.app.prompt_versions import PromptVersions
+    from phases_v2.datasets.row_store import DatasetRowStore
+    from phases_v2.prompts.templates import declared_prompts
+
+    dataset = _dataset(tmp_path)
+    phases_v2.load_module_declarations(_Engine(dataset))
+    rows = DatasetRowStore(dataset)
+    built_in = declared_prompts()[0]
+    before = rows.query(
+        "SELECT registered_at FROM prompts "  # nosec B608
+        f"WHERE prompt_id = '{built_in.prompt_id}'"
+    )[0]["registered_at"]
+    saved = PipelineManagement(rows, None, "phases_v2").save_prompt(
+        {
+            "name": built_in.name,
+            "template": built_in.template + "\nBe brief.",
+            "output_key": built_in.output_key,
+        }
+    )
+
+    phases_v2.load_module_declarations(_Engine(dataset))
+
+    after = rows.query(
+        "SELECT registered_at FROM prompts "  # nosec B608
+        f"WHERE prompt_id = '{built_in.prompt_id}'"
+    )[0]["registered_at"]
+    assert after == before
+    order = [
+        v["prompt_id"] for v in PromptVersions(rows).versions(built_in.name)["versions"]
+    ]
+    assert order == [saved["prompt_id"], built_in.prompt_id]
+
+
 def test_module_load_without_a_dataset_service_publishes_nothing():
     assert phases_v2.load_module_declarations(_Engine(None)) == {}

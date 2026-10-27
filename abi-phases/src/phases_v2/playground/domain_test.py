@@ -55,7 +55,6 @@ def test_a_draft_is_rendered_per_chunk_and_its_items_come_back_in_seq_order(stor
     assert report.chunks[0].text == "chunk text 2"
     assert report.chunks[0].raw_output is None
     assert report.prompt_id == DRAFT.prompt_id
-    assert report.saved is False
     assert report.timed_out is False
 
 
@@ -71,13 +70,7 @@ def test_a_saved_version_is_tried_by_its_id(store):
     report, _ = _try(store, model, draft=None, prompt_id=SAVED.prompt_id, first=1)
 
     assert model.prompts == ["Saved: chunk text 0"]
-    assert report.saved is True
-
-
-def test_a_draft_identical_to_a_saved_version_says_so(store):
-    report, _ = _try(store, FakeModel(json.dumps({"effects": []})), draft=SAVED)
-
-    assert report.saved is True
+    assert report.prompt_id == SAVED.prompt_id
 
 
 def test_a_model_failure_costs_one_chunk_and_keeps_the_raw_answer(store):
@@ -222,6 +215,7 @@ def test_without_a_baseline_none_is_looked_up(store):
     [
         ({"seqs": list(range(MAX_CHUNKS + 1))}, "at most 10 chunks"),
         ({"first": MAX_CHUNKS + 1}, "between 1 and 10"),
+        ({"first": 0}, "between 1 and 10"),
         ({"draft": PromptTemplate("x", "no placeholder", "effects")}, "{chunk_text}"),
         ({"model_id": "nobody/nothing"}, "Unknown model"),
         ({"paper_id": "missing"}, "has not been ingested"),

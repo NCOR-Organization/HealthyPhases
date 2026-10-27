@@ -1,26 +1,21 @@
 syntax = "proto3";
 package phases_v2.app.v1;
 import "buf/validate/validate.proto";
-
-// The same rules as SavePrompt: a draft that could not be saved cannot be tried.
-message PromptDraft {
-  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 100, pattern: "^[A-Za-z0-9][A-Za-z0-9 _-]*$"}];
-  string template = 2 [(buf.validate.field).string = {min_len: 1, max_len: 100000, contains: "{chunk_text}"}];
-  string output_key = 3 [(buf.validate.field).string = {in: ["results", "what", "causes", "how", "when", "where", "effects", "conditional_statement", "relations"]}];
-}
+// A draft follows SavePrompt's rules: a draft that could not be saved cannot be tried.
+import "phases_v2/app/contracts/pipeline_management.proto";
 
 // Runs a draft or a saved version on a few chunks of one paper. Writes nothing.
 message TryPrompt {
   oneof prompt {
     option (buf.validate.oneof).required = true;
     string prompt_id = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
-    PromptDraft draft = 2;
+    SavePrompt draft = 2;
   }
   string model_id = 3 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
   string paper_id = 4 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
   string chunker_id = 5 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
-  // Either these chunk positions, or the first `first` chunks of the paper.
+  // Either these chunk positions, or the first `first` chunks of the paper (3 when unset).
   repeated int32 seqs = 6 [(buf.validate.field).repeated = {max_items: 10, unique: true, items: {int32: {gte: 0}}}];
-  int32 first = 7 [(buf.validate.field).int32 = {gte: 0, lte: 10}];
+  optional int32 first = 7 [(buf.validate.field).int32 = {gte: 1, lte: 10}];
   optional string baseline_prompt_id = 8 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
 }

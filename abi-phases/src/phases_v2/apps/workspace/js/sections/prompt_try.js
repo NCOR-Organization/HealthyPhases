@@ -7,6 +7,7 @@ import { $, esc, fill, latest, message, plural, statusPill } from '../ui.js';
 import { probabilisticRelations } from './search_render.js';
 
 export const MAX_CHUNKS = 10;
+export const DEFAULT_FIRST = 3;
 // The server stops waiting at 90 s; this only covers a request that never returns.
 export const CLIENT_TIMEOUT_MS = 120000;
 const PAPER_PAGE = 25;
@@ -26,7 +27,7 @@ export const template = () => `
         <label for="pr-try-paper" class="sr-only">Paper</label><select id="pr-try-paper" size="6"></select>
         <p id="pr-try-papers-hint" class="hint"></p></div>
       <div><label for="pr-try-chunks">Chunks</label><select id="pr-try-chunks" multiple size="6"></select>
-        <div class="row"><label for="pr-try-first">If none is picked, try the first</label><input id="pr-try-first" type="number" min="1" max="${MAX_CHUNKS}" value="3" style="width:5rem"></div>
+        <div class="row"><label for="pr-try-first">If none is picked, try the first</label><input id="pr-try-first" type="number" min="1" max="${MAX_CHUNKS}" value="${DEFAULT_FIRST}" style="width:5rem"></div>
         <p id="pr-try-chunks-hint" class="hint"></p></div>
     </div>
     <div class="row actions"><button id="pr-try-run" type="button" class="primary">Try it</button>
@@ -107,6 +108,9 @@ export function createTry(ctx, { source }) {
   const state = {
     loaded: false, running: false, models: [], chunkers: [], papers: [], chunks: [], report: null,
     paperGuard: latest(), chunkGuard: latest(), searchTimer: null,
+    // The paper and chunker the chunk list was loaded for: a search that keeps
+    // the same paper selected must not reload it and lose the picked chunks.
+    chunksFor: '',
   };
 
   const modelLabel = (id) => state.models.find((m) => m.model_id === id)?.display_name || id;
@@ -142,9 +146,12 @@ export function createTry(ctx, { source }) {
   }
 
   async function loadChunks() {
-    const token = state.chunkGuard.next();
     const paper = $('pr-try-paper').value;
     const chunker = $('pr-try-chunker').value;
+    const key = paper && chunker ? `${chunker}\n${paper}` : '';
+    if (key && key === state.chunksFor) return;
+    const token = state.chunkGuard.next();
+    state.chunksFor = key;
     state.chunks = [];
     $('pr-try-chunks').replaceChildren();
     $('pr-try-chunks-hint').textContent = '';
@@ -156,8 +163,18 @@ export function createTry(ctx, { source }) {
       fill($('pr-try-chunks'), state.chunks, 'seq', (c) => `${c.seq} · ${c.preview}`, []);
       $('pr-try-chunks-hint').textContent = `${plural(state.chunks.length, 'chunk')}. Pick up to ${MAX_CHUNKS}.`;
     } catch (error) {
-      if (state.chunkGuard.is(token)) $('pr-try-chunks-hint').textContent = `Could not load chunks: ${error.message}`;
+      if (!state.chunkGuard.is(token)) return;
+      state.chunksFor = '';
+      $('pr-try-chunks-hint').textContent = `Could not load chunks: ${error.message}`;
     }
+  }
+
+  // An empty field means the default; anything else must be a whole number from 1 to 10.
+  function firstCount() {
+    const raw = String($('pr-try-first').value ?? '').trim();
+    if (!raw) return DEFAULT_FIRST;
+    const count = Number(raw);
+    return Number.isInteger(count) && count >= 1 && count <= MAX_CHUNKS ? count : null;
   }
 
   const pickedSeqs = () => [...$('pr-try-chunks').selectedOptions].map((option) => Number(option.value));
@@ -189,9 +206,9 @@ export function createTry(ctx, { source }) {
     if (!$('pr-try-paper').value) { message('pr-try-message', 'Choose an ingested paper to try the prompt on.', 'bad'); return undefined; }
     if (!$('pr-try-model').value) { message('pr-try-message', 'Choose an available model.', 'bad'); return undefined; }
     if (!checkPicked()) return undefined;
-    const first = Math.round(Number($('pr-try-first').value) || 3);
-    if (!pickedSeqs().length && (first < 1 || first > MAX_CHUNKS)) {
-      message('pr-try-message', `Try between 1 and ${MAX_CHUNKS} chunks at a time.`, 'bad');
+    const first = firstCount();
+    if (!pickedSeqs().length && first === null) {
+      message('pr-try-message', `Try between 1 and ${MAX_CHUNKS} chunks at a time: pick chunks, or enter a whole number from 1 to ${MAX_CHUNKS}.`, 'bad');
       return undefined;
     }
     const body = tryBody({

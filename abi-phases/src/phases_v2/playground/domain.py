@@ -34,7 +34,7 @@ from phases_v2.playground.interfaces import (
     StoredExtraction,
     TryReport,
 )
-from phases_v2.prompts.domain import PromptTemplate, validate
+from phases_v2.prompts.domain import CHUNK_PLACEHOLDER, PromptTemplate
 from phases_v2.structured_text import canonical_payload_text
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,29 @@ STRUCTURED_KEYS = frozenset({"relations"})
 
 class TryRefused(ValueError):
     """The try cannot run as asked; the message says what to change."""
+
+
+def check_request(
+    *, has_prompt_id: bool, has_draft: bool, seq_count: int, template: str | None
+) -> None:
+    """The refusals users meet most, in plain words.
+
+    Run by :func:`try_prompt`, and by the HTTP layer before the contract's
+    field-by-field validation, so both say the same thing.
+    """
+    if has_prompt_id == has_draft:
+        raise TryRefused(
+            "Try one thing at a time: either a draft or a saved prompt version."
+        )
+    if seq_count > MAX_CHUNKS:
+        raise TryRefused(
+            f"Try at most {MAX_CHUNKS} chunks at a time; {seq_count} were chosen."
+        )
+    if template is not None and CHUNK_PLACEHOLDER not in template:
+        raise TryRefused(
+            "The prompt text must contain {chunk_text}, where each chunk's "
+            "text is placed."
+        )
 
 
 def present_items(texts: list[str], output_key: str) -> list[object]:
@@ -81,6 +104,12 @@ def try_prompt(
 ) -> TryReport:
     """Run one prompt version or draft on up to ten chunks of one paper."""
     started = clock()
+    check_request(
+        has_prompt_id=prompt_id is not None,
+        has_draft=draft is not None,
+        seq_count=len(set(seqs or [])),
+        template=draft.template if draft is not None else None,
+    )
     prompt = _prompt(store, prompt_id, draft)
     _check_model(model_id, is_model_available)
     baseline = _baseline(store, baseline_prompt_id)
@@ -111,7 +140,6 @@ def try_prompt(
         prompt_id=prompt.prompt_id,
         name=prompt.name,
         output_key=prompt.output_key,
-        saved=prompt_id is not None or store.prompt(prompt.prompt_id) is not None,
         model_id=model_id,
         paper_id=paper_id,
         chunker_id=chunker_id,
@@ -129,18 +157,7 @@ def try_prompt(
 def _prompt(
     store: PlaygroundStore, prompt_id: str | None, draft: PromptTemplate | None
 ) -> PromptTemplate:
-    if (prompt_id is None) == (draft is None):
-        raise TryRefused(
-            "Try one thing at a time: either a draft or a saved prompt version."
-        )
     if draft is not None:
-        try:
-            validate([draft])
-        except ValueError as invalid:
-            raise TryRefused(
-                "The prompt text must contain {chunk_text}, where each chunk's "
-                "text is placed."
-            ) from invalid
         return draft
     found = store.prompt(prompt_id or "")
     if found is None:
@@ -184,12 +201,8 @@ def _chunks(
     first: int | None,
 ) -> list[PaperChunk]:
     seqs = list(dict.fromkeys(seqs or []))
-    if len(seqs) > MAX_CHUNKS:
-        raise TryRefused(
-            f"Try at most {MAX_CHUNKS} chunks at a time; {len(seqs)} were chosen."
-        )
     if not seqs:
-        first = DEFAULT_FIRST if not first else first
+        first = DEFAULT_FIRST if first is None else first
         if not 1 <= first <= MAX_CHUNKS:
             raise TryRefused(
                 f"Try between 1 and {MAX_CHUNKS} chunks at a time; {first} were asked for."

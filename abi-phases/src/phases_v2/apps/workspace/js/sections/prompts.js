@@ -11,6 +11,8 @@ import { $, action, emptyState, esc, fill, message } from '../ui.js';
 import { createTry, shortId, template as tryTemplate } from './prompt_try.js';
 import { createVersions, template as versionsTemplate } from './prompt_versions.js';
 
+export const NAME_PATTERN = /^[A-Za-z0-9][A-Za-z0-9 _-]*$/;
+
 export const OUTPUT_KEYS = ['results', 'what', 'causes', 'how', 'when', 'where', 'effects', 'conditional_statement', 'relations'];
 
 // Versions share a name; a short fingerprint tells them apart only when needed.
@@ -63,6 +65,15 @@ export function create(root, ctx) {
   function setUsable(usable) {
     $('pr-use').disabled = !usable;
     $('pr-try-use').disabled = !usable;
+  }
+
+  // The checks the server makes, said before sending: the editor's Save and the
+  // Try panel's Save both go through save(), which runs them.
+  function draftProblem({ name, template }) {
+    if (!name) return 'Name the prompt before saving it.';
+    if (!NAME_PATTERN.test(name)) return 'Use letters, digits, spaces, _ or - in the name, starting with a letter or digit.';
+    if (!template.includes('{chunk_text}')) return 'The prompt text must contain {chunk_text}, where each chunk\'s text is placed.';
+    return '';
   }
 
   const formValues = () => ({ name: $('pr-name').value.trim(), template: $('pr-template').value, output_key: $('pr-output').value });
@@ -136,8 +147,10 @@ export function create(root, ctx) {
 
   async function save() {
     const previousId = state.promptId;
+    const problem = draftProblem(formValues());
+    if (problem) throw new Error(problem);
     const saved = await phases('/prompts', {
-      method: 'POST', body: { name: $('pr-name').value.trim(), template: $('pr-template').value, output_key: $('pr-output').value },
+      method: 'POST', body: formValues(),
     });
     await reload();
     edit(state.prompts.find((p) => p.prompt_id === saved.prompt_id) || saved);
@@ -163,6 +176,13 @@ export function create(root, ctx) {
     renderList();
   }
 
+  // Saving from the Try panel answers there, beside the results it was judged on.
+  async function saveFromTry() {
+    const saved = await save();
+    message('pr-try-message', `Saved as version ${shortId(saved.prompt_id)} and selected for your next run.`, 'ok');
+    return saved;
+  }
+
   function useInRun(promptId = state.promptId) {
     ctx.section('runs').selectPrompts([promptId]);
     ctx.navigate(ctx.href('runs', ['new']));
@@ -181,7 +201,7 @@ export function create(root, ctx) {
   $('pr-duplicate').addEventListener('click', duplicate);
   $('pr-use').addEventListener('click', () => useInRun());
   $('pr-try-use').addEventListener('click', () => useInRun());
-  $('pr-try-save').addEventListener('click', () => action($('pr-try-save'), 'pr-try-message', save));
+  $('pr-try-save').addEventListener('click', () => action($('pr-try-save'), 'pr-try-message', saveFromTry));
 
   function select(id) {
     if (id === 'new') return edit(null);
@@ -220,5 +240,5 @@ export function create(root, ctx) {
     if (versions.state.name) await loadVersions(versions.state.name, versions.state.current, $('pr-try-baseline').value);
   }
 
-  return { show, hide() {}, refresh, state, tryPanel, versions, actions: { save, duplicate, useInRun, edit, reload, tryIt: tryPanel.run } };
+  return { show, hide() {}, refresh, state, tryPanel, versions, actions: { save, saveFromTry, duplicate, useInRun, edit, reload, tryIt: tryPanel.run } };
 }

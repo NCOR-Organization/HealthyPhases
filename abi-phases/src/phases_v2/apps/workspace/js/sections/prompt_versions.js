@@ -11,8 +11,8 @@ const LINKED_REQUESTS = 3;
 export const template = () => `
   <section class="card" aria-labelledby="pr-ver-title">
     <div class="card-head"><div><h2 id="pr-ver-title">Versions</h2>
-      <p class="hint">Every text saved under this name. Open one to edit from it, or use it in a run.</p></div></div>
-    <div class="versions-table">${tableHtml('pr-ver-rows', ['Version', 'Saved', 'Used by', 'Items', ''], 'Prompt versions')}</div>
+      <p class="hint">Every text saved under this name, newest first. Open one to edit from it, or use it in a run.</p></div></div>
+    <div class="versions-table">${tableHtml('pr-ver-rows', ['Version', 'First seen', 'Used by', 'Items', ''], 'Prompt versions')}</div>
     <p id="pr-ver-message" class="msg" role="status"></p>
     <h3>Compare</h3>
     <div class="row end"><div class="grow"><label for="pr-ver-a">From</label><select id="pr-ver-a"></select></div>
@@ -26,6 +26,9 @@ export function savedOn(value) {
   const date = new Date(value || '');
   return value && !Number.isNaN(date.getTime()) ? date.toLocaleDateString() : 'Built in';
 }
+
+// When the version first appeared: saved, or first run, whichever came first.
+export const firstSeen = (version) => version.first_seen || version.registered_at;
 
 export const versionLabel = (version) => `Version ${String(version.prompt_id).slice(-8)}`;
 
@@ -61,25 +64,26 @@ export function createVersions(ctx, { draft, open, use }) {
         version.declared ? '<span class="pill">Built in</span>' : '',
       ].join(' ');
       row.innerHTML = `<td><code>${esc(version.prompt_id.slice(-8))}</code> ${tags}<small>${esc(version.output_key)}</small></td>`
-        + `<td title="${esc(formatDate(version.registered_at, ''))}">${esc(savedOn(version.registered_at))}</td><td>${usage(version, ctx.href)}</td><td>${itemsCell(version)}</td><td></td>`;
+        + `<td title="${esc(formatDate(firstSeen(version), ''))}">${esc(savedOn(firstSeen(version)))}</td><td>${usage(version, ctx.href)}</td><td>${itemsCell(version)}</td><td></td>`;
       const actions = row.lastElementChild;
-      const button = (text, handler) => {
+      const button = (text, handler, label) => {
         const b = document.createElement('button');
         b.type = 'button';
         b.className = 'small';
         b.textContent = text;
+        if (label) { b.title = label; b.setAttribute('aria-label', label); }
         b.addEventListener('click', handler);
         actions.append(b);
       };
       if (version.prompt_id !== state.current) button('Open', () => open(version.prompt_id));
       button('Use in new run', () => use(version.prompt_id));
-      button('Compare with editor', () => compareWith(version.prompt_id));
+      button('Compare', () => compareWith(version.prompt_id), `Compare ${versionLabel(version)} with the text in the editor`);
       body.append(row);
     }
   }
 
   function fillCompare(from, to) {
-    const options = [{ id: DRAFT, label: 'Text in the editor' }, ...state.versions.map((v) => ({ id: v.prompt_id, label: `${versionLabel(v)} · ${formatDate(v.registered_at, 'built in')}` }))];
+    const options = [{ id: DRAFT, label: 'Text in the editor' }, ...state.versions.map((v) => ({ id: v.prompt_id, label: `${versionLabel(v)} · ${savedOn(firstSeen(v))}` }))];
     fill($('pr-ver-a'), options, 'id', (o) => o.label, [from]);
     fill($('pr-ver-b'), options, 'id', (o) => o.label, [to]);
   }

@@ -303,6 +303,9 @@ mark { background: var(--mark); color: inherit; padding: 0 .1rem; border-radius:
 .try-relation .relation-edge { display: inline; font-weight: 600; }
 .try-relation .evidence { margin-top: .35rem; }
 .versions-table th:nth-child(2), .versions-table td:nth-child(2) { white-space: nowrap; }
+.versions-table td:nth-child(3), .versions-table td:nth-child(4) { min-width: 7.5rem; }
+.versions-table td:last-child { width: 1%; }
+.versions-table td:last-child button { display: block; width: 100%; margin-bottom: .35rem; white-space: nowrap; }
 .diff { font-family: var(--mono); font-size: .8rem; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 8px; padding: .6rem 0; max-height: 28rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
 .diff:empty { display: none; }
 .diff > span { display: block; padding: 0 .7rem; }

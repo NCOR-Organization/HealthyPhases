@@ -332,7 +332,7 @@ New endpoints under `/phases_v2/api`:
   chunked with it. Returns `{papers, total, limit, offset}`.
 - `GET /papers/{paper_id}/chunks?chunker_id=`: each chunk's `seq` and a short preview.
 - `POST /prompts/try`: run a `draft` (`{name, template, output_key}`) or a saved
-  `prompt_id` with `model_id` on `seqs` (or the `first` N, default 3) chunks of
+  `prompt_id` with `model_id` on `seqs` (or the `first` N, 1 to 10, default 3) chunks of
   `paper_id` cut with `chunker_id`, at most 10. Answers in the same request, each
   chunk with its items (relations as objects), or its error and raw output, and the
   time taken. With `baseline_prompt_id`, each chunk also carries what that version
@@ -342,7 +342,10 @@ New endpoints under `/phases_v2/api`:
   nothing: no prompt, extraction, item, run or projection.
 - `GET /prompts/versions?name=`: every version saved under a name, newest first,
   with its text, the extraction runs and run requests that used it, and its item
-  counts per model.
+  counts per model. Versions are ordered by `first_seen`, the earliest of their
+  `registered_at`, first run and first request. On start, declared prompts already
+  in `prompts` are not rewritten, so a built-in text keeps the time it first
+  appeared and never lists above versions saved after it.
 
 Management request shapes and validation are defined in
 `app/contracts/pipeline_management.proto` and, for trying a prompt,
