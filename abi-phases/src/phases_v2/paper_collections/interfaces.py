@@ -115,7 +115,3 @@ class CollectionCatalog(MemberSources, Protocol):
     def paper_states(self, paper_ids: list[str]) -> dict[str, dict[str, Any]]:
         """``{"ingested": bool, "results": int}`` for each id that is known."""
         ...
-
-    def ingested_papers(self, search: str, limit: int) -> list[dict[str, Any]]:
-        """Ingested papers whose file name or path contains ``search``."""
-        ...

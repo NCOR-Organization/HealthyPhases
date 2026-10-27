@@ -1,4 +1,7 @@
-"""Ingested papers and their chunks, for choosing what to try a prompt on.
+"""Ingested papers and their chunks, for every picker in the app.
+
+Collections adds single papers from this listing; Prompts tries a prompt on a
+few chunks of one of them.
 
 Read-only. Each paper is returned as a plain dict so later views (per-paper
 results, say) can add fields without changing the ones already here.
@@ -24,10 +27,10 @@ class PapersCatalog:
         *,
         q: str = "",
         chunker_id: str = "",
-        limit: int = 25,
+        limit: int = 50,
         offset: int = 0,
     ) -> dict[str, Any]:
-        """Ingested papers whose file name contains ``q``, by file name.
+        """Ingested papers whose file name or path contains ``q``, by file name.
 
         With ``chunker_id``, only papers already chunked with it: those are the
         ones a prompt can be tried on with that chunker.
@@ -38,7 +41,11 @@ class PapersCatalog:
         where = ["p.text_key IS NOT NULL"]
         if q.strip():
             # contains() rather than LIKE, so % and _ in a search mean themselves.
-            where.append(f"contains(lower(p.file_name), lower({literal(q.strip())}))")
+            term = f"lower({literal(q.strip())})"
+            where.append(
+                f"(contains(lower(p.file_name), {term}) OR contains(lower("
+                f"p.storage_prefix || '/' || p.storage_key), {term}))"
+            )
         if chunker_id:
             where.append(
                 "EXISTS (SELECT 1 FROM chunks c WHERE c.paper_id = p.paper_id "
@@ -62,6 +69,7 @@ class PapersCatalog:
                 "file_name": row["file_name"],
                 "storage_prefix": row["storage_prefix"],
                 "storage_key": row["storage_key"],
+                "path": _path(row["storage_prefix"], row["storage_key"]),
                 "discovered_at": _iso(row["discovered_at"]),
                 "chunks": counts.get(row["paper_id"], {}),
             }
@@ -109,6 +117,12 @@ class PapersCatalog:
                 row["chunks"]
             )
         return counts
+
+
+def _path(prefix: str | None, key: str | None) -> str | None:
+    if not key:
+        return None
+    return f"{(prefix or '').rstrip('/')}/{key}" if prefix else key
 
 
 def _preview(head: str, chars: int) -> str:

@@ -75,6 +75,8 @@ def _seed(rows):
             {
                 "paper_id": "p1",
                 "file_name": "Loneliness and sleep.pdf",
+                "storage_prefix": "phases_v2/gero",
+                "storage_key": "studies/loneliness.pdf",
                 "text_key": "t1",
             },
             {"paper_id": "p2", "file_name": "Gero%study.pdf", "text_key": "t2"},
@@ -291,6 +293,8 @@ def test_papers_lists_only_ingested_papers_by_file_name_with_chunk_counts(env):
         "Loneliness and sleep.pdf",
     ]
     assert page["papers"][1]["chunks"] == {CHUNKER: 4}
+    assert page["papers"][1]["path"] == "phases_v2/gero/studies/loneliness.pdf"
+    assert page["papers"][0]["path"] is None
     assert page["papers"][0]["chunks"] == {"window_1_aaa": 2}
 
 
@@ -298,6 +302,8 @@ def test_papers_lists_only_ingested_papers_by_file_name_with_chunk_counts(env):
     ("query", "expected"),
     [
         ("q=SLEEP", ["p1"]),
+        # The path counts too, so a folder name finds its papers.
+        ("q=gero/studies", ["p1"]),
         # A search for % means the character, not "anything".
         ("q=%25", ["p2"]),
         (f"chunker_id={CHUNKER}", ["p1"]),

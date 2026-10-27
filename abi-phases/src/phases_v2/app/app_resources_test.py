@@ -264,9 +264,9 @@ def test_an_ingested_paper_can_be_found_to_be_picked(env):
     assert [(p["paper_id"], p["path"]) for p in found] == [
         (env.ingested, "phases_v2/old/x.pdf")
     ]
-    assert env.client.get(f"{PREFIX}/papers", params={"q": "nothing"}).json() == {
-        "papers": []
-    }
+    assert env.client.get(f"{PREFIX}/papers", params={"q": "nothing"}).json()[
+        "papers"
+    ] == []
 
 
 # -- legacy collections ------------------------------------------------

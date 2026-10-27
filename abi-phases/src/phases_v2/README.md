@@ -328,8 +328,10 @@ New endpoints under `/phases_v2/api`:
 - `GET /pipelines` and `POST /pipelines`: list/save `{name, inputs}` configurations.
 - `POST /pipelines/{pipeline_id}/requests`: request the saved configuration.
 - `GET /papers?q=&chunker_id=&limit=&offset=`: ingested papers whose file name
-  contains `q`, with chunk counts per chunker; with `chunker_id`, only papers
-  chunked with it. Returns `{papers, total, limit, offset}`.
+  or path contains `q`, each with its `path` and chunk counts per chunker; with
+  `chunker_id`, only papers chunked with it. Returns `{papers, total, limit,
+  offset}` (`limit` up to 200). Collections picks single papers from it and
+  Prompts tries a prompt on one.
 - `GET /papers/{paper_id}/chunks?chunker_id=`: each chunk's `seq` and a short preview.
 - `POST /prompts/try`: run a `draft` (`{name, template, output_key}`) or a saved
   `prompt_id` with `model_id` on `seqs` (or the `first` N, 1 to 10, default 3) chunks of

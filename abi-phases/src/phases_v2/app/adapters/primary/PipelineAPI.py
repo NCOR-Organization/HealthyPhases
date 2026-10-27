@@ -171,14 +171,6 @@ def build_router(service: PipelineAppService) -> APIRouter:
             content,
         )
 
-    @router.get("/papers")
-    def ingested_papers(
-        q: str = Query(default="", max_length=300),
-        limit: int = Query(default=50, ge=1, le=200),
-    ):
-        """Ingested papers, to pick single papers for a collection."""
-        return {"papers": management_call(service.ingested_papers, q, limit)}
-
     @router.delete(
         "/collections/{collection_id}", dependencies=[Depends(require_abi_api_token)]
     )
@@ -204,12 +196,16 @@ def build_router(service: PipelineAppService) -> APIRouter:
 
     @router.get("/papers")
     def papers(
-        q: str = Query(default="", max_length=200),
+        q: str = Query(default="", max_length=300),
         chunker_id: str = Query(default="", max_length=200),
-        limit: int = Query(default=25, ge=1, le=100),
+        limit: int = Query(default=50, ge=1, le=200),
         offset: int = Query(default=0, ge=0),
     ):
-        """Ingested papers, searchable by file name, with chunk counts per chunker."""
+        """Ingested papers, searchable by file name or path, with chunk counts.
+
+        One listing for every picker: Collections adds single papers from it,
+        Prompts tries a prompt on one of them.
+        """
         return management_call(
             service.papers.papers,
             q=q,

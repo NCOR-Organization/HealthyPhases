@@ -174,29 +174,6 @@ class StoredMemberSources:
             states[row["paper_id"]]["results"] = int(row["results"])
         return states
 
-    def ingested_papers(self, search: str, limit: int) -> list[dict[str, Any]]:
-        where = ""
-        if search.strip():
-            pattern = literal(f"%{search.strip().lower()}%")
-            where = (
-                f" AND (LOWER(file_name) LIKE {pattern} "
-                f"OR LOWER(storage_prefix || '/' || storage_key) LIKE {pattern})"
-            )
-        rows = self._rows.query(
-            "SELECT paper_id, storage_prefix, storage_key, file_name, discovered_at "
-            f"FROM papers WHERE text_key IS NOT NULL{where} "
-            f"ORDER BY file_name, paper_id LIMIT {int(limit)}"
-        )
-        return [
-            {
-                "paper_id": row["paper_id"],
-                "file_name": row["file_name"],
-                "path": f"{row['storage_prefix'].rstrip('/')}/{row['storage_key']}",
-                "discovered_at": row["discovered_at"],
-            }
-            for row in rows
-        ]
-
     def _catalog(self):
         if self._pubmed is None:
             raise MemberUnavailable("PubMed papers are unavailable in this deployment.")

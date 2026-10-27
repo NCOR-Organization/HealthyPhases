@@ -95,16 +95,6 @@ class PipelineAppService:
         self.resources.add_upload_folder(collection_id)
         return uploaded
 
-    def ingested_papers(
-        self, search: str = "", limit: int = 50
-    ) -> list[dict[str, Any]]:
-        if self.collection_sources is None:
-            return []
-        return [
-            dict(row, discovered_at=_iso(row.get("discovered_at")))
-            for row in self.collection_sources.ingested_papers(search, limit)
-        ]
-
     def submit_collection_run(
         self,
         *,
