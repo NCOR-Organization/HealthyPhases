@@ -20,8 +20,9 @@ workspace/
 │   ├── ui.js             # escaping, messages, pills, empty states, pagination, toasts, confirmation
 │   ├── documents.js      # previews of what a run reads (folders, a PubMed search, a collection)
 │   ├── diff.js           # line diff of two prompt texts
-│   └── sections/         # overview, library, collections, prompts, runs, search
-│                         # (+ search_render; prompt_try and prompt_versions for Prompts)
+│   └── sections/         # overview, library, collections, prompts, runs, results, search
+│                         # (+ search_render; prompt_try and prompt_versions for Prompts;
+│                         # paper_view for Results)
 ├── tests/                # node --test suites (*.cjs) and their small DOM stand-in
 ├── manifest_test.py      # catalog, serving and packaging checks
 └── package.json          # marks js/ as ES modules for Node; not used by the browser
@@ -47,7 +48,14 @@ response sets.
 | `#/prompts`, `#/prompts/<prompt_id>`, `#/prompts/new` | The prompt library: editor, Try it on a few chunks of a paper, and the version history with a line diff |
 | `#/runs`, `#/runs/<request_id>` | Run requests, with one opened |
 | `#/runs/new` | The new-run form and saved configurations |
+| `#/results?q=...&collection=...&prompt=...&model=...&has_results=true\|false&request=...&sort=...&page=2` | Ingested papers with their counts, filtered |
+| `#/results/<paper_id>?group=...&a=...&b=...` | One paper: its records, what ran, results by chunk for one prompt version × model (`group`, as `<prompt_id>\|<model_id>`), and two compared side by side (`a`, `b`) |
 | `#/search?q=...&mode=semantic\|keyword\|effects&prompt=...&model=...&path=...&collection=...` | Search results |
+
+A paper's page is reached from Results and from the other sections: a search hit's
+**Open paper**, a paper in a collection's Papers table, a run's **Papers in this run**
+(`#/results?request=<request_id>`), a collection's **Results of this collection** and
+**Open results** on a Library paper whose PDF has been ingested.
 
 Nexus gives the iframe a new URL, with a new access token, each time it reloads the app,
 which drops the hash. The router therefore keeps the last route in `sessionStorage` and

@@ -3,7 +3,7 @@
 // Views: #/library (papers), #/library/search, #/library/downloads,
 // #/library/schedules and #/library/enrichment (only when OpenAlex is enabled).
 
-import { openalex, pubmed } from '../api.js';
+import { openalex, phases, pubmed } from '../api.js';
 import {
   $, action, emptyRow, esc, fill, formatDate, latest, message, pagination, plural, statusPill, tableHtml,
 } from '../ui.js';
@@ -333,6 +333,30 @@ export function create(root, ctx) {
     return `<details><summary>${plural(artifacts.length, 'PDF version')}</summary>${artifacts.map((a) => `<p><small>Storage location</small><code>${esc(a.storage_prefix)}/${esc(a.storage_key)}</code><small>SHA-256</small><code>${esc(a.content_sha256)}</code></p>`).join('')}</details>`;
   }
 
+  // A downloaded paper that has been ingested links to its results. Optional:
+  // the library reads the same without it.
+  async function linkResults(shown, token) {
+    const ids = [...new Set(shown.flatMap(([, hashes]) => hashes))].slice(0, 200);
+    if (!ids.length) return;
+    let ingested;
+    try {
+      const params = new URLSearchParams([...ids.map((id) => ['paper_id', id]), ['limit', 200]]);
+      ingested = new Set((await phases(`/papers?${params}`)).papers.map((p) => p.paper_id));
+    } catch (_unavailable) {
+      return;
+    }
+    if (!libraryGuard.is(token)) return;
+    for (const [tr, hashes] of shown) {
+      const id = hashes.find((hash) => ingested.has(hash));
+      if (!id) continue;
+      const link = document.createElement('a');
+      link.className = 'button small';
+      link.href = ctx.href('results', [id]);
+      link.textContent = 'Open results';
+      tr.lastElementChild.append(link);
+    }
+  }
+
   async function library(page = state.libraryPage) {
     if (!state.libraryFilters) state.libraryFilters = libraryFilters();
     const token = libraryGuard.next();
@@ -357,6 +381,7 @@ export function create(root, ctx) {
         ? `Showing ${first}-${first + data.papers.length - 1} of ${data.total} papers.`
         : 'No papers match these filters. Clear the filters, or search PubMed and download papers first.');
       if (!data.total) $('lib-papers').innerHTML = emptyRow(4, 'Nothing to show yet.');
+      const shown = [];
       for (const row of data.papers) {
         const p = row.paper;
         const tr = document.createElement('tr');
@@ -376,7 +401,9 @@ export function create(root, ctx) {
           tr.lastElementChild.append(collectButton('lib-summary', title, [{ paper: { pmid: p.pmid } }], `"${title}"`));
         }
         $('lib-papers').append(tr);
+        shown.push([tr, (row.artifacts || []).map((a) => a.content_sha256).filter(Boolean)]);
       }
+      linkResults(shown, token);
     } catch (error) {
       if (libraryGuard.is(token)) { state.libraryPages = 0; message('lib-summary', error.message, 'bad'); }
     } finally {

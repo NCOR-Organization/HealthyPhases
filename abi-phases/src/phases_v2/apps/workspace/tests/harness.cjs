@@ -57,7 +57,7 @@ function response(payload, { ok = true, status = ok ? 200 : 422, type = 'applica
 
 function install({ hash = '', storage = {}, session = {} } = {}) {
   const elements = new Map();
-  const navLinks = ['overview', 'library', 'collections', 'prompts', 'runs', 'search'].map((name) => {
+  const navLinks = ['overview', 'library', 'collections', 'prompts', 'runs', 'results', 'search'].map((name) => {
     const link = element('a');
     link.dataset.nav = name;
     return link;

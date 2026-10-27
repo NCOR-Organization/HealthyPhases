@@ -91,10 +91,14 @@ test('a collection page lists its members by type and its papers with their stat
   const papers = cells($('col-papers'));
   assert.match(papers[0], /Has results \(4 results\)/);
   assert.match(papers[1], /Not ingested yet/);
-  assert.match(papers[2], /Solitude &lt;b&gt;paper&lt;\/b&gt;<small>PMID 7/);
+  assert.match(papers[2], /Solitude &lt;b&gt;paper&lt;\/b&gt;<\/a><small>PMID 7/);
   assert.match(papers[2], />Ingested</);
+  // An ingested paper opens on its results; one not ingested yet has no page.
+  assert.match(papers[0], new RegExp(`<a class="row-link" href="#/results/${SHA('a')}">A.pdf</a>`));
+  assert.doesNotMatch(papers[1], /href=/);
   assert.equal($('col-papers-summary').textContent, '3 papers: 1 not ingested yet, 1 ingested, 1 with results.');
   assert.equal($('col-search').href, '#/search?collection=c1');
+  assert.equal($('col-results').href, '#/results?collection=c1');
   assert.equal($('col-run').disabled, false);
 });
 

@@ -265,6 +265,8 @@ test('a deep link opens the request details', async () => {
   assert.match(detail, /dagster-run/);
   assert.equal($('run-detail-results').hidden, false);
   assert.equal($('run-detail-results').href, '#/search?mode=semantic&prompt=Causes&model=model');
+  assert.equal($('run-detail-papers').hidden, false);
+  assert.equal($('run-detail-papers').href, '#/results?request=r-1');
   assert.equal($('run-detail-title').focused, true);
 });
 

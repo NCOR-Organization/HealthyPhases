@@ -46,7 +46,7 @@ const template = () => `
             <div><label for="col-name">Collection name</label><input id="col-name" required maxlength="120" placeholder="e.g. Solitude research"></div>
             <div><label for="col-description">Description <span class="hint">(optional)</span></label><textarea id="col-description" class="short" rows="2" maxlength="2000" placeholder="What these papers have in common"></textarea></div>
           </div>
-          <div class="row actions"><button class="primary" id="col-save">Create collection</button><button type="button" id="col-run" disabled>Run on this collection</button><a id="col-search" class="button" href="#/search" hidden>Search this collection</a><button type="button" id="col-archive" class="danger" hidden>Archive collection</button></div>
+          <div class="row actions"><button class="primary" id="col-save">Create collection</button><button type="button" id="col-run" disabled>Run on this collection</button><a id="col-search" class="button" href="#/search" hidden>Search this collection</a><a id="col-results" class="button" href="#/results" hidden>Results of this collection</a><button type="button" id="col-archive" class="danger" hidden>Archive collection</button></div>
           <p id="col-message" class="msg" role="status"></p>
         </form>
       </section>
@@ -228,7 +228,9 @@ export function create(root, ctx) {
       const [tone, label] = STATUSES[paper.status] || ['idle', paper.status];
       const row = document.createElement('tr');
       const results = paper.status === 'results' ? ` (${plural(paper.results, 'result')})` : '';
-      row.innerHTML = `<td>${esc(paper.name)}${paper.pmid ? `<small>PMID ${esc(paper.pmid)}</small>` : ''}</td><td class="muted"><code>${esc(paper.path)}</code></td><td>${statusPill(tone, label + results)}</td>`;
+      // An ingested paper opens on its results page.
+      const name = paper.paper_id ? `<a class="row-link" href="${esc(ctx.href('results', [paper.paper_id]))}">${esc(paper.name)}</a>` : esc(paper.name);
+      row.innerHTML = `<td>${name}${paper.pmid ? `<small>PMID ${esc(paper.pmid)}</small>` : ''}</td><td class="muted"><code>${esc(paper.path)}</code></td><td>${statusPill(tone, label + results)}</td>`;
       body.append(row);
     }
   }
@@ -268,8 +270,12 @@ export function create(root, ctx) {
     $('col-archive').hidden = !collection;
     $('col-run').disabled = !collection;
     $('col-search').hidden = !collection;
+    $('col-results').hidden = !collection;
     $('col-refresh').hidden = !collection;
-    if (collection) $('col-search').href = ctx.href('search', [], { collection: collection.collection_id });
+    if (collection) {
+      $('col-search').href = ctx.href('search', [], { collection: collection.collection_id });
+      $('col-results').href = ctx.href('results', [], { collection: collection.collection_id });
+    }
     $('col-add-hint').textContent = collection
       ? 'Everything you add here joins the collection straight away.'
       : 'Add papers in any of these ways. They are saved with the collection when you create it.';

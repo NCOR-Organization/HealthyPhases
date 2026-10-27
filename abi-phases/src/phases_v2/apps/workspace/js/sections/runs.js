@@ -43,7 +43,7 @@ const template = () => `
     <section class="card" id="run-detail" hidden aria-labelledby="run-detail-title">
       <div class="card-head"><h2 id="run-detail-title" tabindex="-1">Run details</h2><a id="run-detail-close" class="button" href="#/runs">Close</a></div>
       <div id="run-detail-content"></div>
-      <div class="row actions"><a id="run-detail-collection" class="button" href="#/collections" hidden>Open the collection</a><a id="run-detail-results" class="button" href="#/search" hidden>Search with this run's prompts and model</a></div>
+      <div class="row actions"><a id="run-detail-papers" class="button" href="#/results" hidden>Papers in this run</a><a id="run-detail-collection" class="button" href="#/collections" hidden>Open the collection</a><a id="run-detail-results" class="button" href="#/search" hidden>Search with this run's prompts and model</a></div>
     </section>
   </div>
 
@@ -383,6 +383,7 @@ export function create(root, ctx) {
   async function loadRequestDetail() {
     const id = state.requestId;
     $('run-detail').hidden = !id;
+    $('run-detail-papers').hidden = true;
     if (!id) return;
     try {
       const request = await phases(`/requests/${encodeURIComponent(id)}`);
@@ -400,6 +401,8 @@ export function create(root, ctx) {
       const names = (request.prompt_ids || []).map((pid) => state.prompts.find((p) => p.prompt_id === pid)?.name).filter(Boolean);
       $('run-detail-results').href = ctx.href('search', [], { mode: 'semantic', prompt: [...new Set(names)], model: request.model_id });
       $('run-detail-results').hidden = request.status !== 'succeeded';
+      $('run-detail-papers').href = ctx.href('results', [], { request: request.request_id });
+      $('run-detail-papers').hidden = false;
       const collection = request.collection;
       $('run-detail-collection').hidden = !collection || collection.archived !== false;
       if (collection) $('run-detail-collection').href = ctx.href('collections', [collection.collection_id]);

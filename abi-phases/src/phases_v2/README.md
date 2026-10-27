@@ -327,11 +327,12 @@ New endpoints under `/phases_v2/api`:
 - `POST /documents?location=...&filename=...`: upload raw PDF bytes.
 - `GET /pipelines` and `POST /pipelines`: list/save `{name, inputs}` configurations.
 - `POST /pipelines/{pipeline_id}/requests`: request the saved configuration.
-- `GET /papers?q=&chunker_id=&limit=&offset=`: ingested papers whose file name
-  or path contains `q`, each with its `path` and chunk counts per chunker; with
-  `chunker_id`, only papers chunked with it. Returns `{papers, total, limit,
-  offset}` (`limit` up to 200). Collections picks single papers from it and
-  Prompts tries a prompt on one.
+- `GET /papers?q=&chunker_id=&limit=&offset=`: ingested papers whose file name,
+  path, PubMed title or PMID matches `q`, each with its `path` and chunk counts per
+  chunker; with `chunker_id`, only papers chunked with it. Returns `{papers, total,
+  limit, offset}` (`limit` up to 200). Collections picks single papers from it,
+  Prompts tries a prompt on one, and Results lists them (see Results per paper for
+  the other filters and fields).
 - `GET /papers/{paper_id}/chunks?chunker_id=`: each chunk's `seq` and a short preview.
 - `POST /prompts/try`: run a `draft` (`{name, template, output_key}`) or a saved
   `prompt_id` with `model_id` on `seqs` (or the `first` N, 1 to 10, default 3) chunks of
@@ -562,6 +563,60 @@ is introduced.
 
 Run backend and browser-logic regressions with `make test` (or run
 `uv run pytest src/phases_v2/app` and `make test-app` individually).
+
+## Results per paper
+
+The app's **Results** section lists every ingested paper and opens one paper with
+everything extracted from it. Both read the datasets directly, so results show as soon
+as a run writes them, with no projection needed.
+
+`GET /phases_v2/api/papers` takes, besides `q` and `chunker_id`:
+
+- `collection=<collection_id>`: the papers the collection holds now;
+- `request_id=<request_id>`: the papers that run request covered: those in its
+  manifest (by hash or path), those under its folders found before it finished, and
+  those it wrote extractions for;
+- `prompt=<name>`, `prompt_id=<version>` and `model=<model_id>` (repeatable): papers
+  these ran on, with each row's counts covering those runs only;
+- `has_results=true|false`: papers with at least one extracted item, or none;
+- `paper_id=` (repeatable, up to 200): only those papers, which is how the Library
+  learns which of its PDFs are ingested;
+- `sort=title|newest|oldest`. Every order ends on the paper id, so pages are stable.
+
+Each row adds `title` (the PubMed title when the PDF is a published PubMed artifact
+with the same `content_sha256`, else the file name), `pmid`, `source` (`pubmed` or
+`file`), `extractions` (`succeeded` and `failed` chunks) and `items` (count per prompt
+name) with their total `item_count`. A page costs three queries whatever its size: the
+filtered, sorted page with its total, and one query for every count on it. The PubMed
+title comes from a join on `pubmed.artifacts` and `pubmed.papers`, made only when those
+tables exist.
+
+`GET /phases_v2/api/papers/{paper_id}` returns:
+
+- `paper`: title, file, path, every other path it was read from, size, ingestion time;
+- `pubmed`: the PubMed record (authors, journal, date, DOI, PMCID) when it has a PMID;
+- `openalex`: the enrichment and its matched work, when OpenAlex has one;
+- `chunkers`: chunk counts per chunker;
+- `ran`: one summary per prompt version × model run on it, with succeeded and failed
+  chunks, item and relation counts, and the requests whose runs wrote them;
+- `requests`: every run request that covered the paper (same rules as `request_id`);
+- `results`: per prompt version × model, its items in reading order (each with its
+  chunk id and position, and its probability relations), and its failed chunks with
+  their error and the start of what the model returned;
+- `chunks`: the text of every chunk those results refer to, once.
+
+`GET /phases_v2/api/papers/{paper_id}/export?prompt_id=&model_id=` writes the paper's
+results as CSV with the search export's columns (`mode` is `paper`): one row per item,
+or one per relation for items that carry relations. `prompt_id` or `model_id` keeps one
+version or one model. `GET /phases_v2/api/search/paper?paper_id=` downloads the paper's
+own PDF through the same path checks as a search hit's download (`item_id=`).
+
+The list filters and the export are validated by `app/contracts/paper_results.proto`.
+
+On production data (269 papers, 6,113 chunks, 54,791 extractions, 106,458 items),
+read-only, a page of the list took 0.3 to 0.7 s (median per filter, including a run's
+papers), a median paper's page 0.55 s and the largest one (2,666 items in 18 version ×
+model groups, 1.4 MB) 0.8 s. Most of that is the fixed cost of each DuckLake read.
 
 
 ## Published PubMed sources

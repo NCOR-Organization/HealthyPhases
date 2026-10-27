@@ -86,7 +86,8 @@ def _csv_line(values):
     return output.getvalue().encode("utf-8")
 
 
-def _csv_document(hits, query, mode):
+def csv_document(hits, query, mode):
+    """The export's rows, as bytes: a BOM, the header, then one line per hit."""
     yield b"\xef\xbb\xbf"
     yield _csv_line(CSV_COLUMNS)
     for hit in hits:
@@ -168,13 +169,25 @@ def build_router(
         }
 
     @router.get("/paper")
-    def download_paper(item_id: str):
+    def download_paper(item_id: str = "", paper_id: str = ""):
+        """The PDF a hit came from (``item_id``), or a paper's own (``paper_id``)."""
+        target = {
+            key: value
+            for key, value in (("item_id", item_id), ("paper_id", paper_id))
+            if value
+        }
         try:
-            validate_message("PaperDownloadRequest", {"item_id": item_id})
+            validate_message("PaperDownloadRequest", target)
+            if len(target) > 1:
+                raise ValueError("Give an item_id or a paper_id, not both.")
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         try:
-            filename, content = service.download_paper(item_id)
+            filename, content = (
+                service.download_paper(item_id)
+                if item_id
+                else service.download_paper_by_id(paper_id)
+            )
         except FileNotFoundError as error:
             raise HTTPException(
                 status_code=404, detail="Source PDF is unavailable."
@@ -220,7 +233,7 @@ def build_router(
         try:
             scoped, _, options = view(mode, filters)
             output.writelines(
-                _csv_document(scoped.all_hits(mode, **options), filters["query"], mode)
+                csv_document(scoped.all_hits(mode, **options), filters["query"], mode)
             )
             length = output.tell()
             output.seek(0)

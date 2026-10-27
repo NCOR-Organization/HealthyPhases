@@ -11,11 +11,15 @@ sensor picks it up.
 from __future__ import annotations
 
 import logging
+import re
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.responses import Response
 from naas_abi_core.apps.api.abi_api_key_auth import require_abi_api_token
 from starlette.concurrency import run_in_threadpool
 
+from phases_v2.app.adapters.primary.SearchAPI import csv_document
+from phases_v2.app.contracts.pipeline_validation import validate_message
 from phases_v2.app.pipeline_management import MAX_UPLOAD_BYTES, ManagementUnavailable
 from phases_v2.app.service import PipelineAppService
 from phases_v2.requests.interfaces import RequestNotFound
@@ -198,20 +202,65 @@ def build_router(service: PipelineAppService) -> APIRouter:
     def papers(
         q: str = Query(default="", max_length=300),
         chunker_id: str = Query(default="", max_length=200),
+        collection: str = Query(default="", max_length=200),
+        request_id: str = Query(default="", max_length=200),
+        prompt: list[str] = Query(default=[]),
+        prompt_id: list[str] = Query(default=[]),
+        model: list[str] = Query(default=[]),
+        has_results: bool | None = None,
+        paper_id: list[str] = Query(default=[]),
+        sort: str = "title",
         limit: int = Query(default=50, ge=1, le=200),
         offset: int = Query(default=0, ge=0),
     ):
-        """Ingested papers, searchable by file name or path, with chunk counts.
+        """Ingested papers with what was extracted from each, one page at a time.
 
-        One listing for every picker: Collections adds single papers from it,
-        Prompts tries a prompt on one of them.
+        One listing for every view: Collections adds single papers from it,
+        Prompts tries a prompt on one of them, Results opens them. See
+        ``PaperListQuery`` for the filters.
         """
-        return management_call(
-            service.papers.papers,
-            q=q,
-            chunker_id=chunker_id,
-            limit=limit,
-            offset=offset,
+        query = {
+            "q": q,
+            "chunker_id": chunker_id,
+            "collection": collection,
+            "request_id": request_id,
+            "prompts": prompt,
+            "prompt_ids": prompt_id,
+            "models": model,
+            "paper_ids": paper_id,
+            "sort": sort,
+            "limit": limit,
+            "offset": offset,
+        }
+        if has_results is not None:
+            query["has_results"] = has_results
+        return management_call(service.paper_list, query)
+
+    @router.get("/papers/{paper_id}")
+    def paper(paper_id: str):
+        """One paper: its records, what ran on it, and every result grouped by
+        prompt version and model."""
+        return management_call(service.paper_results.paper, paper_id)
+
+    @router.get("/papers/{paper_id}/export")
+    def export_paper(paper_id: str, prompt_id: str = "", model_id: str = ""):
+        """The paper's results as CSV, with the search export's columns."""
+        management_call(
+            validate_message,
+            "PaperExportQuery",
+            {"paper_id": paper_id, "prompt_id": prompt_id, "model_id": model_id},
+        )
+        hits = management_call(
+            lambda: list(service.paper_results.hits(paper_id, prompt_id, model_id))
+        )
+        return Response(
+            b"".join(csv_document(hits, "", "paper")),
+            media_type="text/csv; charset=utf-8",
+            headers={
+                "Content-Disposition": "attachment; "
+                f'filename="healthyphases-paper-{re.sub(r"[^0-9A-Za-z_-]", "", paper_id)[:16]}.csv"',
+                "Cache-Control": "private, no-store",
+            },
         )
 
     @router.get("/papers/{paper_id}/chunks")

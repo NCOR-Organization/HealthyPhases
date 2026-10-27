@@ -199,9 +199,10 @@ export function create(root, ctx) {
         : '<details><summary>Source chunk</summary><div class="context">Source chunk is unavailable for this match.</div></details>';
       const raw = probabilisticRelations(parsePayload(h.extracted_text)).length
         ? `<details><summary>Show original JSON</summary><div class="context">${esc(h.extracted_text)}</div></details>` : '';
+      const open = h.paper_id ? `<a class="button small" href="${esc(ctx.href('results', [h.paper_id]))}">Open paper</a>` : '';
       const download = h.paper_id ? '<button class="small download" type="button">Download paper</button><span class="download-status" role="status"></span>' : '';
       card.innerHTML = `${renderExtraction(h.extracted_text, data.query, data.mode)}
-        <div class="meta">${prompt}${model}${paper}${where}${score}${download}</div>
+        <div class="meta">${prompt}${model}${paper}${where}${score}${open}${download}</div>
         ${source}${context}${promptDetails}${raw}`;
       const button = card.querySelector('.download');
       if (button && h.paper_id) button.addEventListener('click', () => downloadPaper(h, button, card.querySelector('.download-status')));

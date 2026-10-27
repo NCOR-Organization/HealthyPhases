@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const { test } = require('node:test');
 const { install, load } = require('./harness.cjs');
 
-const SECTIONS = ['overview', 'library', 'collections', 'prompts', 'runs', 'search'];
+const SECTIONS = ['overview', 'library', 'collections', 'prompts', 'runs', 'results', 'search'];
 
 // Stand-in sections that record how the shell drives them.
 function recorders() {
@@ -86,7 +86,7 @@ test('every real section mounts, and a run draft survives visits to other sectio
   const shell = boot({ every() {} });
   dom.$('run-model').value = 'chosen-model';
   for (const hash of ['#/overview', '#/library', '#/library/search', '#/library/downloads', '#/library/schedules',
-    '#/collections', '#/prompts', '#/search?q=stress', '#/runs', '#/runs/new']) {
+    '#/collections', '#/prompts', '#/results', '#/results/p1', '#/search?q=stress', '#/runs', '#/runs/new']) {
     dom.location.hash = hash;
     dom.hashchange();
   }

@@ -43,6 +43,9 @@ class SearchService:
     def download_paper(self, item_id: str) -> tuple[str, bytes]:
         return self._items.download_paper(item_id)
 
+    def download_paper_by_id(self, paper_id: str) -> tuple[str, bytes]:
+        return self._items.download_paper_by_id(paper_id)
+
     def semantic_search(
         self,
         query: str,

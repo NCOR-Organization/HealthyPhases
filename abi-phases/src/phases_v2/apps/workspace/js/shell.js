@@ -11,12 +11,13 @@ import * as library from './sections/library.js';
 import * as collections from './sections/collections.js';
 import * as prompts from './sections/prompts.js';
 import * as runs from './sections/runs.js';
+import * as results from './sections/results.js';
 import * as search from './sections/search.js';
 
-export const MODULES = { overview, library, collections, prompts, runs, search };
+export const MODULES = { overview, library, collections, prompts, runs, results, search };
 export const TITLES = {
   overview: 'Overview', library: 'Library', collections: 'Collections',
-  prompts: 'Prompts', runs: 'Runs', search: 'Search',
+  prompts: 'Prompts', runs: 'Runs', results: 'Results', search: 'Search',
 };
 
 // Focus and visibility often fire together; one refresh covers both.

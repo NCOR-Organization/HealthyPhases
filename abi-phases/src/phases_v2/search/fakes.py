@@ -59,6 +59,9 @@ class FakeExtractedItems:
     def download_paper(self, item_id):
         raise FileNotFoundError(item_id)
 
+    def download_paper_by_id(self, paper_id):
+        raise FileNotFoundError(paper_id)
+
     def snapshot(self):
         return None
 

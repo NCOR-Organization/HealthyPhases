@@ -300,6 +300,13 @@ mark { background: var(--mark); color: inherit; padding: 0 .1rem; border-radius:
 .compare > div + div { border-left: 1px solid var(--rule); padding-left: 1rem; }
 .try-items { margin: 0; padding-left: 1.3rem; display: grid; gap: .45rem; font-size: .88rem; overflow-wrap: anywhere; }
 .try-relation small { display: block; color: var(--mute); }
+/* Results: a paper's results by chunk, and two compared */
+.try-items li.same { border-left: 3px solid var(--accent); padding-left: .5rem; }
+.try-items li small { display: block; }
+.failure { margin-top: .6rem; font-size: .85rem; overflow-wrap: anywhere; }
+/* Tables with several number columns scroll sideways on a narrow screen rather than squeeze. */
+.wide-table table { min-width: 44rem; }
+.wide-table th { overflow-wrap: normal; }
 .try-relation .relation-edge { display: inline; font-weight: 600; }
 .try-relation .evidence { margin-top: .35rem; }
 .versions-table th:nth-child(2), .versions-table td:nth-child(2) { white-space: nowrap; }

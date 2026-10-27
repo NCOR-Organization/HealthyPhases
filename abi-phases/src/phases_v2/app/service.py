@@ -12,6 +12,7 @@ from datetime import datetime
 from typing import Any
 
 from phases_v2.app.app_resources import AppResources
+from phases_v2.app.paper_results import PaperResults
 from phases_v2.app.papers_catalog import PapersCatalog
 from phases_v2.app.pipeline_management import ManagementUnavailable, PipelineManagement
 from phases_v2.app.prompt_versions import PromptVersions
@@ -74,6 +75,7 @@ class PipelineAppService:
             paper_collections=self.resources,
         )
         self.papers = PapersCatalog(rows)
+        self.paper_results = PaperResults(rows)
         self.versions = PromptVersions(rows)
 
     def pubmed_queries(self):
@@ -83,6 +85,34 @@ class PipelineAppService:
 
     def pubmed_artifacts(self, query_id):
         return self._pubmed.artifacts(query_id) if self._pubmed else []
+
+    # -- papers ---------------------------------------------------------
+
+    def paper_list(self, query: dict[str, Any]) -> dict[str, Any]:
+        """One page of ``PaperListQuery``, with its collection resolved to papers."""
+        from phases_v2.app.contracts.pipeline_validation import validate_message
+
+        validate_message("PaperListQuery", query)
+        scope = (
+            self.resources.paper_ids(query["collection"])
+            if query.get("collection")
+            else None
+        )
+        if wanted := set(query.get("paper_ids", [])):
+            scope = sorted(wanted if scope is None else wanted.intersection(scope))
+        return self.papers.papers(
+            q=query.get("q", ""),
+            chunker_id=query.get("chunker_id", ""),
+            papers=scope,
+            request_id=query.get("request_id", ""),
+            prompts=query.get("prompts", []),
+            prompt_ids=query.get("prompt_ids", []),
+            models=query.get("models", []),
+            has_results=query.get("has_results"),
+            sort=query.get("sort") or "title",
+            limit=query.get("limit", 50),
+            offset=query.get("offset", 0),
+        )
 
     # -- collections ----------------------------------------------------
 

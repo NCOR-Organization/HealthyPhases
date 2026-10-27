@@ -1,0 +1,33 @@
+syntax = "proto3";
+package phases_v2.app.v1;
+import "buf/validate/validate.proto";
+
+// GET /phases_v2/api/papers: ingested papers, filtered, one page at a time.
+message PaperListQuery {
+  // Matches the file name, the path, the PubMed title or the PMID.
+  string q = 1 [(buf.validate.field).string.max_len = 300];
+  string chunker_id = 2 [(buf.validate.field).string.max_len = 200];
+  // Only the papers this collection holds now.
+  string collection = 3 [(buf.validate.field).string.pattern = "^([0-9a-fA-F-]{36})?$"];
+  // Only the papers this run request covered.
+  string request_id = 4 [(buf.validate.field).string.max_len = 200];
+  // Only papers these prompt names, versions or models ran on.
+  repeated string prompts = 5 [(buf.validate.field).repeated = {max_items: 50, items: {string: {min_len: 1, max_len: 200}}}];
+  repeated string prompt_ids = 6 [(buf.validate.field).repeated = {max_items: 50, items: {string: {min_len: 1, max_len: 200}}}];
+  repeated string models = 7 [(buf.validate.field).repeated = {max_items: 50, items: {string: {min_len: 1, max_len: 200}}}];
+  // Papers with at least one extracted item, or with none; unset lists both.
+  optional bool has_results = 8;
+  // Only these papers, for checking which of them are ingested.
+  repeated string paper_ids = 9 [(buf.validate.field).repeated = {max_items: 200, items: {string: {min_len: 1, max_len: 200}}}];
+  string sort = 10 [(buf.validate.field).string = {in: ["title", "newest", "oldest"]}];
+  uint32 limit = 11 [(buf.validate.field).uint32 = {gte: 1, lte: 200}];
+  uint32 offset = 12;
+}
+
+// GET /phases_v2/api/papers/{paper_id}/export: the paper's results as CSV.
+message PaperExportQuery {
+  string paper_id = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  // One prompt version or one model only; empty exports every result.
+  string prompt_id = 2 [(buf.validate.field).string.max_len = 200];
+  string model_id = 3 [(buf.validate.field).string.max_len = 200];
+}

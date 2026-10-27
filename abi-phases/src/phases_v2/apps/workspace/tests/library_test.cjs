@@ -575,3 +575,35 @@ test('a failure to open the collection picker is shown next to the paper list', 
   await Promise.all($('lib-papers').children[0].lastElementChild.children[0].listeners.click.map((h) => h({})));
   assert.equal($('lib-summary').textContent, 'Could not load collections.');
 });
+
+test('a downloaded paper that has been ingested links to its results', async () => {
+  const { $, a } = await library();
+  const calls = [];
+  globalThis.fetch = routeFetch({
+    '/pubmed/api/papers': libraryResult(1, 2, [
+      { paper: { pmid: '1', title: 'Ingested' }, artifacts: [{ storage_prefix: 'pubmed/papers', storage_key: 'k1.pdf', content_sha256: 'a'.repeat(64) }] },
+      { paper: { pmid: '2', title: 'Downloaded only' }, artifacts: [{ storage_prefix: 'pubmed/papers', storage_key: 'k2.pdf', content_sha256: 'b'.repeat(64) }] },
+    ]),
+    '/phases_v2/api/papers': { papers: [{ paper_id: 'a'.repeat(64) }], total: 1, limit: 200, offset: 0 },
+  }, calls);
+  await a.library();
+  await settle();
+  const asked = params(calls.find((c) => c.url.includes('/phases_v2/api/papers')).url);
+  assert.deepEqual(asked.getAll('paper_id'), ['a'.repeat(64), 'b'.repeat(64)]);
+  const links = (row) => row.lastElementChild.children.filter((child) => child.tagName === 'A');
+  const [ingested, downloaded] = $('lib-papers').children;
+  assert.deepEqual(links(ingested).map((l) => [l.textContent, l.href]), [['Open results', `#/results/${'a'.repeat(64)}`]]);
+  assert.deepEqual(links(downloaded), []);
+});
+
+test('the library still lists papers when ingestion cannot be checked', async () => {
+  const { $, a } = await library();
+  globalThis.fetch = routeFetch({
+    '/pubmed/api/papers': libraryResult(1, 1, [{ paper: { pmid: '1', title: 'Paper' }, artifacts: [{ content_sha256: 'a'.repeat(64) }] }]),
+    '/phases_v2/api/papers': () => response({ detail: 'down' }, { ok: false, status: 503 }),
+  });
+  await a.library();
+  await settle();
+  assert.equal($('lib-papers').children.length, 1);
+  assert.match($('lib-summary').textContent, /Showing 1-1 of 1 papers/);
+});

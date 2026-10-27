@@ -93,6 +93,13 @@ test('source chunk comes before the stored prompt, followed by the original JSON
   assert.match(rendered, /Stored prompt \{chunk_text\}/);
   assert.match(rendered, /Download paper/);
   assert.match(rendered, /href="#\/prompts\/p-1"/, 'the stored prompt links to its version');
+  assert.match(rendered, /<a class="button small" href="#\/results\/paper-id">Open paper<\/a>/);
+});
+
+test('a hit without a known paper offers no paper page', async () => {
+  const { $, a } = await search();
+  a.renderHits({ query: '', hits: [{ item_id: 'id', extracted_text: 'Claim' }] });
+  assert.doesNotMatch($('sr-results').children[0].innerHTML, /Open paper/);
 });
 
 test('model badges use the model name when it is known', async () => {

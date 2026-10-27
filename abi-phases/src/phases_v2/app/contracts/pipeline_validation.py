@@ -14,7 +14,12 @@ from phases_v2.app import contracts
 
 _POOL = descriptor_pool.DescriptorPool()
 _ADDED: set[str] = set()
-for _descriptor in ("pipeline_management.pb", "search.pb", "prompt_playground.pb"):
+for _descriptor in (
+    "pipeline_management.pb",
+    "search.pb",
+    "prompt_playground.pb",
+    "paper_results.pb",
+):
     for _file in descriptor_pb2.FileDescriptorSet.FromString(
         files(contracts).joinpath(_descriptor).read_bytes()
     ).file:

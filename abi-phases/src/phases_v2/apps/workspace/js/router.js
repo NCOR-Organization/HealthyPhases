@@ -5,7 +5,7 @@
 // the app, which drops the hash. The last route is therefore kept in
 // sessionStorage and restored when the app opens without one.
 
-export const SECTIONS = ['overview', 'library', 'collections', 'prompts', 'runs', 'search'];
+export const SECTIONS = ['overview', 'library', 'collections', 'prompts', 'runs', 'results', 'search'];
 export const DEFAULT_SECTION = 'overview';
 const STORAGE_KEY = 'healthyphases.workspace.route';
 
