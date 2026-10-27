@@ -8,8 +8,8 @@ It reads research papers from object storage, splits them into chunks, runs prom
 chunk with an AI model, and records every claim it extracts alongside the exact chunk, model and
 prompt version that produced it.
 
-It runs **alongside [`phases`](../phases/)**, which is not modified and not retired. The two share a
-vocabulary (`documents.owl#`) but never a named graph, a vector collection, or a dataset.
+It runs **alongside [`phases`](../phases/)**, which is not modified and not retired; only its Nexus page
+gave way to the HealthyPhases app. The two share a vocabulary (`documents.owl#`) but never a named graph, a vector collection, or a dataset.
 
 ## The one idea everything else follows from
 
@@ -187,10 +187,9 @@ phases_v2/
 ├── models/                 # the AI models a run may use
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
-├── app/                    # the pipeline and reverse-search apps' services and HTTP endpoints
+├── app/                    # the workspace app's services and HTTP endpoints
 └── apps/
-    ├── pipeline/           # manifest.json + the page itself
-    └── reverse_search/     # manifest.json + the page itself
+    └── workspace/          # the HealthyPhases Nexus app: index.html, css/, js/ modules, tests/
 ```
 
 Each domain takes its collaborators as arguments and imports no adapter, so its tests run against
@@ -279,7 +278,7 @@ not an already-running extraction process.
 
 ## Authoring pipelines in the web app
 
-The Phases Pipeline app supports the following workflow:
+The HealthyPhases app's **Collections**, **Prompts** and **Runs** sections support the following workflow:
 
 1. Create an input collection under the configured `papers_root`.
 2. Upload PDFs into that collection (25 MiB per file). Each file reports its own
@@ -291,7 +290,8 @@ The Phases Pipeline app supports the following workflow:
    requires changing the name or template too, preserving existing prompt IDs.
 4. Choose locations, prompt versions, chunker, and model. Request a run immediately,
    or save a named configuration and use **Run saved pipeline** later.
-5. Use **Refresh status** to follow requests. The app does not poll continuously.
+5. Follow requests under **Runs**. The list refreshes every 10 seconds while it is open,
+   and again whenever you come back to the app.
 
 Saved configurations are immutable copies of their inputs; load one, edit the form,
 and save a new configuration to make a variant. They reference exact prompt versions
@@ -432,23 +432,41 @@ up to 20 item IDs/errors), left untouched, and retried by later runs. The backfi
 never rewrites source extractions or calls an LLM. API startup only creates the
 empty dataset; it does not run a potentially large backfill during startup.
 
-## Pipeline workspace
+## HealthyPhases workspace app
 
-The Phases Pipeline app has four pages in its left navigation:
+`apps/workspace/` is the one Nexus app of this project. It replaced the Phases Pipeline,
+Phases V2 Reverse Search, PubMed Library and OpenAlex enrichment apps, and the v1 Reverse
+Search app; their HTTP APIs are unchanged. Its sections, in the left navigation:
 
-- **New run**: select a saved collection or storage locations, preview documents,
-  save the selected locations as a collection, choose prompt versions, and queue a run.
-  Existing saved pipeline configurations can still be saved, loaded, and run here.
-- **Input collections**: create, rename, edit, and archive named groups of locations.
-  The contents preview includes each location's subfolders. Archiving a collection
-  leaves its source documents and queued requests intact. Create storage locations
-  and upload PDFs from this page as well.
-- **Prompt library**: browse full prompt text, create prompts, and save edits as
+- **Overview**: the workflow in four steps (collect papers, prepare prompts, run, explore
+  results) with live counts and links into each section.
+- **Library**: PubMed search and ingestion, the paper library with its OpenAlex filters,
+  downloads (ingestion requests and full ingestions), scheduled searches and OpenAlex
+  enrichment. See [`../pubmed/README.md`](../pubmed/README.md) and
+  [`../openalex/README.md`](../openalex/README.md).
+- **Collections**: create, rename, edit, and archive named groups of storage folders.
+  The contents preview includes each folder's subfolders. Archiving a collection asks
+  for confirmation and leaves its source documents and queued requests intact. Create
+  storage folders and upload PDFs from this page as well.
+- **Prompts**: browse full prompt text, create prompts, and save edits as
   new versions. Prompt text must contain `{chunk_text}` and use one of the supported
   extraction output schemas. Old versions remain selectable and resolvable by workers.
-- **Order requests**: filter the latest 100 requests by status and inspect timestamps,
-  source locations, all selected prompts, execution IDs, counts, and errors.
-  Monitoring refreshes every 10 seconds while the page is visible.
+- **Runs**: **New run** selects a saved collection, storage folders or a PubMed search,
+  previews documents, saves the selected folders as a collection, chooses prompt versions,
+  and queues a run; saved pipeline configurations can be saved, loaded, and run here.
+  **Requests** filters the latest 100 requests by status and opens one to inspect
+  timestamps, sources, all selected prompts, execution IDs, counts, and errors. The list
+  refreshes every 10 seconds while it is visible.
+- **Search**: semantic, keyword and effects search over extracted items (see
+  [Reverse search](#reverse-search)).
+
+Every section has a deep link (`#/runs/<request_id>`, `#/search?q=...&mode=keyword`,
+`#/library/schedules`, ...), and the last route comes back when Nexus reloads the app.
+The open section re-reads its data whenever the app becomes visible or regains focus, so
+changes made elsewhere appear. There is no build step: `index.html` loads ES modules from
+`js/` through relative imports, which Nexus serves next to it under
+`/app-html/phases_v2/workspace/`. [`apps/workspace/README.md`](apps/workspace/README.md)
+describes the files.
 
 Collections are stored in the new `input_collections` dataset through the existing
 row-store adapter. Restart the ABI API and Dagster processes after updating: normal
@@ -468,14 +486,13 @@ endpoints inherit the ABI API's existing access controls; no separate role model
 is introduced.
 
 Run backend and browser-logic regressions with `make test` (or run
-`uv run pytest src/phases_v2/app` and
-`node --test src/phases_v2/apps/pipeline/pipeline_test.cjs` individually).
+`uv run pytest src/phases_v2/app` and `make test-app` individually).
 
 
 ## Published PubMed sources
 
-The pipeline app offers **Object storage** and **PubMed dataset** sources.
-Choose a saved PubMed query to preview its successfully published PDF artifacts,
+**Runs → New run** offers **Storage folders** and **PubMed search** sources.
+Choose a saved PubMed search to preview its successfully published PDF artifacts,
 then select chunker, prompt versions and model and click **Request run**.
 Each query option includes its distinct published-paper count and last completed
 ingestion date in the browser's local timezone. Multiple PDF versions count as one

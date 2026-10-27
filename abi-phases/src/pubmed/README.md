@@ -1,14 +1,15 @@
 # PubMed Library
 
-A repo-local copy of the ABI marketplace PubMed module, with a Nexus app and a
-DatasetService-backed publication workflow. See [UPSTREAM.md](UPSTREAM.md) for
+A repo-local copy of the ABI marketplace PubMed module, with a
+DatasetService-backed publication workflow. Its user interface is the **Library**
+section of the HealthyPhases app ([`phases_v2/apps/workspace`](../phases_v2/apps/workspace/README.md)). See [UPSTREAM.md](UPSTREAM.md) for
 provenance and [LICENSE](LICENSE) for the retained upstream license.
 
 ## Use in Nexus
 
 1. Enable `pubmed` in the ABI module configuration; it replaces
    `naas_abi_marketplace.applications.pubmed` in this repository.
-2. Open **PubMed Library** in Nexus. Search with a PubMed expression, optional
+2. Open **HealthyPhases** in Nexus, then **Library → Search PubMed**. Search with a PubMed expression, optional
    publication dates, sort order and a result limit (default 100, maximum 1000).
    Either publication date can be used alone; an empty bound leaves that end
    of the date range unrestricted.
@@ -20,7 +21,7 @@ provenance and [LICENSE](LICENSE) for the retained upstream license.
    launches `pubmed_publish`. Requests wait safely while the daemon is stopped.
 5. Refresh ingestion status to see paper outcomes. **Retry remaining** creates a
    new request for failed/unavailable papers and preserves published artifacts.
-6. In **Phases Pipeline**, select **PubMed dataset**, choose a published query,
+6. In **Runs → New run**, select the **PubMed search** source, choose a published search,
    preview its artifact locations and manually request a pipeline run.
 
 The agent uses the same search, queue and status operations. Its ingestion tool
@@ -44,7 +45,7 @@ legacy files or dataset schema migration is performed.
 
 ## Browse the paper library
 
-Open **Papers** to browse the entire saved library with server-side pagination.
+Open **Library → Papers** to browse the entire saved library with server-side pagination.
 The default is **Downloaded papers**: distinct PMIDs with published PDFs, even
 when several saved queries or PDF versions refer to the same paper. Choose
 **All discovered records** or **Not downloaded** to include metadata-only records.
@@ -56,7 +57,7 @@ literal text search, choose a saved query, and optionally set ingestion-date
 bounds. Click **Apply filters** to start again at page one. Sort by newest/oldest
 ingestion or title, choose 25/50/100 papers per page, and use **Previous**, **Next**
 or **Go to page** to reach the full result set. There is no total-paper browse cap.
-**View papers** in Full ingestions and **Browse downloaded papers** on a saved
+**View papers** in Downloads and **Browse downloaded papers** on a saved
 search open this page with the exact query selected.
 
 The ingestion date here is the latest PDF publication timestamp for a paper.
@@ -76,7 +77,7 @@ are selected together in one dataset query. No dataset schema migration is neede
 
 ## Scheduled queries
 
-Open **Scheduled queries** in PubMed Library to view recurring searches and enable
+Open **Library → Schedules** to view recurring searches and enable
 or disable them. **Delete** removes a schedule after confirmation and prevents
 queued occurrences that have not started from executing. Saved searches, downloaded papers and already-started
 work are retained. Create a schedule from any saved search, give it a name and choose
@@ -175,7 +176,7 @@ be retried. A stuck worker can be canceled through Dagster. A worker crash after
 content-addressed object; retry reuses the same key. No blob deletion is automatic.
 Logs use the existing ABI/Dagster logging, with no new observability stack.
 The app inherits ABI's existing API access controls and deployment-wide dataset
-visibility, like the current Phase v2 app. Configure authorization at that boundary.
+visibility, like the rest of the HealthyPhases app. Configure authorization at that boundary.
 
 ## Development and review
 
@@ -204,7 +205,7 @@ Recurring PubMed queries and full-query backfills are supported independently.
 Search as usual, then choose **Ingest all matching papers**. The confirmation
 shows the saved query and publication date filters. The preview limit is ignored;
 leave both dates empty to cover the query's full publication history. The
-**Full ingestions** page shows discovery and download counts and refreshes every
+**Full ingestions** list under **Library → Downloads** shows discovery and download counts and refreshes every
 10 seconds. This is an asynchronous, one-time operation; existing recurring
 schedules keep their configured search limits.
 

@@ -9,7 +9,7 @@ on:
       - 'abi-phases/pyproject.toml'
       - 'abi-phases/uv.lock'
       - 'abi-phases/src/phases_v2/app/**'
-      - 'abi-phases/src/phases_v2/apps/pipeline/**'
+      - 'abi-phases/src/phases_v2/apps/**'
       - 'abi-phases/src/phases_v2/datasets/**'
       - 'abi-phases/src/phases_v2/extraction/factory*'
       - 'abi-phases/Makefile'
@@ -33,8 +33,8 @@ jobs:
       - name: Install dependencies
         working-directory: abi-phases
         run: uv sync --frozen
-      - name: Test pipeline resources, PubMed publisher, API, and navigation
+      - name: Test pipeline resources, PubMed publisher, API, and the HealthyPhases app
         working-directory: abi-phases
         run: |
-          uv run --with pytest pytest src/openalex src/pubmed src/phases_v2/sources src/phases_v2/papers src/phases_v2/app src/phases_v2/apps/pipeline src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
-          node --test src/phases_v2/apps/pipeline/pipeline_test.cjs src/pubmed/apps/search/pubmed_app_test.cjs src/openalex/apps/openalex/openalex_app_test.cjs
+          uv run --with pytest pytest src/openalex src/pubmed src/phases_v2/sources src/phases_v2/papers src/phases_v2/app src/phases_v2/apps/workspace src/phases_v2/extraction/factory_test.py src/phases_v2/datasets/schemas_test.py
+          node --test src/phases_v2/apps/workspace/tests/*_test.cjs

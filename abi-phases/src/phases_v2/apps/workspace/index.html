@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>HealthyPhases</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="./css/app.css">
+<script type="module" src="./js/main.js"></script>
+</head>
+<body>
+<button type="button" class="skip-link" id="skip-link">Skip to content</button>
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><span class="mark" aria-hidden="true">HP</span><div><strong>HealthyPhases</strong><small>Research workspace</small></div></div>
+    <nav class="nav" aria-label="Workspace sections">
+      <a href="#/overview" data-nav="overview"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span>Overview</span></a>
+      <a href="#/library" data-nav="library"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg><span>Library</span></a>
+      <a href="#/collections" data-nav="collections"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg><span>Collections</span></a>
+      <a href="#/prompts" data-nav="prompts"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8.5 9h7M8.5 12.5h7M8.5 16h4"/></svg><span>Prompts</span></a>
+      <a href="#/runs" data-nav="runs"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M10 8.5v7l5.5-3.5z"/></svg><span>Runs</span></a>
+      <a href="#/search" data-nav="search"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><span>Search</span></a>
+    </nav>
+    <p class="sidebar-foot">Collect papers, prepare prompts, run the pipeline and explore what it found.</p>
+  </aside>
+  <main id="main" tabindex="-1">
+    <section id="section-overview" class="section" aria-label="Overview" hidden></section>
+    <section id="section-library" class="section" aria-label="Library" hidden></section>
+    <section id="section-collections" class="section" aria-label="Collections" hidden></section>
+    <section id="section-prompts" class="section" aria-label="Prompts" hidden></section>
+    <section id="section-runs" class="section" aria-label="Runs" hidden></section>
+    <section id="section-search" class="section" aria-label="Search" hidden></section>
+    <noscript><p class="card">HealthyPhases needs JavaScript. Enable it and reload the app.</p></noscript>
+  </main>
+</div>
+<div id="toasts" class="toasts" role="status" aria-live="polite"></div>
+<dialog id="confirm-dialog" aria-labelledby="confirm-title" aria-describedby="confirm-body">
+  <h2 id="confirm-title"></h2>
+  <div id="confirm-body"></div>
+  <label id="confirm-option" class="check" hidden><input id="confirm-option-input" type="checkbox"><span id="confirm-option-label"></span></label>
+  <p id="confirm-error" class="msg" role="alert"></p>
+  <div class="dialog-actions"><button id="confirm-cancel" type="button">Cancel</button><button id="confirm-ok" type="button" class="primary">Confirm</button></div>
+</dialog>
+</body>
+</html>

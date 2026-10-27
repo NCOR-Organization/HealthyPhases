@@ -47,10 +47,9 @@ class ABIModule(BaseModule[PhasesConfiguration]):
         super().on_load()
 
     def api(self, app: FastAPI) -> None:
-        """Mount the reverse-search API + static UI onto the ABI FastAPI app.
+        """Mount the reverse-search API onto the ABI FastAPI app.
 
-        Endpoints live under ``/phases/api`` and the single-page UI is served at
-        ``/phases/app``. The search domain is wired from this module's engine
+        Endpoints live under ``/phases/api``. The search domain is wired from this module's engine
         services so it resolves against whatever triple/vector store backs the
         running deployment.
         """
