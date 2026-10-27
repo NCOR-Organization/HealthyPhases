@@ -30,6 +30,7 @@ proto:
 	protoc -I src --descriptor_set_in=src/phases_v2/extraction/contracts/extraction_output.pb --include_imports --descriptor_set_out=src/phases_v2/app/contracts/app_resources.pb phases_v2/app/contracts/app_resources.proto
 	protoc -I src --descriptor_set_in=src/phases_v2/extraction/contracts/extraction_output.pb --include_imports --descriptor_set_out=src/phases_v2/app/contracts/pipeline_management.pb phases_v2/app/contracts/pipeline_management.proto
 	protoc -I src --descriptor_set_in=src/phases_v2/extraction/contracts/extraction_output.pb --include_imports --descriptor_set_out=src/phases_v2/app/contracts/search.pb phases_v2/app/contracts/search.proto
+	protoc -I src --descriptor_set_in=src/phases_v2/extraction/contracts/extraction_output.pb --include_imports --descriptor_set_out=src/phases_v2/app/contracts/prompt_playground.pb phases_v2/app/contracts/prompt_playground.proto
 
 # Fast publisher and consumer contract checks; live agent/network tests are opt-in.
 test-pubmed:

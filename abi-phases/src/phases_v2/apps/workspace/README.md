@@ -19,7 +19,9 @@ workspace/
 │   ├── api.js            # the only module that calls fetch: base URL, auth, errors
 │   ├── ui.js             # escaping, messages, pills, empty states, pagination, toasts, confirmation
 │   ├── documents.js      # previews of what a run reads (folders, a PubMed search, a collection)
-│   └── sections/         # overview, library, collections, prompts, runs, search (+ search_render)
+│   ├── diff.js           # line diff of two prompt texts
+│   └── sections/         # overview, library, collections, prompts, runs, search
+│                         # (+ search_render; prompt_try and prompt_versions for Prompts)
 ├── tests/                # node --test suites (*.cjs) and their small DOM stand-in
 ├── manifest_test.py      # catalog, serving and packaging checks
 └── package.json          # marks js/ as ES modules for Node; not used by the browser
@@ -42,7 +44,7 @@ response sets.
 | `#/library/schedules` | Scheduled searches |
 | `#/library/enrichment` | OpenAlex enrichment (only when the module is enabled) |
 | `#/collections`, `#/collections/<collection_id>`, `#/collections/new` | Collections |
-| `#/prompts`, `#/prompts/<prompt_id>`, `#/prompts/new` | The prompt library |
+| `#/prompts`, `#/prompts/<prompt_id>`, `#/prompts/new` | The prompt library: editor, Try it on a few chunks of a paper, and the version history with a line diff |
 | `#/runs`, `#/runs/<request_id>` | Run requests, with one opened |
 | `#/runs/new` | The new-run form and saved configurations |
 | `#/search?q=...&mode=semantic\|keyword\|effects&prompt=...&model=...&path=...&collection=...` | Search results |

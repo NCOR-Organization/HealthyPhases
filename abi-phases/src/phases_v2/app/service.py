@@ -12,7 +12,9 @@ from datetime import datetime
 from typing import Any
 
 from phases_v2.app.app_resources import AppResources
-from phases_v2.app.pipeline_management import PipelineManagement
+from phases_v2.app.papers_catalog import PapersCatalog
+from phases_v2.app.pipeline_management import ManagementUnavailable, PipelineManagement
+from phases_v2.app.prompt_versions import PromptVersions
 from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
 from phases_v2.requests.domain import submit
@@ -33,8 +35,13 @@ class PipelineAppService:
         papers_root: str = "phases_v2",
         pubmed_catalog=None,
         collection_sources=None,
+        model_factory=None,
+        try_timeout_seconds: float = 90.0,
     ):
         self._pubmed = pubmed_catalog
+        #: Builds a model for a prompt try: ``(model_id, output_key) -> model``.
+        self._model_factory = model_factory
+        self._try_timeout_seconds = try_timeout_seconds
         self._requests = request_store
         self._storage = object_storage
         self._rows = rows
@@ -66,6 +73,8 @@ class PipelineAppService:
             is_model_available,
             paper_collections=self.resources,
         )
+        self.papers = PapersCatalog(rows)
+        self.versions = PromptVersions(rows)
 
     def pubmed_queries(self):
         if self._pubmed is None:
@@ -295,6 +304,58 @@ class PipelineAppService:
             {f"{row['storage_prefix']}/{row['storage_key']}" for row in rows},
             {row["paper_id"] for row in rows},
         )
+
+    # -- trying a prompt -------------------------------------------------
+
+    def try_prompt(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Run a draft or saved version on a few chunks. Writes nothing."""
+        from phases_v2.app.contracts.pipeline_validation import validate_message
+        from phases_v2.playground.adapters.secondary.DatasetPlaygroundStore import (
+            DatasetPlaygroundStore,
+        )
+        from phases_v2.playground.domain import MAX_CHUNKS, TryRefused, try_prompt
+        from phases_v2.prompts.domain import CHUNK_PLACEHOLDER, PromptTemplate
+
+        if self._rows is None or self._model_factory is None:
+            raise ManagementUnavailable(
+                "Trying prompts is unavailable in this deployment."
+            )
+        # The refusals users meet most, said plainly before the contract's
+        # field-by-field wording.
+        if ("draft" in payload) == ("prompt_id" in payload):
+            raise TryRefused(
+                "Try one thing at a time: either a draft or a saved prompt version."
+            )
+        seqs = payload.get("seqs")
+        if isinstance(seqs, list) and len(seqs) > MAX_CHUNKS:
+            raise TryRefused(
+                f"Try at most {MAX_CHUNKS} chunks at a time; {len(seqs)} were chosen."
+            )
+        draft = payload.get("draft")
+        if isinstance(draft, dict) and CHUNK_PLACEHOLDER not in str(
+            draft.get("template", "")
+        ):
+            raise TryRefused(
+                "The prompt text must contain {chunk_text}, where each chunk's "
+                "text is placed."
+            )
+        validate_message("TryPrompt", payload)
+
+        report = try_prompt(
+            store=DatasetPlaygroundStore(self._rows),
+            model_factory=self._model_factory,
+            model_id=payload["model_id"],
+            paper_id=payload["paper_id"],
+            chunker_id=payload["chunker_id"],
+            prompt_id=payload.get("prompt_id"),
+            draft=PromptTemplate(**draft) if isinstance(draft, dict) else None,
+            seqs=payload.get("seqs") or None,
+            first=payload.get("first") or None,
+            baseline_prompt_id=payload.get("baseline_prompt_id") or None,
+            is_model_available=self._is_model_available,
+            timeout_seconds=self._try_timeout_seconds,
+        )
+        return asdict(report)
 
     # -- submitting -----------------------------------------------------
 

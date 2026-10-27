@@ -53,4 +53,13 @@ def app_service(engine, papers_root: str = "phases_v2") -> PipelineAppService:
         rows=rows,
         is_model_available=model_availability(engine),
         renderer=PdfTextRenderer(),
+        model_factory=lambda model_id, output_key: _model_for(
+            engine, model_id, output_key
+        ),
     )
+
+
+def _model_for(engine, model_id: str, output_key: str):
+    from phases_v2.extraction.factory import model_for
+
+    return model_for(engine, model_id, output_key)

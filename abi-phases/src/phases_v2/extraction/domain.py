@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import uuid
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from phases_v2 import identity
@@ -156,6 +157,38 @@ def run_extraction(
     return report
 
 
+@dataclass(frozen=True)
+class Attempt:
+    """One prompt sent to the model for one chunk's text, and what came back."""
+
+    status: str
+    response: object
+    raw: str | None
+    error: str | None
+    items: list[str]
+
+
+def attempt(model: ExtractionModel, prompt: PromptTemplate, text: str) -> Attempt:
+    """Render ``prompt`` for ``text``, call the model once and parse its answer.
+
+    The only place a prompt is rendered and its answer parsed, so a run and a
+    try of the same prompt on the same text cannot read the answer differently.
+    Writes nothing.
+    """
+    raw: str | None = None
+    try:
+        raw = model.complete(prompt.rendered_for(text))
+        response, items = parse_items(raw, prompt.output_key)
+    except (ModelFailed, UnusableResponse) as failure:
+        if isinstance(failure, ModelFailed):
+            raw = failure.raw_response
+        # `response` is a JSON column, so unparseable output cannot go there —
+        # but it is exactly the case where keeping the text matters, so it
+        # goes to `raw` verbatim.
+        return Attempt(FAILED, None, raw, str(failure), [])
+    return Attempt(SUCCEEDED, response, raw, None, items)
+
+
 def _extract_one(
     chunk: ChunkRef,
     *,
@@ -165,46 +198,21 @@ def _extract_one(
     run_id: str,
 ) -> tuple[ExtractionRecord, list[ExtractedItemRecord]]:
     extraction_id = identity.extraction_id(chunk.chunk_id, model_id, prompt.prompt_id)
-    raw: str | None = None
-
-    try:
-        raw = model.complete(prompt.rendered_for(chunk.text))
-        response, items = parse_items(raw, prompt.output_key)
-    except (ModelFailed, UnusableResponse) as failure:
-        if isinstance(failure, ModelFailed):
-            raw = failure.raw_response
-        return (
-            _record(
-                extraction_id,
-                chunk,
-                model_id,
-                prompt,
-                run_id,
-                status=FAILED,
-                # `response` is a JSON column, so unparseable output cannot go
-                # there — but it is exactly the case where keeping the text
-                # matters, so it goes to `raw_response` verbatim.
-                response=None,
-                raw=raw,
-                error=str(failure),
-                item_count=0,
-            ),
-            [],
-        )
-
+    outcome = attempt(model, prompt, chunk.text)
+    record = _record(
+        extraction_id,
+        chunk,
+        model_id,
+        prompt,
+        run_id,
+        status=outcome.status,
+        response=outcome.response,
+        raw=outcome.raw,
+        error=outcome.error,
+        item_count=len(outcome.items),
+    )
     return (
-        _record(
-            extraction_id,
-            chunk,
-            model_id,
-            prompt,
-            run_id,
-            status=SUCCEEDED,
-            response=response,
-            raw=raw,
-            error=None,
-            item_count=len(items),
-        ),
+        record,
         [
             ExtractedItemRecord(
                 item_id=identity.item_id(extraction_id, seq),
@@ -215,7 +223,7 @@ def _extract_one(
                 seq=seq,
                 text=text,
             )
-            for seq, text in enumerate(items)
+            for seq, text in enumerate(outcome.items)
         ],
     )
 

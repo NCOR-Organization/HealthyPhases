@@ -290,6 +290,26 @@ mark { background: var(--mark); color: inherit; padding: 0 .1rem; border-radius:
 .evidence-label { display: block; color: var(--mute); font-size: .7rem; font-weight: 700; margin-bottom: 4px; }
 #sr-load-more { margin: .5rem 0 2rem; }
 
+/* Prompts: Try it and Versions */
+.try-results { display: grid; gap: .9rem; margin-top: .4rem; }
+.try-chunk { border: 1px solid var(--rule); border-radius: 9px; padding: .9rem 1rem; background: var(--surface-2); min-width: 0; }
+.try-chunk h3 { margin: 0; font-size: 1rem; }
+.try-chunk h4 { margin: .8rem 0 .4rem; font-size: .82rem; color: var(--mute); display: flex; gap: .5rem; align-items: center; }
+.try-chunk details summary { cursor: pointer; color: var(--accent); font-size: .8rem; font-weight: 600; margin-top: .4rem; }
+.compare { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.compare > div + div { border-left: 1px solid var(--rule); padding-left: 1rem; }
+.try-items { margin: 0; padding-left: 1.3rem; display: grid; gap: .45rem; font-size: .88rem; overflow-wrap: anywhere; }
+.try-relation small { display: block; color: var(--mute); }
+.try-relation .relation-edge { display: inline; font-weight: 600; }
+.try-relation .evidence { margin-top: .35rem; }
+.versions-table th:nth-child(2), .versions-table td:nth-child(2) { white-space: nowrap; }
+.diff { font-family: var(--mono); font-size: .8rem; background: var(--surface-2); border: 1px solid var(--rule); border-radius: 8px; padding: .6rem 0; max-height: 28rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; }
+.diff:empty { display: none; }
+.diff > span { display: block; padding: 0 .7rem; }
+.diff-mark { display: inline-block; width: 1.2rem; color: var(--mute); }
+.diff-add { background: var(--ok-tint); color: var(--ok); }
+.diff-del { background: var(--bad-tint); color: var(--bad); text-decoration: line-through; text-decoration-color: color-mix(in srgb, currentColor 40%, transparent); }
+
 /* Narrow screens: the sidebar becomes a top bar with scrolling sections. */
 @media (max-width: 1000px) {
   main { padding: 1.8rem 1.4rem 3rem; }
@@ -315,6 +335,8 @@ mark { background: var(--mark); color: inherit; padding: 0 .1rem; border-radius:
   .segmented { grid-template-columns: 1fr; }
   .search-row { flex-direction: column; }
   .relation-flow { grid-template-columns: minmax(0, 1fr); }
+  .compare { grid-template-columns: 1fr; }
+  .compare > div + div { border-left: 0; padding-left: 0; border-top: 1px solid var(--rule); }
   .participant-branch { width: 100%; }
   .edge-arrow { width: 2px; height: 24px; margin: 8px auto 0; }
   .edge-arrow::after { right: -4px; top: auto; bottom: -1px; border-top: 8px solid currentColor; border-left: 5px solid transparent; border-right: 5px solid transparent; border-bottom: 0; }

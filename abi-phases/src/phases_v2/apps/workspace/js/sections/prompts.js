@@ -1,11 +1,15 @@
 // Prompts: the prompt library. Saving changed text creates a new version; earlier
-// versions stay available to the runs that used them.
+// versions stay available to the runs that used them. Below the editor, Try it
+// runs the text on a few chunks of a paper, and Versions lists and compares the
+// texts saved under the same name.
 //
 // #/prompts opens the first prompt, #/prompts/<prompt_id> a given version and
 // #/prompts/new an empty form.
 
 import { phases } from '../api.js';
 import { $, action, emptyState, esc, fill, message } from '../ui.js';
+import { createTry, shortId, template as tryTemplate } from './prompt_try.js';
+import { createVersions, template as versionsTemplate } from './prompt_versions.js';
 
 export const OUTPUT_KEYS = ['results', 'what', 'causes', 'how', 'when', 'where', 'effects', 'conditional_statement', 'relations'];
 
@@ -30,6 +34,7 @@ const template = () => `
       <label for="pr-search">Find a prompt</label><input id="pr-search" type="search" placeholder="Search by name">
       <div id="pr-list" class="resource-list" aria-label="Prompts"></div>
     </section>
+    <div class="stack">
     <section class="card">
       <h2 id="pr-title">New prompt</h2>
       <form id="pr-form"><div class="stack">
@@ -39,9 +44,12 @@ const template = () => `
           <p class="hint">Include <code>{chunk_text}</code> where the document text should appear.</p></div>
       </div>
       <p id="pr-version" class="hint"></p>
-      <div class="row actions"><button id="pr-save" class="primary">Save new version</button><button type="button" id="pr-duplicate">Duplicate prompt</button><button type="button" id="pr-use" disabled>Add to a new run</button></div>
+      <div class="row actions"><button id="pr-save" class="primary">Save as new version</button><button type="button" id="pr-duplicate">Duplicate prompt</button><button type="button" id="pr-use" disabled>Use in new run</button></div>
       <p id="pr-message" class="msg" role="status"></p></form>
     </section>
+    ${tryTemplate()}
+    ${versionsTemplate()}
+    </div>
   </div>`;
 
 export function create(root, ctx) {
@@ -50,6 +58,39 @@ export function create(root, ctx) {
   fill($('pr-output'), OUTPUT_KEYS.map((key) => ({ key })), 'key', (p) => p.key);
 
   const showFormat = () => { $('pr-format').textContent = formatExample($('pr-output').value); };
+
+  // Only the saved, unedited version can go into a run; a draft must be saved first.
+  function setUsable(usable) {
+    $('pr-use').disabled = !usable;
+    $('pr-try-use').disabled = !usable;
+  }
+
+  const formValues = () => ({ name: $('pr-name').value.trim(), template: $('pr-template').value, output_key: $('pr-output').value });
+
+  // What Try it sends: the saved version when the editor still shows it, else the draft.
+  function trySource() {
+    const values = formValues();
+    const saved = state.prompts.find((p) => p.prompt_id === state.promptId);
+    if (saved && saved.name === values.name && saved.template === values.template && saved.output_key === values.output_key) {
+      return { body: { prompt_id: saved.prompt_id }, label: `Version ${shortId(saved.prompt_id)}, now` };
+    }
+    return { body: { draft: { ...values, name: values.name || 'Draft' } }, label: 'Text in the editor, now' };
+  }
+
+  const tryPanel = createTry(ctx, { source: trySource });
+  const versions = createVersions(ctx, {
+    draft: () => $('pr-template').value,
+    open: (id) => ctx.navigate(ctx.href('prompts', [id])),
+    use: (id) => useInRun(id),
+  });
+
+  // The open prompt's versions, offered as the baseline: by default the version
+  // the editor was opened from, so a draft is compared with what it changes.
+  async function loadVersions(name, current, baseline = current) {
+    const list = await versions.load(name, current);
+    if (!list) return;
+    tryPanel.setBaselines(list.map((v) => ({ prompt_id: v.prompt_id, label: v.prompt_id === current ? 'in the editor' : '' })), baseline || '');
+  }
 
   function renderList() {
     $('pr-list').replaceChildren();
@@ -81,9 +122,10 @@ export function create(root, ctx) {
     $('pr-version').textContent = prompt
       ? 'Saving changes creates a new version. This version stays available to the runs that used it.'
       : 'Saving adds this prompt to the library.';
-    $('pr-use').disabled = !prompt;
+    setUsable(Boolean(prompt));
     message('pr-message');
     renderList();
+    loadVersions(prompt?.name || '', prompt?.prompt_id || '');
   }
 
   async function reload() {
@@ -104,6 +146,8 @@ export function create(root, ctx) {
     // The new version replaces the one it was edited from in the next run.
     ctx.section('runs').selectPrompts([saved.prompt_id], previousId && previousId !== saved.prompt_id ? [previousId] : []);
     message('pr-message', 'Prompt saved and selected for your next run.', 'ok');
+    // Tries go on comparing with the version this one was edited from.
+    await loadVersions(saved.name, saved.prompt_id, previousId && previousId !== saved.prompt_id ? previousId : saved.prompt_id);
     return saved;
   }
 
@@ -112,15 +156,15 @@ export function create(root, ctx) {
     state.current = 'new';
     ctx.replace(ctx.href('prompts', ['new']));
     $('pr-name').value += ' copy';
-    $('pr-use').disabled = true;
+    setUsable(false);
     $('pr-title').textContent = 'New prompt';
     $('pr-version').textContent = 'Saving adds this copy to the library.';
     $('pr-name').focus();
     renderList();
   }
 
-  function useInRun() {
-    ctx.section('runs').selectPrompts([state.promptId]);
+  function useInRun(promptId = state.promptId) {
+    ctx.section('runs').selectPrompts([promptId]);
     ctx.navigate(ctx.href('runs', ['new']));
   }
 
@@ -129,9 +173,15 @@ export function create(root, ctx) {
   $('pr-search').addEventListener('input', renderList);
   $('pr-form').addEventListener('submit', (event) => { event.preventDefault(); action($('pr-save'), 'pr-message', save); });
   // An edited form is not the saved version any more, so it cannot be added to a run yet.
-  $('pr-form').addEventListener('input', () => { $('pr-use').disabled = true; });
+  $('pr-form').addEventListener('input', () => {
+    setUsable(false);
+    // A comparison with the editor follows what is typed.
+    if ([$('pr-ver-a').value, $('pr-ver-b').value].includes('draft')) versions.compare();
+  });
   $('pr-duplicate').addEventListener('click', duplicate);
-  $('pr-use').addEventListener('click', useInRun);
+  $('pr-use').addEventListener('click', () => useInRun());
+  $('pr-try-use').addEventListener('click', () => useInRun());
+  $('pr-try-save').addEventListener('click', () => action($('pr-try-save'), 'pr-try-message', save));
 
   function select(id) {
     if (id === 'new') return edit(null);
@@ -153,6 +203,9 @@ export function create(root, ctx) {
     if (!state.loaded || entering) {
       try { await reload(); } catch (error) { message('pr-message', `Could not load prompts: ${error.message}`, 'bad'); if (!state.loaded) return; }
     }
+    if (!tryPanel.state.loaded) {
+      tryPanel.load().catch((error) => message('pr-try-message', `Could not load models, chunkers or papers: ${error.message}`, 'bad'));
+    }
     // The sidebar link has no id: come back to what was open, draft included.
     if (!id && state.current) { ctx.replace(ctx.href('prompts', [state.current])); return; }
     if (entering && state.current && id === state.current) return;
@@ -163,7 +216,9 @@ export function create(root, ctx) {
 
   async function refresh() {
     try { await reload(); } catch (error) { message('pr-message', `Could not refresh prompts: ${error.message}`, 'bad'); }
+    // New runs change what each version was used for; keep the chosen baseline.
+    if (versions.state.name) await loadVersions(versions.state.name, versions.state.current, $('pr-try-baseline').value);
   }
 
-  return { show, hide() {}, refresh, state, actions: { save, duplicate, useInRun, edit, reload } };
+  return { show, hide() {}, refresh, state, tryPanel, versions, actions: { save, duplicate, useInRun, edit, reload, tryIt: tryPanel.run } };
 }

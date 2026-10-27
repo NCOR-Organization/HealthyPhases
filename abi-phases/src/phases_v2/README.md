@@ -188,7 +188,8 @@ phases_v2/
 ├── search/                 # ─┘ reverse search: semantic + keyword, over extracted_items
 ├── paper_collections/      # collections of papers and resolving one into exact documents
 ├── prompts/                # templates declared in code + their text
-├── models/                 # the AI models a run may use
+├── playground/             # trying a prompt on a few chunks of one paper; writes nothing
+├── models/                 # the models a run may use
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
 ├── app/                    # the workspace app's services and HTTP endpoints
@@ -326,9 +327,26 @@ New endpoints under `/phases_v2/api`:
 - `POST /documents?location=...&filename=...`: upload raw PDF bytes.
 - `GET /pipelines` and `POST /pipelines`: list/save `{name, inputs}` configurations.
 - `POST /pipelines/{pipeline_id}/requests`: request the saved configuration.
+- `GET /papers?q=&chunker_id=&limit=&offset=`: ingested papers whose file name
+  contains `q`, with chunk counts per chunker; with `chunker_id`, only papers
+  chunked with it. Returns `{papers, total, limit, offset}`.
+- `GET /papers/{paper_id}/chunks?chunker_id=`: each chunk's `seq` and a short preview.
+- `POST /prompts/try`: run a `draft` (`{name, template, output_key}`) or a saved
+  `prompt_id` with `model_id` on `seqs` (or the `first` N, default 3) chunks of
+  `paper_id` cut with `chunker_id`, at most 10. Answers in the same request, each
+  chunk with its items (relations as objects), or its error and raw output, and the
+  time taken. With `baseline_prompt_id`, each chunk also carries what that version
+  stored for it with the same model, or `not_run`. Model calls run four at a time
+  under a 90-second deadline; chunks still running then come back `timed_out`. It
+  renders and parses through `extraction.domain.attempt`, as a run does, and writes
+  nothing: no prompt, extraction, item, run or projection.
+- `GET /prompts/versions?name=`: every version saved under a name, newest first,
+  with its text, the extraction runs and run requests that used it, and its item
+  counts per model.
 
 Management request shapes and validation are defined in
-`app/contracts/pipeline_management.proto`. `make proto` regenerates both checked-in
+`app/contracts/pipeline_management.proto` and, for trying a prompt,
+`app/contracts/prompt_playground.proto`. `make proto` regenerates the checked-in
 Protobuf descriptors using the existing checksum-pinned Protovalidate source. Python
 loads the generated descriptors and runs Protovalidate before persistence. Format
 compatibility and storage-root containment are checked by the application service.

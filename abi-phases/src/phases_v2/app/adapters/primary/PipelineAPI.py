@@ -192,6 +192,36 @@ def build_router(service: PipelineAppService) -> APIRouter:
     def save_prompt(body: dict):
         return management_call(service.management.save_prompt, body)
 
+    @router.get("/prompts/versions")
+    def prompt_versions(name: str = Query(min_length=1, max_length=100)):
+        """Every version of one prompt name, with the runs that used each."""
+        return management_call(service.versions.versions, name)
+
+    @router.post("/prompts/try", dependencies=[Depends(require_abi_api_token)])
+    def try_prompt(body: dict):
+        """Run a draft or version on a few chunks and answer at once. Writes nothing."""
+        return management_call(service.try_prompt, body)
+
+    @router.get("/papers")
+    def papers(
+        q: str = Query(default="", max_length=200),
+        chunker_id: str = Query(default="", max_length=200),
+        limit: int = Query(default=25, ge=1, le=100),
+        offset: int = Query(default=0, ge=0),
+    ):
+        """Ingested papers, searchable by file name, with chunk counts per chunker."""
+        return management_call(
+            service.papers.papers,
+            q=q,
+            chunker_id=chunker_id,
+            limit=limit,
+            offset=offset,
+        )
+
+    @router.get("/papers/{paper_id}/chunks")
+    def paper_chunks(paper_id: str, chunker_id: str = Query(min_length=1)):
+        return management_call(service.papers.chunks, paper_id, chunker_id)
+
     @router.post(
         "/locations", status_code=201, dependencies=[Depends(require_abi_api_token)]
     )
