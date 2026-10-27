@@ -123,7 +123,7 @@ class RequestScope:
             paths = in_list(sorted(self.paths))
             tests.append(
                 f"{path} IN {paths} OR EXISTS (SELECT 1 FROM paper_paths pp "
-                f"WHERE pp.paper_id = {alias}.paper_id AND pp.path IN {paths})"
+                f"WHERE pp.paper_id = {alias}.paper_id AND {_PATH} IN {paths})"
             )
         for folder in self.folders:
             under = literal(folder + "/")
@@ -135,7 +135,7 @@ class RequestScope:
             )
             tests.append(
                 f"(starts_with({path}, {under}) OR EXISTS (SELECT 1 FROM paper_paths "
-                f"pp WHERE pp.paper_id = {alias}.paper_id AND starts_with(pp.path, "
+                f"pp WHERE pp.paper_id = {alias}.paper_id AND starts_with({_PATH}, "
                 f"{under})))" + in_time
             )
         return "(" + " OR ".join(f"({test})" for test in tests) + ")"
@@ -212,13 +212,15 @@ def requests_including(rows: RowStore, paper: PaperFacts) -> list[dict[str, Any]
     return included
 
 
+#: A ``paper_paths`` row's path in the same form; ingestion may keep a leading '/'.
+_PATH = "trim(pp.path, '/')"
+
+
 def path_sql(alias: str = "p") -> str:
-    """A ``papers`` row's path, joined the way :class:`PaperFacts` joins it."""
+    """A ``papers`` row's path, joined the way :func:`_join` joins it."""
     prefix = f"trim(coalesce({alias}.storage_prefix, ''), '/')"
-    return (
-        f"CASE WHEN {prefix} = '' THEN {alias}.storage_key "
-        f"ELSE {prefix} || '/' || {alias}.storage_key END"
-    )
+    key = f"trim({alias}.storage_key, '/')"
+    return f"CASE WHEN {prefix} = '' THEN {key} ELSE {prefix} || '/' || {key} END"
 
 
 def _json_list(value: Any) -> list:
@@ -231,8 +233,10 @@ def _json_list(value: Any) -> list:
 
 
 def _join(prefix: str | None, key: str | None) -> str:
-    prefix = (prefix or "").strip("/")
-    return f"{prefix}/{key}" if prefix else str(key)
+    """A path without leading or trailing '/', the form every comparison here uses."""
+    return "/".join(
+        part for part in ((prefix or "").strip("/"), str(key).strip("/")) if part
+    )
 
 
 def _instant(value: Any) -> datetime | None:

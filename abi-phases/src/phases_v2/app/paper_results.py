@@ -50,6 +50,85 @@ class PaperResults:
         rows = self._require_rows()
         schemas = linked_schemas(rows)
         paper = self._paper_row(paper_id, schemas)
+        groups, chunks, run_ids = self._results(paper_id)
+        paths = [
+            row["path"]
+            for row in rows.query(
+                "SELECT path FROM paper_paths "  # nosec B608
+                f"WHERE paper_id = {literal(paper_id)} ORDER BY path"
+            )
+        ]
+        pubmed = pubmed_record(rows, schemas, paper["pmid"])
+        if pubmed and (pubmed.get("title") or "").strip():
+            paper["title"] = pubmed["title"]
+        return {
+            "paper": dict(paper, paths=paths),
+            "pubmed": pubmed,
+            "openalex": openalex_record(rows, schemas, paper["pmid"]),
+            "chunkers": [
+                {"chunker_id": row["chunker_id"], "chunks": int(row["chunks"])}
+                for row in rows.query(
+                    "SELECT chunker_id, count(*) AS chunks FROM chunks "  # nosec B608
+                    f"WHERE paper_id = {literal(paper_id)} "
+                    "GROUP BY chunker_id ORDER BY chunker_id"
+                )
+            ],
+            "ran": [_summary(group) for group in groups],
+            "requests": requests_including(
+                rows,
+                PaperFacts.of(paper, paths, run_ids),
+            ),
+            "results": groups,
+            "chunks": chunks,
+        }
+
+    def hits(
+        self, paper_id: str, prompt_id: str = "", model_id: str | None = None
+    ) -> Iterator[SearchHit]:
+        """The paper's results as search export rows: one per item, or one per
+        relation for items that carry relations.
+
+        ``prompt_id`` keeps one version. ``model_id`` keeps one model; an empty
+        one keeps the results whose model is unknown, and None keeps every model.
+        Reads only the results, not the paper's records or runs.
+        """
+        paper = self._paper_row(paper_id, set())
+        groups, chunks, _ = self._results(paper_id)
+        for group in groups:
+            if (prompt_id and group["prompt_id"] != prompt_id) or (
+                model_id is not None and (group["model_id"] or "") != model_id
+            ):
+                continue
+            for item in group["items"]:
+                chunk = chunks.get(item["chunk_id"]) or {}
+                hit = SearchHit.build(
+                    item_id=item["item_id"],
+                    extracted_text=item["text"],
+                    location=ItemLocation(
+                        prompt_id=group["prompt_id"],
+                        prompt_name=group["prompt_name"],
+                        prompt_template=group["template"],
+                        model_id=group["model_id"],
+                        chunk_id=item["chunk_id"],
+                        chunk_seq=chunk.get("seq"),
+                        chunk_text=chunk.get("text"),
+                        paper_id=paper["paper_id"],
+                        paper_name=paper["file_name"],
+                        source_path=source_folder(
+                            paper["storage_prefix"], paper["storage_key"]
+                        ),
+                    ),
+                )
+                if not item["relations"]:
+                    yield hit
+                for relation in item["relations"]:
+                    yield replace(hit, **relation)
+
+    def _results(
+        self, paper_id: str
+    ) -> tuple[list[dict[str, Any]], dict[str, dict[str, Any]], list[str]]:
+        """The paper's result groups, the chunks they refer to and their run ids."""
+        rows = self._require_rows()
         extractions = rows.query(
             "SELECT e.extraction_id, e.prompt_id, e.model_id, e.status, e.error, "  # nosec B608
             f"substr(e.raw_response, 1, {RAW_EXCERPT_CHARS + 1}) AS raw_excerpt, "
@@ -113,81 +192,11 @@ class PaperResults:
                 row["item_id"],
             )
         )
-        paths = [
-            row["path"]
-            for row in rows.query(
-                "SELECT path FROM paper_paths "  # nosec B608
-                f"WHERE paper_id = {literal(paper_id)} ORDER BY path"
-            )
-        ]
         groups = _groups(extractions, items, relations, prompts, chunks)
-        pubmed = pubmed_record(rows, schemas, paper["pmid"])
-        if pubmed and (pubmed.get("title") or "").strip():
-            paper["title"] = pubmed["title"]
-        return {
-            "paper": dict(paper, paths=paths),
-            "pubmed": pubmed,
-            "openalex": openalex_record(rows, schemas, paper["pmid"]),
-            "chunkers": [
-                {"chunker_id": row["chunker_id"], "chunks": int(row["chunks"])}
-                for row in rows.query(
-                    "SELECT chunker_id, count(*) AS chunks FROM chunks "  # nosec B608
-                    f"WHERE paper_id = {literal(paper_id)} "
-                    "GROUP BY chunker_id ORDER BY chunker_id"
-                )
-            ],
-            "ran": [_summary(group) for group in groups],
-            "requests": requests_including(
-                rows,
-                PaperFacts.of(
-                    paper,
-                    paths,
-                    [row["run_id"] for row in extractions if row["run_id"]],
-                ),
-            ),
-            "results": groups,
-            "chunks": chunks,
-        }
-
-    def hits(
-        self, paper_id: str, prompt_id: str = "", model_id: str = ""
-    ) -> Iterator[SearchHit]:
-        """The paper's results as search export rows: one per item, or one per
-        relation for items that carry relations. Optionally one prompt version
-        or one model only."""
-        detail = self.paper(paper_id)
-        paper = detail["paper"]
-        for group in detail["results"]:
-            if (prompt_id and group["prompt_id"] != prompt_id) or (
-                model_id and group["model_id"] != model_id
-            ):
-                continue
-            for item in group["items"]:
-                chunk = detail["chunks"].get(item["chunk_id"]) or {}
-                hit = SearchHit.build(
-                    item_id=item["item_id"],
-                    extracted_text=item["text"],
-                    location=ItemLocation(
-                        prompt_id=group["prompt_id"],
-                        prompt_name=group["prompt_name"],
-                        prompt_template=group["template"],
-                        model_id=group["model_id"],
-                        chunk_id=item["chunk_id"],
-                        chunk_seq=chunk.get("seq"),
-                        chunk_text=chunk.get("text"),
-                        paper_id=paper["paper_id"],
-                        paper_name=paper["file_name"],
-                        source_path=source_folder(
-                            paper["storage_prefix"], paper["storage_key"]
-                        ),
-                    ),
-                )
-                if not item["relations"]:
-                    yield hit
-                for relation in item["relations"]:
-                    yield replace(hit, **relation)
+        return groups, chunks, [row["run_id"] for row in extractions if row["run_id"]]
 
     def _paper_row(self, paper_id: str, schemas: set[str]) -> dict[str, Any]:
+        """The ``papers`` row; its PMID is looked up only when ``schemas`` has PubMed."""
         rows = self._require_rows()
         found = rows.query(
             "SELECT paper_id, file_name, storage_prefix, storage_key, "  # nosec B608

@@ -21,6 +21,8 @@ const DETAIL = {
     { paper_id: SHA('a'), name: 'A.pdf', path: 'phases_v2/a/A.pdf', status: 'results', results: 4 },
     { paper_id: null, name: 'B.pdf', path: 'phases_v2/a/B.pdf', status: 'not_ingested', results: 0 },
     { paper_id: SHA('c'), name: 'Solitude <b>paper</b>', pmid: '7', path: 'pubmed/papers/7.pdf', status: 'ingested', results: 0 },
+    // Downloaded from PubMed, never run: its content hash is known, its page is not.
+    { paper_id: SHA('d'), name: 'Downloaded only', pmid: '8', path: 'pubmed/papers/8.pdf', status: 'not_ingested', results: 0 },
   ],
 };
 const PUBMED = { available: true, queries: [{ query_id: 'q1', query: 'solitude', published_paper_count: 2 }] };
@@ -96,6 +98,8 @@ test('a collection page lists its members by type and its papers with their stat
   // An ingested paper opens on its results; one not ingested yet has no page.
   assert.match(papers[0], new RegExp(`<a class="row-link" href="#/results/${SHA('a')}">A.pdf</a>`));
   assert.doesNotMatch(papers[1], /href=/);
+  assert.doesNotMatch(papers[3], /href=/);
+  assert.match(papers[3], /Downloaded only/);
   assert.equal($('col-papers-summary').textContent, '3 papers: 1 not ingested yet, 1 ingested, 1 with results.');
   assert.equal($('col-search').href, '#/search?collection=c1');
   assert.equal($('col-results').href, '#/results?collection=c1');

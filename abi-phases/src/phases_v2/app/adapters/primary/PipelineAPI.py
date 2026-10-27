@@ -243,13 +243,16 @@ def build_router(service: PipelineAppService) -> APIRouter:
         return management_call(service.paper_results.paper, paper_id)
 
     @router.get("/papers/{paper_id}/export")
-    def export_paper(paper_id: str, prompt_id: str = "", model_id: str = ""):
-        """The paper's results as CSV, with the search export's columns."""
-        management_call(
-            validate_message,
-            "PaperExportQuery",
-            {"paper_id": paper_id, "prompt_id": prompt_id, "model_id": model_id},
-        )
+    def export_paper(paper_id: str, prompt_id: str = "", model_id: str | None = None):
+        """The paper's results as CSV, with the search export's columns.
+
+        Without ``model_id`` every model's results; ``model_id=`` (empty) keeps
+        the results whose model is unknown.
+        """
+        query = {"paper_id": paper_id, "prompt_id": prompt_id}
+        if model_id is not None:
+            query["model_id"] = model_id
+        management_call(validate_message, "PaperExportQuery", query)
         hits = management_call(
             lambda: list(service.paper_results.hits(paper_id, prompt_id, model_id))
         )

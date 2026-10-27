@@ -257,6 +257,29 @@ test('a long result list draws the first items and offers the rest', async () =>
   assert.equal($('res-group-more').hidden, true);
 });
 
+test('with exactly the items drawn at once, a failure in a later chunk still shows', async () => {
+  const many = Array.from({ length: 200 }, (_, i) => item(`m${i}`, 'c0', `Claim ${i}`));
+  const failure = { extraction_id: 'e-late', chunk_id: 'c2', seq: 2, status: 'failed', error: 'Late failure', raw_excerpt: '' };
+  const detail = { ...DETAIL, results: [group(V1, 'claims', 'model-a', { item_count: 200, failed: 1, items: many, failures: [failure] })] };
+  const { $, section, parse } = await mount({ [`/phases_v2/api/papers/${SHA('a')}`]: detail });
+  await section.show(parse(`#/results/${SHA('a')}`));
+  assert.equal(($('res-group-body').innerHTML.match(/<li>/g) || []).length, 200);
+  assert.match($('res-group-body').innerHTML, /Chunk #2[\s\S]*Late failure/);
+  assert.equal($('res-group-more').hidden, true);
+});
+
+test('past the items drawn at once, later failures show and the rest of the items wait', async () => {
+  const many = Array.from({ length: 201 }, (_, i) => item(`m${i}`, i < 200 ? 'c0' : 'c1', `Claim ${i}`));
+  const failure = { extraction_id: 'e-late', chunk_id: 'c2', seq: 2, status: 'failed', error: 'Late failure', raw_excerpt: '' };
+  const detail = { ...DETAIL, results: [group(V1, 'claims', 'model-a', { item_count: 201, failed: 1, items: many, failures: [failure] })] };
+  const { $, section, parse } = await mount({ [`/phases_v2/api/papers/${SHA('a')}`]: detail });
+  await section.show(parse(`#/results/${SHA('a')}`));
+  const body = $('res-group-body').innerHTML;
+  assert.doesNotMatch(body, /Chunk #1/);
+  assert.match(body, /Chunk #2[\s\S]*Late failure/);
+  assert.equal($('res-group-more').hidden, false);
+});
+
 test('a paper nothing ran on still opens, says so, and offers only its PDF', async () => {
   const detail = { ...DETAIL, pubmed: null, openalex: null, ran: [], requests: [], results: [], chunks: {}, paper: { ...DETAIL.paper, pmid: null, source: 'file', title: 'Zebra.pdf' } };
   const { $, section, parse } = await mount({ [`/phases_v2/api/papers/${SHA('a')}`]: detail });
@@ -268,6 +291,36 @@ test('a paper nothing ran on still opens, says so, and offers only its PDF', asy
   assert.match($('res-compare-body').innerHTML, /Two versions or models must have run/);
   assert.equal($('res-csv').disabled, true);
   assert.equal($('res-pdf').disabled, false);
+});
+
+test('a paper opens without waiting for the filter lists, and names its models once they come', async () => {
+  let models;
+  const { $, section, parse } = await mount({ '/phases_v2/api/models': () => new Promise((resolve) => { models = resolve; }) });
+  const shown = section.show(parse(`#/results/${SHA('a')}`));
+  await settle();
+  assert.match($('res-paper-head').innerHTML, /Solitude &lt;b&gt;and&lt;\/b&gt; stress/);
+  assert.match($('res-ran').innerHTML, /model-a/);
+  models(response({ models: [{ model_id: 'model-a', display_name: 'Model A' }] }));
+  await shown;
+  assert.match($('res-ran').innerHTML, /Model A/);
+});
+
+test('the CSV of results whose model is unknown asks for exactly those', async () => {
+  const detail = { ...DETAIL, results: [group(V1, 'claims', null, { item_count: 1, items: [item('i9', 'c0', 'Orphan')] })] };
+  const { $, section, parse, calls } = await mount({
+    [`/phases_v2/api/papers/${SHA('a')}`]: detail,
+    [`/phases_v2/api/papers/${SHA('a')}/export`]: () => response('query,mode\n', { type: 'text/csv; charset=utf-8' }),
+  });
+  globalThis.URL.createObjectURL = () => 'blob:x';
+  globalThis.URL.revokeObjectURL = () => {};
+  await section.show(parse(`#/results/${SHA('a')}`));
+  await fire($('res-group-csv'), 'click');
+  await settle();
+  const exported = new URL(calls.at(-1).url, 'http://local').searchParams;
+  assert.equal(exported.get('prompt_id'), V1);
+  // Present and empty: the results without a model, not every model's.
+  assert.equal(exported.has('model_id'), true);
+  assert.equal(exported.get('model_id'), '');
 });
 
 test('a paper that is not in the corpus says so', async () => {

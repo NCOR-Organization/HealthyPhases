@@ -27,7 +27,8 @@ message PaperListQuery {
 // GET /phases_v2/api/papers/{paper_id}/export: the paper's results as CSV.
 message PaperExportQuery {
   string paper_id = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
-  // One prompt version or one model only; empty exports every result.
+  // One prompt version only; empty keeps every version.
   string prompt_id = 2 [(buf.validate.field).string.max_len = 200];
-  string model_id = 3 [(buf.validate.field).string.max_len = 200];
+  // One model only; empty keeps the results whose model is unknown, unset keeps every model.
+  optional string model_id = 3 [(buf.validate.field).string.max_len = 200];
 }

@@ -349,8 +349,13 @@ export function create(root, ctx) {
       $('res-back').href = state.listHash;
       const opened = id !== state.paperId || !state.detail;
       state.paperId = id;
-      if (choices) await choices;
-      await loadPaper(route.params);
+      if (choices) {
+        // The paper does not wait for the filter lists; model names follow when they come.
+        await Promise.all([choices, loadPaper(route.params)]);
+        if (state.paperId === id && state.detail?.paper?.paper_id === id) renderPaper();
+      } else {
+        await loadPaper(route.params);
+      }
       if (opened) $('res-paper-title').focus();
       return;
     }

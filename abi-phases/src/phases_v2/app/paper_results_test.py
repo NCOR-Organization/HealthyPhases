@@ -145,7 +145,13 @@ def _seed(rows):
                 "path": "phases_v2/copies/Being alone.pdf",
                 "paper_id": UPLOADED,
                 "seen_at": at(2),
-            }
+            },
+            # Read from a location given with a leading '/', kept as given.
+            {
+                "path": "/phases_v2/elsewhere/Being alone.pdf",
+                "paper_id": UPLOADED,
+                "seen_at": at(2),
+            },
         ],
     )
     rows.write_rows(
@@ -263,6 +269,15 @@ def _seed(rows):
                 prompt_ids=[CLAIMS_V1.prompt_id],
                 requested_at=at(1),
                 finished_at=at(1),
+            ),
+            # Over the folder of that '/'-prefixed copy; still running.
+            dict(
+                request,
+                request_id="r-slash",
+                status="running",
+                locations=["phases_v2/elsewhere"],
+                prompt_ids=[CLAIMS_V1.prompt_id],
+                requested_at=at(5),
             ),
             # Its manifest names the uploaded paper's copy by path.
             dict(
@@ -474,6 +489,7 @@ def test_each_paper_is_titled_counted_and_located(env):
         ("request_id=r-pubmed", [PUBMED_PDF]),
         ("request_id=r-folder", [UPLOADED]),
         ("request_id=r-copy", [UPLOADED]),
+        ("request_id=r-slash", [UPLOADED]),
         ("request_id=r-early", []),
         ("sort=newest", [UNTOUCHED, UPLOADED, PUBMED_PDF]),
         ("sort=oldest", [PUBMED_PDF, UPLOADED, UNTOUCHED]),
@@ -636,8 +652,9 @@ def test_the_requests_that_included_a_paper_are_listed(env):
         return [r["request_id"] for r in body["requests"]]
 
     assert requests(PUBMED_PDF) == ["r-pubmed"]
-    # By folder, and by a manifest naming a copy at another path; newest first.
-    assert requests(UPLOADED) == ["r-copy", "r-folder"]
+    # By folder (one copy's path kept a leading '/'), and by a manifest naming a
+    # copy at another path; newest first.
+    assert requests(UPLOADED) == ["r-copy", "r-slash", "r-folder"]
     assert requests(UNTOUCHED) == []
 
 
@@ -755,3 +772,54 @@ def test_only_the_exact_published_object_counts_as_a_pubmed_pdf(dataset, tmp_pat
     bare = DatasetRowStore(_dataset(tmp_path, with_library=False))
     assert linked_schemas(bare) == set()
     assert not is_published_pdf(bare, set(), *published, PUBMED_PDF)
+
+
+def test_results_whose_model_is_unknown_export_as_their_own_group(
+    tmp_path, monkeypatch
+):
+    dataset = DatasetService(
+        adapter=DatasetSecondaryAdapterDuckLake(
+            catalog=f"sqlite:{tmp_path / 'catalog.sqlite'}",
+            data_path=str(tmp_path / "warehouse") + "/",
+        )
+    )
+    ensure_datasets(dataset)
+    rows = DatasetRowStore(dataset)
+    rows.write_rows(
+        "papers",
+        [{"paper_id": UPLOADED, "file_name": "Being alone.pdf", "text_key": "b.md"}],
+    )
+    rows.write_rows(
+        "chunks",
+        [
+            {
+                "chunk_id": chunk(UPLOADED, 0),
+                "paper_id": UPLOADED,
+                "chunker_id": CHUNKER,
+                "seq": 0,
+                "text": "only chunk",
+            }
+        ],
+    )
+    rows.write_rows("extractions", [extraction(UPLOADED, 0, M1, CLAIMS_V1)])
+    known = item(UPLOADED, 0, M1, CLAIMS_V1, 0, "Known model")
+    # Its extraction was never recorded, so nothing says which model found it.
+    orphan = dict(
+        item(UPLOADED, 0, M2, CLAIMS_V1, 0, "Unknown model"), extraction_id="lost"
+    )
+    rows.write_rows("extracted_items", [known, orphan])
+    client, _ = _client(dataset, monkeypatch)
+
+    def texts(query):
+        response = client.get(f"{PREFIX}/papers/{UPLOADED}/export?{query}")
+        assert response.status_code == 200, response.text
+        body = io.StringIO(response.content.decode("utf-8-sig"))
+        return sorted(r["extracted_text"] for r in csv.DictReader(body))
+
+    groups = client.get(f"{PREFIX}/papers/{UPLOADED}").json()["results"]
+    assert {(g["model_id"], g["item_count"]) for g in groups} == {(M1, 1), (None, 1)}
+    prompt = f"prompt_id={CLAIMS_V1.prompt_id}"
+    assert texts(f"{prompt}&model_id=") == ["Unknown model"]
+    assert texts(f"{prompt}&model_id={M1}") == ["Known model"]
+    assert texts(prompt) == ["Known model", "Unknown model"]
+    client.close()

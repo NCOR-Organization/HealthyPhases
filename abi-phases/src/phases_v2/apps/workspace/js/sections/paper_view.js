@@ -106,7 +106,8 @@ function failureHtml(failure) {
     ${failure.raw_excerpt ? `<details><summary>What the model returned</summary><div class="context">${esc(failure.raw_excerpt)}</div></details>` : ''}</div>`;
 }
 
-// `limit` caps the items drawn; the rest wait for "Show all".
+// `limit` caps the items drawn; the rest wait for "Show all". Failures are few
+// and are always drawn, so a chunk that only failed is never hidden.
 export function groupHtml(group, chunks, limit = Infinity) {
   if (!group.items.length && !group.failures.length) {
     return `<p class="empty">This version and model ran on ${esc(plural(group.succeeded, 'chunk'))} of the paper and found nothing.</p>`;
@@ -114,9 +115,9 @@ export function groupHtml(group, chunks, limit = Infinity) {
   let left = limit;
   const parts = [];
   for (const row of byChunk(group, chunks)) {
-    if (left <= 0) break;
-    const items = row.items.slice(0, left);
+    const items = row.items.slice(0, Math.max(left, 0));
     left -= items.length;
+    if (!items.length && !row.failures.length) continue;
     parts.push(`<article class="try-chunk">${chunkHead(row)}
       ${items.length ? `<ol class="try-items">${items.map((item) => `<li>${renderItem(item)}</li>`).join('')}</ol>` : ''}
       ${row.failures.map(failureHtml).join('')}</article>`);

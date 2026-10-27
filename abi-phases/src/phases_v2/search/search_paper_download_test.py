@@ -229,3 +229,11 @@ def test_a_published_pdf_still_obeys_the_address_rules():
     api, storage = client(*key, published=published)
     assert api.get(f"{PREFIX}/paper", params={"paper_id": "paper"}).status_code == 404
     assert storage.calls == [] and published.asked == []
+
+
+def test_naming_both_a_hit_and_a_paper_says_so():
+    api, _ = client()
+    response = api.get(
+        f"{PREFIX}/paper", params={"item_id": "item", "paper_id": "paper"}
+    )
+    assert response.json()["detail"] == "Give an item_id or a paper_id, not both."

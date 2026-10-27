@@ -177,9 +177,10 @@ def build_router(
             if value
         }
         try:
-            validate_message("PaperDownloadRequest", target)
+            # Checked first: the contract's own wording for this is less clear.
             if len(target) > 1:
                 raise ValueError("Give an item_id or a paper_id, not both.")
+            validate_message("PaperDownloadRequest", target)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         try:

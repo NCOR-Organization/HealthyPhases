@@ -607,8 +607,10 @@ tables exist.
 
 `GET /phases_v2/api/papers/{paper_id}/export?prompt_id=&model_id=` writes the paper's
 results as CSV with the search export's columns (`mode` is `paper`): one row per item,
-or one per relation for items that carry relations. `prompt_id` or `model_id` keeps one
-version or one model. `GET /phases_v2/api/search/paper?paper_id=` downloads the paper's
+or one per relation for items that carry relations. `prompt_id` keeps one version and
+`model_id` one model; `model_id=` (empty) keeps the results whose model is unknown,
+and leaving it out keeps every model. It reads only the results, not the paper's
+records or runs. `GET /phases_v2/api/search/paper?paper_id=` downloads the paper's
 own PDF through the same path checks as a search hit's download (`item_id=`).
 
 The list filters and the export are validated by `app/contracts/paper_results.proto`.

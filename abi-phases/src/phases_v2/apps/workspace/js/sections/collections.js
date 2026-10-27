@@ -228,8 +228,9 @@ export function create(root, ctx) {
       const [tone, label] = STATUSES[paper.status] || ['idle', paper.status];
       const row = document.createElement('tr');
       const results = paper.status === 'results' ? ` (${plural(paper.results, 'result')})` : '';
-      // An ingested paper opens on its results page.
-      const name = paper.paper_id ? `<a class="row-link" href="${esc(ctx.href('results', [paper.paper_id]))}">${esc(paper.name)}</a>` : esc(paper.name);
+      // An ingested paper opens on its results page. A PubMed paper not ingested
+      // yet already has an id (its content hash) but no page.
+      const name = paper.paper_id && paper.status !== 'not_ingested' ? `<a class="row-link" href="${esc(ctx.href('results', [paper.paper_id]))}">${esc(paper.name)}</a>` : esc(paper.name);
       row.innerHTML = `<td>${name}${paper.pmid ? `<small>PMID ${esc(paper.pmid)}</small>` : ''}</td><td class="muted"><code>${esc(paper.path)}</code></td><td>${statusPill(tone, label + results)}</td>`;
       body.append(row);
     }
