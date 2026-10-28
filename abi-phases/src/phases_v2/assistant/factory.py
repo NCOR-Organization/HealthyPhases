@@ -21,12 +21,16 @@ def workspace_actions(engine, configuration) -> WorkspaceActions:
         guard=GUARD,
         context=nexus_context,
         search=lambda: search_service(engine, configuration=configuration),
-        pubmed=_pubmed(engine),
-        openalex=_openalex(engine),
+        pubmed=_pubmed(),
+        openalex=_openalex(),
     )
 
 
-def _pubmed(engine):
+# Each module's engine reaches only the services that module declares, so the
+# PubMed and OpenAlex services are built from their own module's engine.
+
+
+def _pubmed():
     from pubmed import ABIModule
 
     try:
@@ -36,10 +40,10 @@ def _pubmed(engine):
         return None
     from pubmed.pubmed_factory import service
 
-    return service(engine, module.configuration)
+    return service(module.engine, module.configuration)
 
 
-def _openalex(engine):
+def _openalex():
     from openalex import ABIModule
 
     try:
@@ -49,4 +53,4 @@ def _openalex(engine):
         return None
     from openalex.openalex_factory import service
 
-    return service(engine, module.configuration)
+    return service(module.engine, module.configuration)

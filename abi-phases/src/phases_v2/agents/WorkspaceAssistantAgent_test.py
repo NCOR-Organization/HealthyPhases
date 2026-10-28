@@ -145,8 +145,7 @@ def test_new_builds_the_assistant_with_the_default_chat_model_and_its_tools(
 
     assert agent.name == "HealthyPhases Assistant"
     assert agent._chat_model is model
-    names = {t.name for t in agent.tools}
-    assert {t.name for t in build_tools(env.actions)} <= names
+    assert {t.name for t in agent.tools} == {t.name for t in build_tools(env.actions)}
     assert agent.configuration.system_prompt == INSTRUCTIONS
 
 
@@ -175,7 +174,9 @@ def test_the_factory_wires_the_apps_services_and_skips_modules_not_loaded(
     monkeypatch.setattr(
         pubmed.ABIModule,
         "get_instance",
-        lambda: SimpleNamespace(configuration=pubmed.ABIModule.Configuration()),
+        lambda: SimpleNamespace(
+            engine=engine, configuration=pubmed.ABIModule.Configuration()
+        ),
     )
     with_pubmed = factory.workspace_actions(
         engine, SimpleNamespace(papers_root="phases_v2")
@@ -251,6 +252,7 @@ def test_a_run_is_queued_only_once_the_user_answers_yes(store):
         state=AgentSharedState(thread_id="chat-1"),
         configuration=AgentConfiguration(system_prompt=INSTRUCTIONS),
         memory=MemorySaver(),
+        enable_default_tools=False,
     )
     chat_token = agent_chat_id.set("chat-1")
     user_token = agent_user_email.set("jeremy@naas.ai")

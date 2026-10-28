@@ -136,6 +136,9 @@ class WorkspaceAssistantAgent(Agent):
             state=agent_shared_state,
             configuration=agent_configuration,
             memory=None,
+            # The defaults include writing files and running commands; this
+            # agent has only the workspace tools, none of which discards anything.
+            enable_default_tools=False,
         )
 
     def call_tools(self, state: ABIAgentState) -> list[Command]:
