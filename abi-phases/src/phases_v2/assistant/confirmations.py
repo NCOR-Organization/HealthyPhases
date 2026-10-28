@@ -7,10 +7,14 @@ lets execute through only when the token:
 - exists, has not been used and has not expired (ten minutes);
 - was issued for this action with exactly these parameters;
 - was issued in this conversation, for this user;
+- is the latest one prepared for this action in this conversation: preparing
+  again (the user asked for something else) supersedes the earlier summary;
 - was issued in an earlier turn: the user has written since, so they saw the
   summary before answering it;
-- still describes what the action covers (its *basis*: a run's papers, for
-  example), so a yes is never applied to something that changed meanwhile.
+- still describes what the action covers (its *basis*: a run's papers, the
+  PMIDs a download fetches, how many papers an enrichment covers), for every
+  action whose scope can change after it was prepared, so a yes is never
+  applied to something that changed meanwhile.
 
 A token is consumed by the first execute that passes these checks, before the
 action runs, so two calls racing with one token cannot both act. A refused
@@ -92,9 +96,10 @@ class ConfirmationGuard:
         self._new_token = new_token
         self._lock = threading.Lock()
         self._pending: dict[str, _Pending] = {}
-        #: Spent tokens until they would have expired, to say "already used"
-        #: rather than "unknown" when one is presented again.
+        #: Spent and superseded tokens until they would have expired, to say
+        #: why one presented again is refused rather than call it unknown.
         self._spent: dict[str, float] = {}
+        self._superseded: dict[str, float] = {}
 
     def issue(
         self,
@@ -107,6 +112,14 @@ class ConfirmationGuard:
         token = self._new_token()
         with self._lock:
             self._forget_expired(now)
+            for earlier, pending in list(self._pending.items()):
+                if (pending.action, pending.conversation, pending.user) == (
+                    action,
+                    context.conversation,
+                    context.user,
+                ):
+                    del self._pending[earlier]
+                    self._superseded[earlier] = pending.expires_at
             self._pending[token] = _Pending(
                 action=action,
                 fingerprint=fingerprint(params),
@@ -139,6 +152,12 @@ class ConfirmationGuard:
                 raise ConfirmationRefused(
                     "This confirmation token was already used; each yes covers one "
                     f"action. {prepare}"
+                )
+            if token in self._superseded:
+                raise ConfirmationRefused(
+                    "This confirmation token was replaced: the same kind of action "
+                    "was prepared again since. Use the latest token, and only once "
+                    "the user said yes to its summary."
                 )
             pending = self._pending.get(token)
             if pending is None:
@@ -181,5 +200,6 @@ class ConfirmationGuard:
     def _forget_expired(self, now: float) -> None:
         for token in [t for t, p in self._pending.items() if now >= p.expires_at]:
             del self._pending[token]
-        for token in [t for t, until in self._spent.items() if now >= until]:
-            del self._spent[token]
+        for kept in (self._spent, self._superseded):
+            for token in [t for t, until in kept.items() if now >= until]:
+                del kept[token]

@@ -14,18 +14,27 @@ token (see :mod:`phases_v2.assistant.confirmations`).
 from __future__ import annotations
 
 import dataclasses
+import logging
 from collections.abc import Callable, Iterable
 from datetime import date, datetime
 from typing import Any
 
 from openalex.domain.openalex_errors import EnrichmentNotFound
+from phases_v2.app.app_resources import ResourceNotFound
 from phases_v2.assistant.confirmations import (
     ConfirmationGuard,
     RequestContext,
-    fingerprint,
 )
 from phases_v2.requests.interfaces import RequestNotFound
+from pubmed.domain.pubmed_errors import PublicationNotFound
 
+logger = logging.getLogger(__name__)
+
+#: What the services raise for an id that names nothing.
+NOT_FOUND = (ResourceNotFound, RequestNotFound, PublicationNotFound, EnrichmentNotFound)
+
+#: A previewed download covers at most this many papers; more is a full ingestion.
+PREVIEWED_LIMIT = 1000
 #: Rows listed at most per answer; each answer says how many there are in all.
 LISTED = 25
 #: Results shown per prompt version and model when reading one paper.
@@ -54,30 +63,68 @@ OPENALEX_ENRICHMENT = "openalex_enrichment"
 
 
 class Unavailable(RuntimeError):
-    """A part of the workspace this deployment does not have."""
+    """A part of the workspace this deployment does not have, or cannot reach."""
+
+
+class Lazy:
+    """A service built on its first use, then kept.
+
+    Nexus builds every agent when it starts, and one agent failing to build
+    stops the others loading. Building the services only when a tool needs
+    them keeps a storage or module failure with the tools that depend on it,
+    as an answer the user can read; the next call tries again.
+    """
+
+    def __init__(self, name: str, build: Callable[[], Any] | None):
+        self._name = name
+        self._build = build
+        self._value: Any = None
+
+    def get(self) -> Any:
+        if self._value is None:
+            if self._build is None:
+                raise Unavailable(f"{self._name} is unavailable in this deployment.")
+            try:
+                built = self._build()
+            except Unavailable:
+                raise
+            except Exception as failure:
+                logger.exception("Could not build %s for the assistant", self._name)
+                raise Unavailable(
+                    f"{self._name} could not be reached ({failure}). Try again in "
+                    "a moment."
+                ) from failure
+            if built is None:
+                raise Unavailable(f"{self._name} is unavailable in this deployment.")
+            self._value = built
+        return self._value
 
 
 class WorkspaceActions:
     def __init__(
         self,
-        pipeline,
+        pipeline: Callable[[], Any],
         *,
         guard: ConfirmationGuard,
         context: Callable[[], RequestContext],
         search: Callable[[], Any] | None = None,
-        pubmed=None,
-        openalex=None,
+        pubmed: Callable[[], Any] | None = None,
+        openalex: Callable[[], Any] | None = None,
     ):
-        """``pipeline`` is the app's ``PipelineAppService``; ``search`` builds the
-        search service on first use (it needs embeddings); ``pubmed`` and
-        ``openalex`` are those modules' services, or ``None`` when not loaded."""
-        self._pipeline = pipeline
+        """Each service is given as a function that builds it on first use:
+        ``pipeline`` the app's ``PipelineAppService``, ``search`` the search
+        service, and ``pubmed`` and ``openalex`` those modules' services, which
+        build ``None`` when the module is not loaded."""
+        self._pipeline_service = Lazy("The workspace", pipeline)
+        self._search_service = Lazy("Search", search)
+        self._pubmed_service = Lazy("PubMed", pubmed)
+        self._openalex_service = Lazy("OpenAlex enrichment", openalex)
         self._guard = guard
         self._context = context
-        self._search_factory = search
-        self._search = None
-        self._pubmed = pubmed
-        self._openalex = openalex
+
+    @property
+    def _pipeline(self):
+        return self._pipeline_service.get()
 
     # -- collections ------------------------------------------------------
 
@@ -224,7 +271,7 @@ class WorkspaceActions:
 
     def get_pubmed_search(self, search_id: str) -> dict[str, Any]:
         """A saved search with the papers it previewed and which are downloaded."""
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         query = _ask(pubmed.one, "queries", query_id=search_id)
         papers = _ask(pubmed.papers, search_id)
         return _plain(
@@ -248,7 +295,7 @@ class WorkspaceActions:
         sort: str = "relevance",
     ) -> dict[str, Any]:
         """Search PubMed. Saves the search; downloads nothing."""
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         found = _ask(
             pubmed.search,
             {
@@ -275,7 +322,7 @@ class WorkspaceActions:
         self, search: str = "", search_id: str = "", page: int = 1
     ) -> dict[str, Any]:
         """Downloaded PubMed papers, newest first, one page at a time."""
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         found = _ask(
             pubmed.browse_papers,
             {
@@ -545,7 +592,7 @@ class WorkspaceActions:
         }
         if collection_id:
             options["papers"] = _ask(self._pipeline.resources.paper_ids, collection_id)
-        scoped, _snapshot = self._search_service().read_view(None)
+        scoped, _snapshot = self._search_service.get().read_view(None)
         hits, total = scoped.page(
             SEARCH_BY[by],
             query=query,
@@ -588,18 +635,22 @@ class WorkspaceActions:
 
     def list_downloads_and_enrichments(self) -> dict[str, Any]:
         """PubMed downloads, full ingestions, schedules and OpenAlex enrichments."""
-        out: dict[str, Any] = {}
-        if self._pubmed is not None:
+        out: dict[str, Any] = {"unavailable": []}
+        try:
+            pubmed = self._pubmed_service.get()
+        except Unavailable as missing:
+            out["unavailable"].append(str(missing))
+        else:
             from pubmed.application.pubmed_backfills import PubmedBackfills
             from pubmed.application.pubmed_schedules import PubmedSchedules
 
             out["downloads"] = [
                 dict(_pick(r, DOWNLOAD_FIELDS), papers=len(r.get("pmids") or []))
-                for r in self._pubmed.requests()[:10]
+                for r in pubmed.requests()[:10]
             ]
             out["full_ingestions"] = [
                 _pick(b, FULL_INGESTION_FIELDS)
-                for b in PubmedBackfills(self._pubmed).list()[:10]
+                for b in PubmedBackfills(pubmed).list()[:10]
             ]
             out["schedules"] = [
                 {
@@ -612,11 +663,15 @@ class WorkspaceActions:
                     "next_run_at": s.get("next_run_at"),
                     "status": s.get("status"),
                 }
-                for s in PubmedSchedules(self._pubmed).list()
+                for s in PubmedSchedules(pubmed).list()
             ]
-        if self._openalex is not None:
+        try:
+            openalex = self._openalex_service.get()
+        except Unavailable as missing:
+            out["unavailable"].append(str(missing))
+        else:
             out["enrichments"] = [
-                _pick(r, ENRICHMENT_FIELDS) for r in self._openalex.requests()[:10]
+                _pick(r, ENRICHMENT_FIELDS) for r in openalex.requests()[:10]
             ]
         out["where"] = (
             "Library → Downloads, Library → Schedules and Library → Enrichment"
@@ -684,27 +739,19 @@ class WorkspaceActions:
         # The same checks queuing makes, so a yes is never asked for a run
         # that would be refused.
         _ask(self._pipeline.management.validate_inputs, dict(params, locations=[]))
-        detail = _ask(self._pipeline.resources.detail, collection_id)
-        if detail["failed_members"]:
-            unreadable = [m["error"] for m in detail["members"] if m.get("error")]
-            raise ValueError(
-                "Some members of this collection could not be read, so the run "
-                "would not cover the whole collection: " + "; ".join(unreadable)
-            )
-        if not detail["paper_count"]:
-            raise ValueError(
-                "This collection has no papers yet. Add papers before running it."
-            )
+        # One resolution for the summary and the token, so the user agrees to
+        # exactly the papers the token is bound to.
+        collection, scope = _ask(self._pipeline.collection_run_scope, collection_id)
+        counts = _ask(self._pipeline.resources.status_counts, scope)
         prompts = {p["prompt_id"]: p for p in self._pipeline.prompts()}
         models = {m["model_id"]: m for m in self._pipeline.models()}
         chunkers = {c["chunker_id"]: c for c in self._pipeline.chunkers()}
-        counts = detail["status_counts"]
         lines = [
-            f"Queue a pipeline run on the collection “{detail['name']}”: "
-            f"{_count(detail['paper_count'], 'paper')} "
-            f"({counts.get('results', 0)} already with results, "
-            f"{counts.get('ingested', 0)} ingested without results, "
-            f"{counts.get('not_ingested', 0)} still to ingest).",
+            f"Queue a pipeline run on the collection “{collection['name']}”: "
+            f"{_count(len(scope.papers), 'paper')} "
+            f"({counts['results']} already with results, "
+            f"{counts['ingested']} ingested without results, "
+            f"{counts['not_ingested']} still to ingest).",
             "Prompts: "
             + "; ".join(
                 f"{prompts[p]['name']} (version {p[-8:]}, {prompts[p]['output_key']})"
@@ -725,8 +772,8 @@ class WorkspaceActions:
             RUN,
             params,
             "\n".join(lines),
-            basis=self._run_basis(collection_id),
-            papers=detail["paper_count"],
+            basis=scope.manifest(),
+            papers=len(scope.papers),
         )
 
     def queue_run(
@@ -739,12 +786,15 @@ class WorkspaceActions:
     ) -> dict[str, Any]:
         params = _run_params(collection_id, chunker_id, prompt_ids, model_id)
         context = self._context()
-        self._guard.redeem(
-            token, RUN, params, context, basis=self._run_basis(collection_id)
-        )
+        _collection, scope = _ask(self._pipeline.collection_run_scope, collection_id)
+        self._guard.redeem(token, RUN, params, context, basis=scope.manifest())
+        # Submitted with the resolution just checked: the run reads exactly the
+        # papers the user agreed to, not ones that joined a moment later.
         request = _ask(
-            self._pipeline.submit_inputs,
-            dict(params, locations=[], requested_by=context.user[:200] or None),
+            self._pipeline.submit_collection_run,
+            **params,
+            requested_by=context.user[:200] or None,
+            resolution=scope,
         )
         return {
             "queued": True,
@@ -753,12 +803,6 @@ class WorkspaceActions:
             "where": f"Runs → {request.request_id}",
         }
 
-    def _run_basis(self, collection_id: str) -> str:
-        """The papers a run would read now; a change means asking again."""
-        collection = _ask(self._pipeline.resources.collection, collection_id)
-        resolution = _ask(self._pipeline.resources.resolve, collection)
-        return fingerprint(resolution.manifest())
-
     # -- costly: PubMed downloads, schedules, OpenAlex -----------------------
 
     def prepare_pubmed_ingestion(
@@ -766,12 +810,10 @@ class WorkspaceActions:
     ) -> dict[str, Any]:
         """``previewed``: the search's previewed papers (or ``pmids`` among them);
         ``all``: every paper PubMed matches, found and downloaded in batches."""
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         params = _ingestion_params(search_id, which, pmids)
         query = _ask(pubmed.one, "queries", query_id=search_id)
         if which == "all":
-            if params["pmids"]:
-                raise ValueError("Give PMIDs only when downloading previewed papers.")
             summary = (
                 f"Find and download every paper PubMed matches for “{query['query']}”: "
                 f"about {_count(query['total'], 'paper')}, in batches, until all are "
@@ -780,30 +822,16 @@ class WorkspaceActions:
             return self._prepared(
                 PUBMED_INGESTION, params, summary, papers=query["total"]
             )
-        papers = _ask(pubmed.papers, search_id)
-        previewed = {p["pmid"]: p for p in papers}
-        if len(papers) >= 1000 and pubmed.store.member_count(search_id) > 1000:
-            raise ValueError(
-                "This search previewed more than 1000 papers; download all of them "
-                "with which='all' instead."
-            )
-        chosen = params["pmids"] or sorted(previewed)
-        outside = [p for p in chosen if p not in previewed]
-        if outside:
-            raise ValueError(
-                "These PMIDs are not among the search's previewed papers: "
-                + ", ".join(outside[:10])
-            )
-        if not chosen:
-            raise ValueError("This search previewed no papers to download.")
-        already = sum(1 for p in chosen if previewed[p].get("artifacts"))
+        chosen, downloaded = self._previewed_choice(pubmed, params)
         summary = (
             f"Download the full text of {_count(len(chosen), 'paper')} from the saved "
             f"PubMed search “{query['query']}”"
-            + (f" ({already} of them downloaded before)" if already else "")
+            + (f" ({downloaded} of them downloaded before)" if downloaded else "")
             + ". Follow it in Library → Downloads."
         )
-        return self._prepared(PUBMED_INGESTION, params, summary, papers=len(chosen))
+        return self._prepared(
+            PUBMED_INGESTION, params, summary, basis=chosen, papers=len(chosen)
+        )
 
     def queue_pubmed_ingestion(
         self,
@@ -812,10 +840,10 @@ class WorkspaceActions:
         which: str = "previewed",
         pmids: Iterable[str] = (),
     ) -> dict[str, Any]:
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         params = _ingestion_params(search_id, which, pmids)
-        self._guard.redeem(token, PUBMED_INGESTION, params, self._context())
         if which == "all":
+            self._guard.redeem(token, PUBMED_INGESTION, params, self._context())
             from pubmed.application.pubmed_backfills import PubmedBackfills
 
             row = _ask(PubmedBackfills(pubmed).create, {"query_id": search_id})
@@ -827,7 +855,13 @@ class WorkspaceActions:
                     "where": "Library → Downloads",
                 }
             )
-        row = _ask(pubmed.submit, {"query_id": search_id, "pmids": params["pmids"]})
+        chosen, _downloaded = self._previewed_choice(pubmed, params)
+        self._guard.redeem(
+            token, PUBMED_INGESTION, params, self._context(), basis=chosen
+        )
+        # The PMIDs the summary counted, named: an empty list would mean every
+        # member of the search, including any that joined since.
+        row = _ask(pubmed.submit, {"query_id": search_id, "pmids": chosen})
         return {
             "queued": True,
             "download_id": row["request_id"],
@@ -836,6 +870,30 @@ class WorkspaceActions:
             "where": "Library → Downloads",
         }
 
+    def _previewed_choice(
+        self, pubmed, params: dict[str, Any]
+    ) -> tuple[list[str], int]:
+        """The PMIDs a previewed download fetches, and how many were downloaded before."""
+        search_id = params["search_id"]
+        # The publisher's own limit, checked before asking rather than after.
+        if pubmed.store.member_count(search_id) > PREVIEWED_LIMIT:
+            raise ValueError(
+                f"This search has more than {PREVIEWED_LIMIT} papers; download all "
+                "of them with which='all' instead."
+            )
+        previewed = {p["pmid"]: p for p in _ask(pubmed.papers, search_id)}
+        chosen = params["pmids"] or sorted(previewed)
+        outside = [p for p in chosen if p not in previewed]
+        if outside:
+            raise ValueError(
+                "These PMIDs are not among the search's previewed papers: "
+                + ", ".join(outside[:10])
+            )
+        if not chosen:
+            raise ValueError("This search previewed no papers to download.")
+        downloaded = sum(1 for p in chosen if previewed[p].get("artifacts"))
+        return chosen, downloaded
+
     def prepare_pubmed_schedule(
         self,
         search_id: str,
@@ -843,7 +901,7 @@ class WorkspaceActions:
         interval_hours: int = 24,
         download_new_papers: bool = True,
     ) -> dict[str, Any]:
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         params = _schedule_params(search_id, name, interval_hours, download_new_papers)
         query = _ask(pubmed.one, "queries", query_id=search_id)
         summary = (
@@ -856,6 +914,7 @@ class WorkspaceActions:
             )
             + " See it in Library → Schedules."
         )
+        # A saved search never changes, so the parameters are the whole scope.
         return self._prepared(PUBMED_SCHEDULE, params, summary)
 
     def create_pubmed_schedule(
@@ -866,7 +925,7 @@ class WorkspaceActions:
         interval_hours: int = 24,
         download_new_papers: bool = True,
     ) -> dict[str, Any]:
-        pubmed = self._require_pubmed()
+        pubmed = self._pubmed_service.get()
         params = _schedule_params(search_id, name, interval_hours, download_new_papers)
         self._guard.redeem(token, PUBMED_SCHEDULE, params, self._context())
         from pubmed.application.pubmed_schedules import PubmedSchedules
@@ -891,7 +950,7 @@ class WorkspaceActions:
     def prepare_openalex_enrichment(
         self, search_id: str, refresh: bool = False
     ) -> dict[str, Any]:
-        openalex = self._require_openalex()
+        openalex = self._openalex_service.get()
         params = {"search_id": search_id, "refresh": bool(refresh)}
         query, _snapshot, total = _ask(openalex.catalog.capture, search_id)
         summary = (
@@ -904,14 +963,19 @@ class WorkspaceActions:
             )
             + " Follow it in Library → Enrichment."
         )
-        return self._prepared(OPENALEX_ENRICHMENT, params, summary, papers=total)
+        return self._prepared(
+            OPENALEX_ENRICHMENT, params, summary, basis=total, papers=total
+        )
 
     def queue_openalex_enrichment(
         self, token: str, search_id: str, refresh: bool = False
     ) -> dict[str, Any]:
-        openalex = self._require_openalex()
+        openalex = self._openalex_service.get()
         params = {"search_id": search_id, "refresh": bool(refresh)}
-        self._guard.redeem(token, OPENALEX_ENRICHMENT, params, self._context())
+        _query, _snapshot, total = _ask(openalex.catalog.capture, search_id)
+        self._guard.redeem(
+            token, OPENALEX_ENRICHMENT, params, self._context(), basis=total
+        )
         row = _ask(
             openalex.create, {"query_id": search_id, "force_refresh": bool(refresh)}
         )
@@ -946,29 +1010,16 @@ class WorkspaceActions:
             ),
         }
 
-    def _search_service(self):
-        if self._search is None:
-            if self._search_factory is None:
-                raise Unavailable("Search is unavailable in this deployment.")
-            self._search = self._search_factory()
-        return self._search
-
-    def _require_pubmed(self):
-        if self._pubmed is None:
-            raise Unavailable("PubMed is unavailable in this deployment.")
-        return self._pubmed
-
-    def _require_openalex(self):
-        if self._openalex is None:
-            raise Unavailable("OpenAlex enrichment is unavailable in this deployment.")
-        return self._openalex
-
 
 def _ask(action: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
-    """Call a service, saying "not found" in its own words rather than as a key."""
+    """Call a service, saying "not found" in its own words rather than as a key.
+
+    Only the services' own not-found errors: any other ``KeyError`` is a fault,
+    and reading it as a wrong id would hide it.
+    """
     try:
         return action(*args, **kwargs)
-    except (KeyError, LookupError, RequestNotFound, EnrichmentNotFound) as missing:
+    except NOT_FOUND as missing:
         detail = str(missing.args[0]) if missing.args else ""
         # Some services raise with the id alone; say what that means.
         if not detail or detail in {str(v) for v in (*args, *kwargs.values())}:
@@ -1001,7 +1052,8 @@ def _run_params(
     return {
         "collection_id": collection_id,
         "chunker_id": chunker_id,
-        "prompt_ids": list(dict.fromkeys(prompt_ids)),
+        # Order does not change what a run does, so it does not change the yes.
+        "prompt_ids": sorted(set(prompt_ids)),
         "model_id": model_id,
     }
 
@@ -1011,11 +1063,10 @@ def _ingestion_params(
 ) -> dict[str, Any]:
     if which not in ("previewed", "all"):
         raise ValueError("which must be 'previewed' or 'all'.")
-    return {
-        "search_id": search_id,
-        "which": which,
-        "pmids": sorted({str(p) for p in pmids}),
-    }
+    chosen = sorted({str(p) for p in pmids})
+    if which == "all" and chosen:
+        raise ValueError("Give PMIDs only when downloading previewed papers.")
+    return {"search_id": search_id, "which": which, "pmids": chosen}
 
 
 def _schedule_params(

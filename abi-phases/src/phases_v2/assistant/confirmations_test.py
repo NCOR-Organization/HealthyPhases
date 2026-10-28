@@ -147,6 +147,27 @@ def test_parameter_order_does_not_matter_but_values_do(guard):
     guard.redeem(token, "run", {"b": [1, 2], "a": 1}, ANSWERED)
 
 
+def test_preparing_again_supersedes_the_earlier_summary(guard):
+    """The user declined model A and asked for B: A's token must not run."""
+    declined = guard.issue("run", PARAMS, ASKED).token
+    changed = dict(PARAMS, model_id="m2")
+    latest = guard.issue("run", changed, ANSWERED).token
+    yes = RequestContext(conversation="chat-1", user="jeremy@naas.ai", turn="t3")
+
+    with pytest.raises(ConfirmationRefused, match="was replaced"):
+        guard.redeem(declined, "run", PARAMS, yes)
+    guard.redeem(latest, "run", changed, yes)
+
+
+def test_only_the_same_action_in_the_same_conversation_is_superseded(guard):
+    run = guard.issue("run", PARAMS, ASKED).token
+    guard.issue("pubmed_schedule", {"search_id": "s"}, ASKED)
+    elsewhere = RequestContext(conversation="chat-2", user="jeremy@naas.ai", turn="t1")
+    guard.issue("run", PARAMS, elsewhere)
+
+    guard.redeem(run, "run", PARAMS, ANSWERED)
+
+
 def test_two_racing_executes_act_once(guard):
     token = guard.issue("run", PARAMS, ASKED).token
     outcomes = []
@@ -178,4 +199,4 @@ def test_expired_and_spent_tokens_are_not_kept_forever(guard, clock):
     guard.issue("run", PARAMS, ASKED)
 
     assert len(guard._pending) == 1
-    assert guard._spent == {}
+    assert guard._spent == {} and guard._superseded == {}

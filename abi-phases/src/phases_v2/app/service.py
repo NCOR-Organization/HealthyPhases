@@ -18,6 +18,7 @@ from phases_v2.app.pipeline_management import ManagementUnavailable, PipelineMan
 from phases_v2.app.prompt_versions import PromptVersions
 from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
 from phases_v2.models.catalog import DECLARED_MODELS
+from phases_v2.paper_collections.interfaces import Resolution
 from phases_v2.requests.domain import submit
 from phases_v2.requests.interfaces import RunRequest
 
@@ -125,31 +126,14 @@ class PipelineAppService:
         self.resources.add_upload_folder(collection_id)
         return uploaded
 
-    def submit_collection_run(
-        self,
-        *,
-        collection_id: str,
-        chunker_id: str,
-        prompt_ids: list[str],
-        model_id: str,
-        requested_by: str | None = None,
-    ) -> RunRequest:
-        """Queue a run over exactly the papers the collection holds right now.
+    def collection_run_scope(
+        self, collection_id: str
+    ) -> tuple[dict[str, Any], Resolution]:
+        """The collection and the papers a run on it would read now.
 
-        The resolved artifacts are written as the request's manifest before the
-        request itself, so the orchestrator never sees the request without
-        them; ingestion then reads only those artifacts.
+        Refuses, in the user's words, a collection a run could not cover:
+        one with an unreadable member, or with no papers.
         """
-        from phases_v2.sources.phases_v2_sources import submit_with_manifest
-
-        inputs = {
-            "locations": [],
-            "collection_id": collection_id,
-            "chunker_id": chunker_id,
-            "prompt_ids": prompt_ids,
-            "model_id": model_id,
-        }
-        self.management.validate_inputs(inputs)
         collection = self.resources.collection(collection_id)
         resolution = self.resources.resolve(collection)
         if resolution.failed:
@@ -162,6 +146,38 @@ class PipelineAppService:
             raise ValueError(
                 "This collection has no papers yet. Add papers before running it."
             )
+        return collection, resolution
+
+    def submit_collection_run(
+        self,
+        *,
+        collection_id: str,
+        chunker_id: str,
+        prompt_ids: list[str],
+        model_id: str,
+        requested_by: str | None = None,
+        resolution: Resolution | None = None,
+    ) -> RunRequest:
+        """Queue a run over exactly the papers the collection holds right now.
+
+        The resolved artifacts are written as the request's manifest before the
+        request itself, so the orchestrator never sees the request without
+        them; ingestion then reads only those artifacts. A caller that already
+        resolved the collection (from :meth:`collection_run_scope`) passes that
+        ``resolution``, so the run reads what was resolved and nothing newer.
+        """
+        from phases_v2.sources.phases_v2_sources import submit_with_manifest
+
+        inputs = {
+            "locations": [],
+            "collection_id": collection_id,
+            "chunker_id": chunker_id,
+            "prompt_ids": prompt_ids,
+            "model_id": model_id,
+        }
+        self.management.validate_inputs(inputs)
+        if resolution is None:
+            _collection, resolution = self.collection_run_scope(collection_id)
         return submit_with_manifest(
             self._rows,
             self._requests,

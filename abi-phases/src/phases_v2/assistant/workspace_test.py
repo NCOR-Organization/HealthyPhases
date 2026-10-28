@@ -33,7 +33,7 @@ from phases_v2.assistant.confirmations import (
     RequestContext,
 )
 from phases_v2.assistant.tools import COSTLY_PAIRS, build_tools
-from phases_v2.assistant.workspace import Unavailable, WorkspaceActions
+from phases_v2.assistant.workspace import Unavailable, WorkspaceActions, _ask
 from phases_v2.chunking.chunkers import WINDOW_512_128
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.schemas import DATASETS
@@ -44,6 +44,7 @@ from phases_v2.paper_collections.adapters.secondary.StoredMemberSources import (
     StoredMemberSources,
 )
 from phases_v2.prompts.domain import PromptTemplate
+from phases_v2.prompts.templates import declared_prompts
 from phases_v2.requests.fakes import FakeRequestStore
 from phases_v2.search.models import SearchHit
 from phases_v2.sources.adapters.secondary.phases_v2_pubmed_catalog import PubmedCatalog
@@ -209,12 +210,12 @@ def build_env(store, *, search=True, pubmed=True, openalex=True, context=None):
     asking = {"conversation": "chat-1", "user": "jeremy@naas.ai", "turn": "t1"}
     found = FakeSearch()
     actions = WorkspaceActions(
-        pipeline,
+        lambda: pipeline,
         guard=ConfirmationGuard(),
         context=context or (lambda: RequestContext(**asking)),
         search=(lambda: found) if search else None,
-        pubmed=store.publisher if pubmed else None,
-        openalex=enricher if openalex else None,
+        pubmed=(lambda: store.publisher) if pubmed else None,
+        openalex=(lambda: enricher) if openalex else None,
     )
     return SimpleNamespace(
         tools={t.name: t for t in build_tools(actions)},
@@ -832,3 +833,143 @@ def test_openalex_enrichment_is_queued_only_after_a_yes(env):
             "prepare_openalex_enrichment",
             search_id="00000000-0000-4000-8000-000000000000",
         )
+
+
+# -- review: a yes covers exactly what was shown -----------------------------------
+
+
+def _joins(env, search_id, pmid, with_record=True):
+    """A paper joins a saved search, as a schedule's later run would add it."""
+    if with_record:
+        env.publisher.store.save(
+            "papers",
+            [
+                {
+                    "pmid": pmid,
+                    "pmcid": "PMC" + pmid,
+                    "title": "Paper " + pmid,
+                    "doi": "",
+                    "journal": "",
+                    "publication_date": "",
+                    "authors": [],
+                }
+            ],
+        )
+    env.publisher.store.save("query_papers", [{"query_id": search_id, "pmid": pmid}])
+
+
+def test_a_previewed_download_fetches_exactly_the_papers_its_summary_counted(env):
+    search = call(env, "search_pubmed", query="solitude")["search_id"]
+    # A member with no paper record is not previewed, so not counted or fetched.
+    _joins(env, search, "41", with_record=False)
+
+    prepared = call(env, "prepare_pubmed_ingestion", search_id=search)
+    assert prepared["papers"] == 2
+    user_says(env, "t2")
+    queued = call(
+        env,
+        "queue_pubmed_ingestion",
+        confirmation_token=prepared["confirmation_token"],
+        search_id=search,
+    )
+
+    [request] = [
+        r for r in env.publisher.requests() if r["request_id"] == queued["download_id"]
+    ]
+    assert request["pmids"] == ["1", "2"]
+
+
+def test_a_paper_joining_before_the_yes_needs_a_new_one(env):
+    search = call(env, "search_pubmed", query="solitude")["search_id"]
+    prepared = call(env, "prepare_pubmed_ingestion", search_id=search)
+    before = len(env.publisher.requests())
+    _joins(env, search, "42")
+    user_says(env, "t2")
+
+    with pytest.raises(ConfirmationRefused, match="changed after it was prepared"):
+        call(
+            env,
+            "queue_pubmed_ingestion",
+            confirmation_token=prepared["confirmation_token"],
+            search_id=search,
+        )
+    assert len(env.publisher.requests()) == before
+
+
+def test_a_search_too_large_to_preview_is_refused_before_asking(env, monkeypatch):
+    search = call(env, "search_pubmed", query="solitude")["search_id"]
+    monkeypatch.setattr(env.publisher.store, "member_count", lambda query_id: 1001)
+
+    with pytest.raises(ValueError, match="more than 1000 papers.*which='all'"):
+        call(env, "prepare_pubmed_ingestion", search_id=search)
+    with pytest.raises(ValueError, match="PMIDs only when downloading previewed"):
+        call(
+            env, "prepare_pubmed_ingestion", search_id=search, which="all", pmids=["1"]
+        )
+
+
+def test_an_enrichment_covering_more_papers_than_shown_needs_a_new_yes(env):
+    search = call(env, "search_pubmed", query="solitude")["search_id"]
+    prepared = call(env, "prepare_openalex_enrichment", search_id=search)
+    assert prepared["papers"] == 2
+    before = len(env.enricher.requests())
+    _joins(env, search, "43")
+    user_says(env, "t2")
+
+    with pytest.raises(ConfirmationRefused, match="changed after it was prepared"):
+        call(
+            env,
+            "queue_openalex_enrichment",
+            confirmation_token=prepared["confirmation_token"],
+            search_id=search,
+        )
+    assert len(env.enricher.requests()) == before
+
+
+def test_a_declined_run_is_not_queued_after_another_is_prepared(env):
+    """No to model A, prepare model B, then a stray execute of A is refused."""
+    choices = run_choices(collection_with_the_paper(env)["collection_id"])
+    declined = call(env, "prepare_run", **choices)["confirmation_token"]
+    user_says(env, "t2")
+    other = dict(choices, model_id=DECLARED_MODELS[1].model_id)
+    latest = call(env, "prepare_run", **other)["confirmation_token"]
+    user_says(env, "t3")
+
+    with pytest.raises(ConfirmationRefused, match="was replaced"):
+        call(env, "queue_run", confirmation_token=declined, **choices)
+    assert env.requests.requests == {}
+    queued = call(env, "queue_run", confirmation_token=latest, **other)
+    assert env.requests.requests[queued["run_id"]].model_id == other["model_id"]
+
+
+def test_the_same_prompts_in_another_order_are_the_same_run(env):
+    builtin = declared_prompts()[0].prompt_id
+    choices = run_choices(collection_with_the_paper(env)["collection_id"])
+    token = call(
+        env, "prepare_run", **dict(choices, prompt_ids=[CLAIMS.prompt_id, builtin])
+    )["confirmation_token"]
+    user_says(env, "t2")
+
+    queued = call(
+        env,
+        "queue_run",
+        confirmation_token=token,
+        **dict(choices, prompt_ids=[builtin, CLAIMS.prompt_id]),
+    )
+
+    assert set(env.requests.requests[queued["run_id"]].prompt_ids) == {
+        CLAIMS.prompt_id,
+        builtin,
+    }
+
+
+def test_only_the_services_own_not_found_errors_read_as_a_wrong_id():
+    from phases_v2.app.app_resources import ResourceNotFound
+
+    def missing_collection():
+        raise ResourceNotFound("Collection not found. It may have been archived.")
+
+    with pytest.raises(KeyError):
+        _ask(lambda: {}["title"])
+    with pytest.raises(LookupError, match="Collection not found"):
+        _ask(missing_collection)

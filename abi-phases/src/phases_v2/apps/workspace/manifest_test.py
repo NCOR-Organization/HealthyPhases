@@ -156,4 +156,5 @@ def test_every_section_says_how_to_open_the_assistant():
     sidebar = re.search(r'<p class="sidebar-foot">(.*?)</p>', INDEX.read_text()).group(1)
 
     assert "Open the Assistant with the panel button at the top right of Nexus" in sidebar
-    assert "⌘K / Ctrl+K" in sidebar
+    # Nexus catches the shortcut on its own page, not inside the app's frame.
+    assert "⌘K / Ctrl+K after clicking outside the app" in sidebar

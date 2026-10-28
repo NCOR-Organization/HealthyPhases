@@ -13,16 +13,22 @@ GUARD = ConfirmationGuard()
 
 
 def workspace_actions(engine, configuration) -> WorkspaceActions:
+    """The actions, with every service built on first use rather than here.
+
+    The agent is built when Nexus starts, alongside every other agent, and a
+    failure there stops them all loading; a service that cannot be built yet
+    only makes the tools that need it answer that it is unavailable.
+    """
     from phases_v2.app.factory import app_service
     from phases_v2.search.factory import search_service
 
     return WorkspaceActions(
-        app_service(engine, papers_root=configuration.papers_root),
+        lambda: app_service(engine, papers_root=configuration.papers_root),
         guard=GUARD,
         context=nexus_context,
         search=lambda: search_service(engine, configuration=configuration),
-        pubmed=_pubmed(),
-        openalex=_openalex(),
+        pubmed=_pubmed,
+        openalex=_openalex,
     )
 
 

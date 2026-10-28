@@ -658,14 +658,23 @@ services when those modules are loaded. It never calls the HTTP API.
 
 `assistant/confirmations.py` enforces the yes. A token is single-use, expires after ten
 minutes, and is bound to the action, a digest of its parameters, the conversation and
-the user (from what Nexus sets on the request: `agent_chat_id`, `agent_user_email`). It
-is refused in the turn that prepared it: the agent records the latest user message
-around its tool calls (`WorkspaceAssistantAgent.call_tools`), so the user must have
-written since. A run's token is also bound to the exact papers the collection held when
-it was prepared; if that changes, it is prepared again. Tokens live in the API process,
-which is a single one; a restart only means preparing again. A queued run records the
-user as `requested_by`; PubMed downloads, schedules and OpenAlex requests have no such
-field.
+the user (from what Nexus sets on the request: `agent_chat_id`, `agent_user_email`).
+Preparing the same action again in a conversation replaces the earlier token, so a
+summary the user turned down cannot be executed afterwards. A token is refused in the
+turn that prepared it: the agent records the latest user message around its tool calls
+(`WorkspaceAssistantAgent.call_tools`), so the user must have written since. Where what an
+action covers can change after it was prepared, the token is also bound to it: a run to
+the exact papers the collection resolved to (`PipelineAppService.collection_run_scope`,
+also used to submit that same resolution), a previewed download to its PMIDs (passed to
+the publisher by name), an enrichment to its paper count. If that changed, the action is
+prepared again. Tokens live in the API process, which is a single one; a restart only
+means preparing again. A queued run records the user as `requested_by`; PubMed downloads,
+schedules and OpenAlex requests have no such field.
+
+Nexus builds every agent when it starts, and one failing stops the rest loading, so the
+Assistant builds its services (`assistant/factory.py`) on first use: a store or module
+that cannot be reached makes the tools that need it answer that it is unavailable, and
+the next call tries again.
 
 ## Published PubMed sources
 

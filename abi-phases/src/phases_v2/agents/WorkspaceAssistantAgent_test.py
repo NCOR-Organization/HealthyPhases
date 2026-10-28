@@ -33,6 +33,7 @@ from phases_v2.agents.WorkspaceAssistantAgent import (
 from phases_v2.assistant import factory
 from phases_v2.assistant.request_context import nexus_context, turn_marker
 from phases_v2.assistant.tools import build_tools
+from phases_v2.assistant.workspace import Unavailable
 from phases_v2.assistant.workspace_test import (
     CLAIMS,
     PAPER,
@@ -167,9 +168,14 @@ def test_the_factory_wires_the_apps_services_and_skips_modules_not_loaded(
         engine, SimpleNamespace(papers_root="phases_v2")
     )
 
-    assert actions._pubmed is None and actions._openalex is None
     assert actions._guard is factory.GUARD
     assert {c["chunker_id"] for c in actions.list_models_and_chunkers()["chunkers"]}
+    with pytest.raises(Unavailable, match="PubMed is unavailable in this deployment"):
+        actions.search_pubmed("solitude")
+    assert actions.list_downloads_and_enrichments()["unavailable"] == [
+        "PubMed is unavailable in this deployment.",
+        "OpenAlex enrichment is unavailable in this deployment.",
+    ]
 
     monkeypatch.setattr(
         pubmed.ABIModule,
@@ -183,6 +189,44 @@ def test_the_factory_wires_the_apps_services_and_skips_modules_not_loaded(
     )
     searches = with_pubmed.list_pubmed_searches()["searches"]
     assert store.downloaded_search in {s["search_id"] for s in searches}
+
+
+def test_new_still_builds_the_assistant_when_its_services_cannot_be_built(
+    monkeypatch,
+):
+    """Nexus builds every agent at start; one failing would stop them all."""
+    import openalex
+
+    def broken():
+        raise RuntimeError("storage is down")
+
+    model = chat(lambda messages: AIMessage("Hello"))
+    module = SimpleNamespace(
+        # No dataset or object storage: building the app's services fails.
+        engine=SimpleNamespace(
+            services=SimpleNamespace(
+                model_registry=SimpleNamespace(get_default_chat_model=lambda: model)
+            )
+        ),
+        configuration=SimpleNamespace(papers_root="phases_v2"),
+    )
+    monkeypatch.setattr(phases_v2.ABIModule, "get_instance", lambda: module)
+    monkeypatch.setattr(pubmed.ABIModule, "get_instance", broken)
+    monkeypatch.setattr(openalex.ABIModule, "get_instance", broken)
+
+    agent = WorkspaceAssistantAgent.New()
+
+    tools = {t.name: t for t in agent.tools}
+    with pytest.raises(Unavailable, match="The workspace could not be reached"):
+        tools["list_collections"].invoke({})
+    with pytest.raises(
+        Unavailable, match="PubMed could not be reached.*storage is down"
+    ):
+        tools["search_pubmed"].invoke({"query": "solitude"})
+    # Nothing is kept from a failed build: the next call tries again.
+    monkeypatch.setattr(pubmed.ABIModule, "get_instance", lambda: None.missing)
+    with pytest.raises(Unavailable, match="PubMed could not be reached.*NoneType"):
+        tools["search_pubmed"].invoke({"query": "solitude"})
 
 
 # -- what it is told -------------------------------------------------------------

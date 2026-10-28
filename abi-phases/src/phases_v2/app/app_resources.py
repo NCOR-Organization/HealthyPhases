@@ -178,6 +178,15 @@ class AppResources:
     def resolve(self, collection: dict[str, Any]) -> Resolution:
         return resolve(collection["members"], self._catalog(), self._supported)
 
+    def status_counts(self, resolution: Resolution) -> dict[str, int]:
+        """How many of the resolved papers are not ingested, ingested, or with results."""
+        states = self._catalog().paper_states(resolution.paper_ids())
+        statuses = [paper_status(p, states) for p in resolution.papers]
+        return {
+            status: statuses.count(status)
+            for status in ("not_ingested", "ingested", "results")
+        }
+
     def paper_ids(self, collection_id: str) -> list[str]:
         """The ids of the papers a collection holds, to scope a search.
 
