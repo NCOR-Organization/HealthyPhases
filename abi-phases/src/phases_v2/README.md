@@ -654,6 +654,7 @@ services when those modules are loaded. It never calls the HTTP API.
   queuing would check and returns a plain summary with a token, and a `queue_*` or
   `create_*` tool, which needs that token with the same parameters.
 - **Never** deletes, archives, removes a member or turns a schedule off: no tool does.
+  It has only these tools; the default agent tools (files, commands) are off.
 
 `assistant/confirmations.py` enforces the yes. A token is single-use, expires after ten
 minutes, and is bound to the action, a digest of its parameters, the conversation and
