@@ -143,3 +143,17 @@ def test_the_package_ships_every_file_the_app_serves():
     for path in served:
         assert path in shipped, path.relative_to(package).as_posix()
 
+
+
+def test_the_manifest_binds_the_nexus_right_pane_to_the_assistant():
+    """With the app open, Nexus loads this agent in its right pane."""
+    manifest = json.loads(MANIFEST.read_text())
+
+    assert manifest["agent"] == "phases_v2 WorkspaceAssistantAgent"
+
+
+def test_every_section_says_how_to_open_the_assistant():
+    sidebar = re.search(r'<p class="sidebar-foot">(.*?)</p>', INDEX.read_text()).group(1)
+
+    assert "Open the Assistant with the panel button at the top right of Nexus" in sidebar
+    assert "⌘K / Ctrl+K" in sidebar

@@ -140,6 +140,7 @@ select.auto { width: auto; }
 .nav a[aria-current='page'] { background: var(--tint); color: var(--accent); }
 .nav svg { width: 1.15rem; height: 1.15rem; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .sidebar-foot { margin-top: auto; padding: .8rem .6rem 0; border-top: 1px solid var(--rule); color: var(--mute); font-size: .76rem; }
+.sidebar-help { display: block; margin-top: .5rem; color: var(--ink); }
 main { min-width: 0; width: 100%; max-width: 1280px; padding: 2.2rem 2.6rem 4rem; }
 main:focus { outline: none; }
 .section { display: grid; gap: 1.15rem; }
@@ -235,6 +236,10 @@ small.bad { color: var(--bad); }
 .stats { display: flex; flex-wrap: wrap; gap: .6rem 1.6rem; margin: .2rem 0 .4rem; }
 .stats dt { font-size: .72rem; color: var(--mute); }
 .stats dd { margin: 0; font-size: 1.45rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.assistant { margin-top: 1.1rem; }
+.assistant h2 { margin: 0 0 .4rem; }
+.assistant p { margin: 0 0 .5rem; }
+.examples { margin: 0; padding-left: 1.2rem; display: grid; gap: .25rem; }
 
 /* Dialogs */
 dialog { max-width: min(32rem, calc(100vw - 2rem)); border: 1px solid var(--rule); border-radius: 12px; padding: 1.4rem; background: var(--surface); color: var(--ink); }

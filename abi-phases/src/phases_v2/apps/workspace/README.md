@@ -9,7 +9,7 @@ endpoints with the user's Nexus session.
 
 ```
 workspace/
-├── manifest.json         # catalog entry: name, description, category, icon
+├── manifest.json         # catalog entry: name, description, category, icon, and the right-pane agent
 ├── index.html            # the shell: sidebar, one <section> per section, toasts, confirm and collection-picker dialogs
 ├── css/app.css           # light and dark tokens, layout, components
 ├── js/
@@ -28,6 +28,14 @@ workspace/
 └── package.json          # marks js/ as ES modules for Node; not used by the browser
 ```
 
+The manifest's `"agent": "phases_v2 WorkspaceAssistantAgent"` makes Nexus load the
+Assistant in its right pane while the app is open (see the module README, "The
+Assistant"). Nothing passes between the app and the pane, so the app only says how to
+open it: the sidebar's foot and the Overview name the pane's button at the top right of
+Nexus and ⌘K / Ctrl+K, which Nexus catches only once focus is outside the app's frame.
+Changes the Assistant makes appear when the user clicks back into the app, like any
+change made elsewhere.
+
 There is no build step and nothing loads from a CDN. `index.html` loads `js/main.js` as
 a module and every import is relative, so the browser fetches each file from
 `/app-html/phases_v2/workspace/...`. Nexus serves any `.js`, `.css` or `.json` file
@@ -38,7 +46,7 @@ response sets.
 
 | Route | Shows |
 | --- | --- |
-| `#/overview` | The workflow in four steps with live counts |
+| `#/overview` | The workflow in four steps with live counts, and how to ask the Assistant with example requests |
 | `#/library`, `#/library?query_id=...&page=2` | The paper library, with its filters and page |
 | `#/library/search?query=<query_id>` | PubMed search, with a saved search previewed |
 | `#/library/downloads` | Ingestion requests and full ingestions |

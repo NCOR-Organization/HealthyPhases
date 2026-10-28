@@ -1,4 +1,5 @@
-// Overview: the workflow in four steps, each with live counts and a way in.
+// Overview: the workflow in four steps, each with live counts and a way in,
+// then how to ask the Assistant in the Nexus right pane.
 
 import { phases, pubmed, search } from '../api.js';
 import { $, esc, formatDate, formatNumber, message, plural, statusPill } from '../ui.js';
@@ -32,6 +33,28 @@ const STEPS = [
   },
 ];
 
+// The Assistant lives in the Nexus right pane, outside this frame: the app can
+// only say how to open it. Nexus catches ⌘K / Ctrl+K on its own page, so the
+// shortcut works once focus is outside the app.
+export const ASSISTANT_HINT = 'Open the Assistant with the panel button at the top right of Nexus, or press ⌘K (Ctrl+K on Windows and Linux) after clicking outside the app.';
+
+export const ASSISTANT_EXAMPLES = [
+  'What does each section of this app do?',
+  'Search PubMed for solitude and sleep in older adults and make a collection of the results.',
+  'Try the latest Claims prompt on a paper from my Sleep collection and compare it with the previous version.',
+  'Run the latest Claims version on my Sleep collection.',
+  'How is my last run doing?',
+  'Summarize what was found in the paper on loneliness and sleep.',
+];
+
+const assistant = () => `
+  <section class="card assistant" aria-labelledby="ov-assistant-title">
+    <h2 id="ov-assistant-title">Ask the Assistant</h2>
+    <p>${esc(ASSISTANT_HINT)}</p>
+    <p class="muted">It knows this app, looks up your collections, prompts, runs and results, and does things for you. It asks for your yes before anything that costs time or money: runs, downloads, schedules and enrichment. Try:</p>
+    <ul class="examples">${ASSISTANT_EXAMPLES.map((example) => `<li>“${esc(example)}”</li>`).join('')}</ul>
+  </section>`;
+
 const template = () => `
   <header class="page-head"><p class="eyebrow">HealthyPhases</p><h1 tabindex="-1">Overview</h1>
     <p class="lede">Turn research papers into structured, searchable findings in four steps.</p></header>
@@ -44,7 +67,8 @@ const template = () => `
       ${step.extra || ''}
       ${step.links.length ? `<div class="row">${step.links.map(([target, label, primary]) => `<a class="button${primary ? ' primary' : ''}" href="${target}">${esc(label)}</a>`).join('')}</div>` : ''}
     </li>`).join('')}
-  </ol>`;
+  </ol>
+  ${assistant()}`;
 
 const ACTIVE = new Set(['pending', 'running']);
 

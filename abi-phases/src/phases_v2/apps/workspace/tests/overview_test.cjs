@@ -71,3 +71,16 @@ test('the quick search opens Search with the query', async () => {
   $('ov-search').listeners.submit[0]({ preventDefault() {} });
   assert.equal(ctx.navigated.at(-1), '#/search?q=being+alone&mode=semantic');
 });
+
+test('the overview says how to open the Assistant and what to ask it', async () => {
+  const { $ } = await overview();
+  const { ASSISTANT_HINT, ASSISTANT_EXAMPLES } = await load('sections/overview.js');
+  const html = $('section-overview').innerHTML;
+  assert.match(ASSISTANT_HINT, /panel button at the top right of Nexus/);
+  assert.match(ASSISTANT_HINT, /⌘K \(Ctrl\+K on Windows and Linux\) after clicking outside the app/);
+  assert.match(html, /<h2 id="ov-assistant-title">Ask the Assistant<\/h2>/);
+  assert.ok(html.includes(ASSISTANT_HINT));
+  assert.match(html, /asks for your yes before anything that costs time or money/);
+  assert.ok(ASSISTANT_EXAMPLES.length >= 4);
+  for (const example of ASSISTANT_EXAMPLES) assert.ok(html.includes(`<li>“${example}”</li>`), example);
+});

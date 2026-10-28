@@ -100,9 +100,11 @@ modules:
                 # Agents the workspace runs. Nexus re-aligns enabled agents to
                 # this list on every sync, so an app manifest's "agent" only
                 # binds the right pane to an agent listed here. The default
-                # agent and Abi are always enabled.
+                # agent and Abi are always enabled. The HealthyPhases app's
+                # manifest binds the pane to its assistant.
                 agents:
                   - "phases ELOAgent"
+                  - "phases_v2 WorkspaceAssistantAgent"
                 # Every ontology file the engine loads, which is what this
                 # workspace showed before ABI started requiring a list.
                 ontologies:

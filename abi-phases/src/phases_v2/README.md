@@ -193,6 +193,8 @@ phases_v2/
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
 ├── app/                    # the workspace app's services and HTTP endpoints
+├── assistant/              # the Assistant's actions and tools, and the guard on costly ones
+├── agents/                 # WorkspaceAssistantAgent, which Nexus loads in its right pane
 └── apps/
     └── workspace/          # the HealthyPhases Nexus app: index.html, css/, js/ modules, tests/
 ```
@@ -620,6 +622,49 @@ read-only, a page of the list took 0.3 to 0.7 s (median per filter, including a 
 papers), a median paper's page 0.55 s and the largest one (2,666 items in 18 version ×
 model groups, 1.4 MB) 0.8 s. Most of that is the fixed cost of each DuckLake read.
 
+
+## The Assistant
+
+With the HealthyPhases app open, the Nexus right pane loads `WorkspaceAssistantAgent`
+(`agents/`): the app's manifest declares `"agent": "phases_v2 WorkspaceAssistantAgent"`,
+and the workspace lists it under `agents:` in `config.yaml`, since Nexus binds the pane
+only to an agent the workspace runs. It is the same for owners and members. Users open
+the pane with its button at the top right of Nexus, or ⌘K / Ctrl+K once focus is outside
+the app; the app's sidebar and Overview say so, with example requests.
+
+The pane gets no message from the app, so the Assistant does not know the section or
+item on screen. Its instructions describe each section, the workflow and the names of
+the buttons, and tell it to look things up or ask.
+
+Its tools (`assistant/tools.py`) are thin wrappers (`assistant/workspace.py`) over the
+same services the endpoints use: `PipelineAppService` and its collections, prompt
+versions, playground, papers and results, the search service, and the PubMed and OpenAlex
+services when those modules are loaded. It never calls the HTTP API.
+
+- **Reads** collections with their members and papers, saved PubMed searches and the
+  library, prompts and versions, models and chunkers, runs and their counts, PubMed
+  downloads, schedules and enrichments, saved configurations, papers and a paper's
+  results, and searches findings by meaning or keyword.
+- **Acts freely**: searches PubMed (saving the search), creates a collection, renames or
+  describes it, adds members, saves a prompt version, tries a prompt (at most 10 chunks,
+  writing nothing) and saves a run configuration.
+- **Acts after a yes**: queuing a run on a collection, downloading a PubMed search's
+  papers (previewed ones, or all it matches as a full ingestion), creating a PubMed
+  schedule and queuing OpenAlex enrichment. Each is a `prepare_*` tool, which checks what
+  queuing would check and returns a plain summary with a token, and a `queue_*` or
+  `create_*` tool, which needs that token with the same parameters.
+- **Never** deletes, archives, removes a member or turns a schedule off: no tool does.
+
+`assistant/confirmations.py` enforces the yes. A token is single-use, expires after ten
+minutes, and is bound to the action, a digest of its parameters, the conversation and
+the user (from what Nexus sets on the request: `agent_chat_id`, `agent_user_email`). It
+is refused in the turn that prepared it: the agent records the latest user message
+around its tool calls (`WorkspaceAssistantAgent.call_tools`), so the user must have
+written since. A run's token is also bound to the exact papers the collection held when
+it was prepared; if that changes, it is prepared again. Tokens live in the API process,
+which is a single one; a restart only means preparing again. A queued run records the
+user as `requested_by`; PubMed downloads, schedules and OpenAlex requests have no such
+field.
 
 ## Published PubMed sources
 
