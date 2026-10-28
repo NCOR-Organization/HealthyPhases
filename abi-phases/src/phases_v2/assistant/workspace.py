@@ -31,7 +31,8 @@ LISTED = 25
 #: Results shown per prompt version and model when reading one paper.
 ITEMS_PER_GROUP = 15
 INTERVALS = {1: "every hour", 24: "every day", 168: "every week"}
-SEARCH_MODES = ("semantic", "keyword")
+#: How findings can be searched, and the search service's name for each.
+SEARCH_BY = {"meaning": "semantic", "keyword": "keyword"}
 
 #: What each listing keeps of a row.
 VERSION_FIELDS = (
@@ -529,15 +530,15 @@ class WorkspaceActions:
     def search_findings(
         self,
         query: str,
-        mode: str = "semantic",
+        by: str = "meaning",
         collection_id: str = "",
         prompt_names: Iterable[str] = (),
         model_ids: Iterable[str] = (),
         limit: int = 10,
     ) -> dict[str, Any]:
         """Extracted findings by meaning or by keyword, optionally in one collection."""
-        if mode not in SEARCH_MODES:
-            raise ValueError(f"mode must be one of {', '.join(SEARCH_MODES)}.")
+        if by not in SEARCH_BY:
+            raise ValueError("Search findings by 'meaning' or by 'keyword'.")
         options: dict[str, Any] = {
             "prompts": list(prompt_names) or None,
             "models": list(model_ids) or None,
@@ -546,7 +547,11 @@ class WorkspaceActions:
             options["papers"] = _ask(self._pipeline.resources.paper_ids, collection_id)
         scoped, _snapshot = self._search_service().read_view(None)
         hits, total = scoped.page(
-            mode, query=query, limit=max(1, min(limit, LISTED)), offset=0, **options
+            SEARCH_BY[by],
+            query=query,
+            limit=max(1, min(limit, LISTED)),
+            offset=0,
+            **options,
         )
         return _plain(
             {
@@ -757,14 +762,14 @@ class WorkspaceActions:
     # -- costly: PubMed downloads, schedules, OpenAlex -----------------------
 
     def prepare_pubmed_ingestion(
-        self, search_id: str, mode: str = "previewed", pmids: Iterable[str] = ()
+        self, search_id: str, which: str = "previewed", pmids: Iterable[str] = ()
     ) -> dict[str, Any]:
         """``previewed``: the search's previewed papers (or ``pmids`` among them);
         ``all``: every paper PubMed matches, found and downloaded in batches."""
         pubmed = self._require_pubmed()
-        params = _ingestion_params(search_id, mode, pmids)
+        params = _ingestion_params(search_id, which, pmids)
         query = _ask(pubmed.one, "queries", query_id=search_id)
-        if mode == "all":
+        if which == "all":
             if params["pmids"]:
                 raise ValueError("Give PMIDs only when downloading previewed papers.")
             summary = (
@@ -780,7 +785,7 @@ class WorkspaceActions:
         if len(papers) >= 1000 and pubmed.store.member_count(search_id) > 1000:
             raise ValueError(
                 "This search previewed more than 1000 papers; download all of them "
-                "with mode 'all' instead."
+                "with which='all' instead."
             )
         chosen = params["pmids"] or sorted(previewed)
         outside = [p for p in chosen if p not in previewed]
@@ -804,13 +809,13 @@ class WorkspaceActions:
         self,
         token: str,
         search_id: str,
-        mode: str = "previewed",
+        which: str = "previewed",
         pmids: Iterable[str] = (),
     ) -> dict[str, Any]:
         pubmed = self._require_pubmed()
-        params = _ingestion_params(search_id, mode, pmids)
+        params = _ingestion_params(search_id, which, pmids)
         self._guard.redeem(token, PUBMED_INGESTION, params, self._context())
-        if mode == "all":
+        if which == "all":
             from pubmed.application.pubmed_backfills import PubmedBackfills
 
             row = _ask(PubmedBackfills(pubmed).create, {"query_id": search_id})
@@ -1002,13 +1007,13 @@ def _run_params(
 
 
 def _ingestion_params(
-    search_id: str, mode: str, pmids: Iterable[str]
+    search_id: str, which: str, pmids: Iterable[str]
 ) -> dict[str, Any]:
-    if mode not in ("previewed", "all"):
-        raise ValueError("mode must be 'previewed' or 'all'.")
+    if which not in ("previewed", "all"):
+        raise ValueError("which must be 'previewed' or 'all'.")
     return {
         "search_id": search_id,
-        "mode": mode,
+        "which": which,
         "pmids": sorted({str(p) for p in pmids}),
     }
 

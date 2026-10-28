@@ -69,7 +69,7 @@ class FakeSearch:
         return self, 7
 
     def page(self, mode, query, limit, offset, **options):
-        self.calls.append(dict(options, mode=mode, query=query, limit=limit))
+        self.calls.append({**options, "mode": mode, "query": query, "limit": limit})
         hit = SearchHit(
             item_id="item-1",
             extracted_text="Time alone lowers stress.",
@@ -543,7 +543,7 @@ def test_search_finds_findings_within_a_collection(env):
         env,
         "search_findings",
         query="being alone",
-        mode="keyword",
+        by="keyword",
         collection_id=created["collection_id"],
     )
 
@@ -553,11 +553,12 @@ def test_search_finds_findings_within_a_collection(env):
     assert env.search.calls[-1]["mode"] == "keyword"
     call(env, "search_findings", query="being alone")
     assert "papers" not in env.search.calls[-1]
+    assert env.search.calls[-1]["mode"] == "semantic"
 
 
 def test_search_refusals_are_plain(env, store):
-    with pytest.raises(ValueError, match="mode must be one of semantic, keyword"):
-        call(env, "search_findings", query="x", mode="effects")
+    with pytest.raises(ValueError, match="by 'meaning' or by 'keyword'"):
+        call(env, "search_findings", query="x", by="effects")
     without = build_env(store, search=False)
     with pytest.raises(Unavailable, match="Search is unavailable"):
         call(without, "search_findings", query="x")
@@ -745,7 +746,7 @@ def test_previewed_papers_are_downloaded_only_after_a_yes(env):
 
 def test_downloading_everything_a_search_matches_is_a_full_ingestion(env):
     search = call(env, "search_pubmed", query="solitude")["search_id"]
-    prepared = call(env, "prepare_pubmed_ingestion", search_id=search, mode="all")
+    prepared = call(env, "prepare_pubmed_ingestion", search_id=search, which="all")
     assert "every paper PubMed matches" in prepared["summary"]
 
     with pytest.raises(ConfirmationRefused, match="different action or different"):
@@ -755,20 +756,20 @@ def test_downloading_everything_a_search_matches_is_a_full_ingestion(env):
             "queue_pubmed_ingestion",
             confirmation_token=prepared["confirmation_token"],
             search_id=search,
-            mode="previewed",
+            which="previewed",
         )
     queued = call(
         env,
         "queue_pubmed_ingestion",
         confirmation_token=prepared["confirmation_token"],
         search_id=search,
-        mode="all",
+        which="all",
     )
     assert queued["full_ingestion_id"]
     listed = call(env, "list_downloads_and_enrichments")["full_ingestions"]
     assert queued["full_ingestion_id"] in [b["backfill_id"] for b in listed]
-    with pytest.raises(ValueError, match="mode must be"):
-        call(env, "prepare_pubmed_ingestion", search_id=search, mode="some")
+    with pytest.raises(ValueError, match="which must be"):
+        call(env, "prepare_pubmed_ingestion", search_id=search, which="some")
 
 
 def test_a_schedule_is_created_only_after_a_yes(env):

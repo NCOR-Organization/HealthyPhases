@@ -131,17 +131,17 @@ def build_tools(actions: WorkspaceActions) -> list[BaseTool]:
     @tool
     def search_findings(
         query: str,
-        mode: str = "semantic",
+        by: str = "meaning",
         collection_id: str = "",
         prompt_names: list[str] | None = None,
         model_ids: list[str] | None = None,
         limit: int = 10,
     ) -> dict[str, Any]:
-        """Search extracted findings by meaning (mode "semantic") or by exact
-        words (mode "keyword"), optionally within one collection or for some
-        prompts or models. Each hit names its paper."""
+        """Search extracted findings by "meaning" or by exact words
+        ("keyword"), optionally within one collection or for some prompts or
+        models. Each hit names its paper."""
         return actions.search_findings(
-            query, mode, collection_id, prompt_names or [], model_ids or [], limit
+            query, by, collection_id, prompt_names or [], model_ids or [], limit
         )
 
     # -- acting freely ------------------------------------------------------
@@ -291,26 +291,26 @@ def build_tools(actions: WorkspaceActions) -> list[BaseTool]:
 
     @tool
     def prepare_pubmed_ingestion(
-        search_id: str, mode: str = "previewed", pmids: list[str] | None = None
+        search_id: str, which: str = "previewed", pmids: list[str] | None = None
     ) -> dict[str, Any]:
-        """Step 1 of downloading papers of a saved PubMed search. mode
+        """Step 1 of downloading papers of a saved PubMed search. which
         "previewed" downloads the papers the search previewed (or only the
-        given pmids among them); mode "all" finds and downloads every paper
+        given pmids among them); which "all" finds and downloads every paper
         PubMed matches. Returns a summary and a confirmation token. Queues
         nothing."""
-        return actions.prepare_pubmed_ingestion(search_id, mode, pmids or [])
+        return actions.prepare_pubmed_ingestion(search_id, which, pmids or [])
 
     @tool
     def queue_pubmed_ingestion(
         confirmation_token: str,
         search_id: str,
-        mode: str = "previewed",
+        which: str = "previewed",
         pmids: list[str] | None = None,
     ) -> dict[str, Any]:
         """Step 2: queue the download prepared with prepare_pubmed_ingestion,
         with its token and the same parameters. Only after the user said yes."""
         return actions.queue_pubmed_ingestion(
-            confirmation_token, search_id, mode, pmids or []
+            confirmation_token, search_id, which, pmids or []
         )
 
     @tool
