@@ -248,7 +248,7 @@ def call(env, tool, **args):
 
 def user_says(env, turn):
     """The user writes again: what follows answers their new message."""
-    env.context["turn"] = turn
+    env.context.update(previous_turn=env.context["turn"], turn=turn)
 
 
 def run_choices(collection_id):
@@ -537,6 +537,18 @@ def test_papers_and_one_papers_results_can_be_read(env):
         call(env, "get_paper_results", paper_id="f" * 64)
 
 
+def test_a_paper_s_chunks_come_one_page_at_a_time(env, monkeypatch):
+    monkeypatch.setattr(workspace_module, "LISTED", 3)
+
+    first = call(env, "get_paper_chunks", paper_id=PAPER, chunker_id=CHUNKER)
+    second = call(env, "get_paper_chunks", paper_id=PAPER, chunker_id=CHUNKER, page=2)
+
+    assert [c["seq"] for c in first["chunks"]] == [0, 1, 2]
+    assert (first["total"], first["page"], first["pages"]) == (4, 1, 2)
+    assert [c["seq"] for c in second["chunks"]] == [3]
+    assert second["chunked_with"] == [CHUNKER]
+
+
 def test_search_finds_findings_within_a_collection(env):
     created = collection_with_the_paper(env)
 
@@ -659,7 +671,7 @@ def test_a_run_without_a_valid_matching_token_is_refused(env, token, change, ref
 def test_a_token_from_another_conversation_is_refused(env):
     choices = run_choices(collection_with_the_paper(env)["collection_id"])
     token = call(env, "prepare_run", **choices)["confirmation_token"]
-    env.context.update(conversation="chat-2", turn="t2")
+    env.context.update(conversation="chat-2", turn="t2", previous_turn="t1")
 
     with pytest.raises(ConfirmationRefused, match="another conversation"):
         call(env, "queue_run", confirmation_token=token, **choices)
@@ -690,6 +702,17 @@ def test_a_collection_that_changed_after_the_yes_was_asked_needs_a_new_one(env):
 
     with pytest.raises(ConfirmationRefused, match="changed after it was prepared"):
         call(env, "queue_run", confirmation_token=token, **choices)
+    assert env.requests.requests == {}
+
+
+def test_a_collection_larger_than_one_run_is_not_offered(env, monkeypatch):
+    from phases_v2.app import service as service_module
+
+    monkeypatch.setattr(service_module, "MAX_RUN_PAPERS", 0)
+    choices = run_choices(collection_with_the_paper(env)["collection_id"])
+
+    with pytest.raises(ValueError, match="one run reads at most 0"):
+        call(env, "prepare_run", **choices)
     assert env.requests.requests == {}
 
 

@@ -31,7 +31,11 @@ from phases_v2.agents.WorkspaceAssistantAgent import (
     WorkspaceAssistantAgent,
 )
 from phases_v2.assistant import factory
-from phases_v2.assistant.request_context import nexus_context, turn_marker
+from phases_v2.assistant.request_context import (
+    nexus_context,
+    turn_marker,
+    turn_markers,
+)
 from phases_v2.assistant.tools import build_tools
 from phases_v2.assistant.workspace import Unavailable
 from phases_v2.assistant.workspace_test import (
@@ -114,6 +118,21 @@ def test_the_workspace_runs_the_assistant_for_owners_and_members(config):
     roles = nexus["feature_flags"]["role_baseline"]
     for role in ("owner", "member"):
         assert {"chat", "apps"} <= set(roles[role]), role
+
+
+@pytest.mark.parametrize("config", ["config.yaml", "config.local.yaml"])
+def test_the_workspace_turns_the_healthyphases_app_on(config):
+    """Without a saved toggle, Nexus shows only the apps the workspace seed lists."""
+    loaded = yaml.safe_load((PROJECT / config).read_text())
+    nexus = next(m for m in loaded["modules"] if m["module"] == "naas_abi")["config"][
+        "nexus_config"
+    ]
+    [organization] = nexus["organizations"]
+    [workspace] = organization["workspaces"]
+
+    # Nexus names a module's app "<module>:<app folder>".
+    assert (PROJECT / "src/phases_v2/apps/workspace/manifest.json").is_file()
+    assert "phases_v2:workspace" in workspace["apps"]
 
 
 # -- how it is built -------------------------------------------------------------
@@ -243,6 +262,9 @@ def test_the_instructions_cover_the_app_and_how_to_behave():
     assert "Plain and short" in INSTRUCTIONS
     assert "explicit yes" in INSTRUCTIONS
     assert "You cannot delete, archive or remove anything" in INSTRUCTIONS
+    assert "You cannot upload files" in INSTRUCTIONS
+    assert "Collections → (the collection) → Upload PDFs" in INSTRUCTIONS
+    assert "storage folder, with add_to_collection" in INSTRUCTIONS
 
 
 # -- a conversation through the agent's graph --------------------------------------
@@ -257,6 +279,29 @@ def test_the_turn_marker_follows_the_latest_user_message():
     assert turn_marker([AIMessage("Hello")]) is None
     unnamed = turn_marker([HumanMessage("Run it")])
     assert unnamed and unnamed != turn_marker([AIMessage("x"), HumanMessage("Run it")])
+
+
+def test_the_turn_markers_name_the_latest_user_message_and_the_one_before():
+    first, second = HumanMessage("Run it", id="m1"), HumanMessage("Yes", id="m2")
+    assert turn_markers([]) == (None, None)
+    assert turn_markers([first, AIMessage("Sure?")]) == ("m1", None)
+    assert turn_markers(
+        [first, AIMessage("Sure?"), second, HumanMessage("Ok", id="m3")]
+    ) == ("m3", "m2")
+
+
+def scripted_agent(env, script):
+    return WorkspaceAssistantAgent(
+        name=WorkspaceAssistantAgent.name,
+        description=WorkspaceAssistantAgent.description,
+        chat_model=chat(script),
+        tools=build_tools(env.actions),
+        agents=[],
+        state=AgentSharedState(thread_id="chat-1"),
+        configuration=AgentConfiguration(system_prompt=INSTRUCTIONS),
+        memory=MemorySaver(),
+        enable_default_tools=False,
+    )
 
 
 def test_a_run_is_queued_only_once_the_user_answers_yes(store):
@@ -287,17 +332,7 @@ def test_a_run_is_queued_only_once_the_user_answers_yes(store):
             )
         return AIMessage(f"{last.name} answered: {last.content}")
 
-    agent = WorkspaceAssistantAgent(
-        name=WorkspaceAssistantAgent.name,
-        description=WorkspaceAssistantAgent.description,
-        chat_model=chat(script),
-        tools=build_tools(env.actions),
-        agents=[],
-        state=AgentSharedState(thread_id="chat-1"),
-        configuration=AgentConfiguration(system_prompt=INSTRUCTIONS),
-        memory=MemorySaver(),
-        enable_default_tools=False,
-    )
+    agent = scripted_agent(env, script)
     chat_token = agent_chat_id.set("chat-1")
     user_token = agent_user_email.set("jeremy@naas.ai")
     try:
@@ -314,3 +349,44 @@ def test_a_run_is_queued_only_once_the_user_answers_yes(store):
     [request] = env.requests.requests.values()
     assert request.requested_by == "jeremy@naas.ai"
     assert request.prompt_ids == [CLAIMS.prompt_id]
+
+
+def test_a_yes_given_messages_later_does_not_queue_the_run(store):
+    """Asked in turn 1, another question in turn 2, "ok thanks" in turn 3."""
+    env = build_env(store, context=nexus_context)
+    collection = env.actions.create_collection("Sleep late", paper_ids=[PAPER])
+    choices = run_choices(collection["collection_id"])
+    seen = {}
+
+    def script(messages):
+        last = messages[-1]
+        if isinstance(last, HumanMessage) and "Run Claims" in last.content:
+            return AIMessage(
+                "", tool_calls=[{"name": "prepare_run", "args": choices, "id": "c1"}]
+            )
+        if isinstance(last, ToolMessage) and last.name == "prepare_run":
+            seen["token"] = json.loads(last.content)["confirmation_token"]
+            return AIMessage("This queues one run. Shall I go ahead?")
+        if isinstance(last, HumanMessage) and last.content.startswith("ok"):
+            # A model that takes a later message for the yes.
+            args = dict(choices, confirmation_token=seen["token"])
+            return AIMessage(
+                "", tool_calls=[{"name": "queue_run", "args": args, "id": "c2"}]
+            )
+        if isinstance(last, ToolMessage):
+            return AIMessage(f"{last.name} answered: {last.content}")
+        return AIMessage("You have one prompt, Claims.")
+
+    agent = scripted_agent(env, script)
+    chat_token = agent_chat_id.set("chat-1")
+    user_token = agent_user_email.set("jeremy@naas.ai")
+    try:
+        agent.invoke(f"Run Claims on Sleep late with {CLAIMS.name}")
+        agent.invoke("Which prompts do I have?")
+        third = agent.invoke("ok thanks")
+    finally:
+        agent_chat_id.reset(chat_token)
+        agent_user_email.reset(user_token)
+
+    assert "more than once since" in third
+    assert env.requests.requests == {}

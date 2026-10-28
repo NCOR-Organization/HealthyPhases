@@ -24,6 +24,8 @@ from phases_v2.requests.interfaces import RunRequest
 
 #: A request over a collection reads only its manifest; see ``ingest_papers_op``.
 COLLECTION_SOURCE = "dataset:collection:"
+#: The most papers one run can read: what a ``CollectionManifest`` holds.
+MAX_RUN_PAPERS = 10000
 
 
 class PipelineAppService:
@@ -132,7 +134,8 @@ class PipelineAppService:
         """The collection and the papers a run on it would read now.
 
         Refuses, in the user's words, a collection a run could not cover:
-        one with an unreadable member, or with no papers.
+        one with an unreadable member, with no papers, or with more papers
+        than one run reads.
         """
         collection = self.resources.collection(collection_id)
         resolution = self.resources.resolve(collection)
@@ -145,6 +148,12 @@ class PipelineAppService:
         if not resolution.papers:
             raise ValueError(
                 "This collection has no papers yet. Add papers before running it."
+            )
+        if len(resolution.papers) > MAX_RUN_PAPERS:
+            raise ValueError(
+                f"This collection has {len(resolution.papers):,} papers, and one run "
+                f"reads at most {MAX_RUN_PAPERS:,}. Split it into smaller "
+                "collections and run each of them."
             )
         return collection, resolution
 

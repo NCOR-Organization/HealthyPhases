@@ -570,9 +570,24 @@ class WorkspaceActions:
             }
         )
 
-    def get_paper_chunks(self, paper_id: str, chunker_id: str) -> dict[str, Any]:
+    def get_paper_chunks(
+        self, paper_id: str, chunker_id: str, page: int = 1
+    ) -> dict[str, Any]:
+        """A paper's chunks for one chunker, in order, one page at a time."""
         found = _ask(self._pipeline.papers.chunks, paper_id, chunker_id)
-        return _plain(found)
+        chunks = found["chunks"]
+        pages = max(1, -(-len(chunks) // LISTED))
+        page = min(max(1, page), pages)
+        start = (page - 1) * LISTED
+        return _plain(
+            dict(
+                found,
+                chunks=chunks[start : start + LISTED],
+                total=len(chunks),
+                page=page,
+                pages=pages,
+            )
+        )
 
     def search_findings(
         self,

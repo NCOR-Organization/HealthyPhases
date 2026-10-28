@@ -67,7 +67,8 @@ def register_prompts(
     if not templates:
         return []
 
-    new = [t for t in templates if t.prompt_id not in set(already_registered)]
+    registered = set(already_registered)
+    new = [t for t in templates if t.prompt_id not in registered]
     if not new:
         return [template.prompt_id for template in templates]
     now = datetime.now(UTC)

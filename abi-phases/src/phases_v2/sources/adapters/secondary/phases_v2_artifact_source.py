@@ -24,7 +24,11 @@ class ManifestSource:
         content = self.storage.get_object(prefix, key)
         expected = artifact.get("content_sha256")
         if expected and sha256(content).hexdigest() != expected:
-            raise ValueError(f"Published artifact checksum mismatch: {prefix}/{key}")
+            raise ValueError(
+                f"{prefix}/{key} changed after this run was requested: its content "
+                "no longer matches the checksum the run was given. Request the run "
+                "again to read the current file."
+            )
         return content
 
     def put_object(self, prefix, key, content):

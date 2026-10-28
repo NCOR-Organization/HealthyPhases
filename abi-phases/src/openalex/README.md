@@ -1,6 +1,6 @@
 # OpenAlex enrichment
 
-Adds citation and research metadata to records saved by PubMed. Created with `abi new module openalex src`; enabled in the project configurations. No language model is required by this module.
+Adds citation and research metadata to records saved by PubMed. Created with `abi new module openalex src`; enabled in the project configurations. This module calls no model.
 
 ## Use it
 

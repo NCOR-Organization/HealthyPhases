@@ -143,7 +143,7 @@ def test_selected_artifact_is_verified_and_only_selected_objects_are_read(
     engine.services.object_storage.put_object(
         artifacts[0]["storage_prefix"], artifacts[0]["storage_key"], b"changed"
     )
-    with pytest.raises(ValueError, match="checksum"):
+    with pytest.raises(ValueError, match="changed after this run was requested"):
         ingest_papers(engine, ["pubmed/papers"], artifacts=artifacts)
 
 

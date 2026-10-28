@@ -4,7 +4,9 @@ The PubMed publisher runs for real against the same dataset service, so a
 saved search member resolves through the catalog exactly as it does deployed.
 """
 
+import re
 from hashlib import sha256
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import uuid4
 
@@ -19,6 +21,7 @@ from naas_abi_core.services.object_storage.ObjectStoragePort import (
     Exceptions as StorageExceptions,
 )
 
+from phases_v2.app import service as service_module
 from phases_v2.app.adapters.primary.PipelineAPI import PREFIX, register
 from phases_v2.app.service import PipelineAppService
 from phases_v2.chunking.chunkers import WINDOW_512_128
@@ -264,9 +267,10 @@ def test_an_ingested_paper_can_be_found_to_be_picked(env):
     assert [(p["paper_id"], p["path"]) for p in found] == [
         (env.ingested, "phases_v2/old/x.pdf")
     ]
-    assert env.client.get(f"{PREFIX}/papers", params={"q": "nothing"}).json()[
-        "papers"
-    ] == []
+    assert (
+        env.client.get(f"{PREFIX}/papers", params={"q": "nothing"}).json()["papers"]
+        == []
+    )
 
 
 # -- legacy collections ------------------------------------------------
@@ -444,6 +448,30 @@ def test_an_empty_collection_cannot_be_run(env):
     assert "no papers yet" in response.json()["detail"]
     assert env.requests.pending() == []
     assert env.rows.query("SELECT * FROM source_manifests") == []
+
+
+def test_a_collection_larger_than_one_run_is_refused(env, monkeypatch):
+    monkeypatch.setattr(service_module, "MAX_RUN_PAPERS", 1)
+    env.storage.put_object("phases_v2/mine", "b.pdf", b"%PDF-1.7 second")
+    collection = create(env, members=[{"folder": {"prefix": "phases_v2/mine"}}])
+
+    response = env.client.post(
+        f"{PREFIX}/requests",
+        json={"collection_id": collection["collection_id"], **run_choices()},
+    )
+
+    assert response.status_code == 422
+    assert "has 2 papers, and one run reads at most 1" in response.json()["detail"]
+    assert env.requests.pending() == []
+    assert env.rows.query("SELECT * FROM source_manifests") == []
+
+
+def test_the_run_limit_is_what_a_collection_manifest_holds():
+    proto = (Path(__file__).parent / "contracts/app_resources.proto").read_text()
+    [declared] = re.findall(
+        r"message CollectionManifest \{.*?max_items: (\d+)\}", proto, re.S
+    )
+    assert int(declared) == service_module.MAX_RUN_PAPERS
 
 
 def test_a_collection_with_an_unreadable_member_is_not_run_partly(env):

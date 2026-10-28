@@ -123,10 +123,13 @@ def build_tools(actions: WorkspaceActions) -> list[BaseTool]:
         return actions.get_paper_results(paper_id, prompt_id, model_id)
 
     @tool
-    def get_paper_chunks(paper_id: str, chunker_id: str) -> dict[str, Any]:
+    def get_paper_chunks(
+        paper_id: str, chunker_id: str, page: int = 1
+    ) -> dict[str, Any]:
         """A paper's chunks for one chunker, in order, each with a short
-        preview, to pick which ones to try a prompt on."""
-        return actions.get_paper_chunks(paper_id, chunker_id)
+        preview, to pick which ones to try a prompt on. 25 chunks a page out
+        of "total"; ask for the next page for more."""
+        return actions.get_paper_chunks(paper_id, chunker_id, page)
 
     @tool
     def search_findings(

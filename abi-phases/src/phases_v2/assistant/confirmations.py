@@ -9,8 +9,9 @@ lets execute through only when the token:
 - was issued in this conversation, for this user;
 - is the latest one prepared for this action in this conversation: preparing
   again (the user asked for something else) supersedes the earlier summary;
-- was issued in an earlier turn: the user has written since, so they saw the
-  summary before answering it;
+- was issued in the turn just before this one: the user's latest message is
+  the one right after the summary, so it answers that summary and nothing
+  else (a yes given a few messages later, to something else, does not count);
 - still describes what the action covers (its *basis*: a run's papers, the
   PMIDs a download fetches, how many papers an enrichment covers), for every
   action whose scope can change after it was prepared, so a yes is never
@@ -46,6 +47,10 @@ TOKEN_TTL_SECONDS = 600
 current_turn: ContextVar[str | None] = ContextVar(
     "phases_v2_assistant_turn", default=None
 )
+#: The user message before that one, set alongside ``current_turn``.
+previous_turn: ContextVar[str | None] = ContextVar(
+    "phases_v2_assistant_previous_turn", default=None
+)
 
 
 class ConfirmationRefused(ValueError):
@@ -59,6 +64,8 @@ class RequestContext:
     conversation: str
     user: str
     turn: str | None
+    #: The user's message before ``turn``, if any.
+    previous_turn: str | None = None
 
 
 @dataclass(frozen=True)
@@ -187,6 +194,13 @@ class ConfirmationGuard:
                 raise ConfirmationRefused(
                     "The user has not answered yet. Show them the summary, ask "
                     "whether to go ahead, and call this again only after they say yes."
+                )
+            if context.previous_turn != pending.turn:
+                del self._pending[token]
+                raise ConfirmationRefused(
+                    "The user has written more than once since this was prepared, so "
+                    "their latest message does not answer its summary. A yes counts "
+                    f"only as the reply right after the summary. {prepare}"
                 )
             if pending.basis != fingerprint(basis):
                 del self._pending[token]

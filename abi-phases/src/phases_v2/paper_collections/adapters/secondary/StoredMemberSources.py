@@ -161,17 +161,18 @@ class StoredMemberSources:
     def paper_states(self, paper_ids: list[str]) -> dict[str, dict[str, Any]]:
         if not paper_ids:
             return {}
-        ids = in_list(sorted(set(paper_ids)))
-        states = {
-            row["paper_id"]: {"ingested": True, "results": 0}
-            for row in self._rows.query(f"{_PAPERS} AND paper_id IN {ids}")
-        }
-        for row in self._rows.query(
-            "SELECT paper_id, COUNT(*) AS results FROM extracted_items "  # nosec B608 - ids go through sql.literal
-            f"WHERE paper_id IN {ids} GROUP BY paper_id"
-        ):
-            states.setdefault(row["paper_id"], {"ingested": True, "results": 0})
-            states[row["paper_id"]]["results"] = int(row["results"])
+        states: dict[str, dict[str, Any]] = {}
+        wanted = sorted(set(paper_ids))
+        for start in range(0, len(wanted), _PATH_BATCH):
+            ids = in_list(wanted[start : start + _PATH_BATCH])
+            for row in self._rows.query(f"{_PAPERS} AND paper_id IN {ids}"):
+                states[row["paper_id"]] = {"ingested": True, "results": 0}
+            for row in self._rows.query(
+                "SELECT paper_id, COUNT(*) AS results FROM extracted_items "  # nosec B608 - ids go through sql.literal
+                f"WHERE paper_id IN {ids} GROUP BY paper_id"
+            ):
+                states.setdefault(row["paper_id"], {"ingested": True, "results": 0})
+                states[row["paper_id"]]["results"] = int(row["results"])
         return states
 
     def _catalog(self):

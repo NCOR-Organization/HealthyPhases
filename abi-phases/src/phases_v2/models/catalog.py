@@ -1,4 +1,4 @@
-"""The AI models this module may run extractions with.
+"""The models this module may run extractions with.
 
 A declaration is metadata, not a client: it names a model and says which
 provider and provider-side id it maps to. The live chat model is built at

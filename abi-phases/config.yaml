@@ -88,6 +88,11 @@ modules:
                 agents:
                   - "phases ELOAgent"
                   - "phases_v2 WorkspaceAssistantAgent"
+                # Apps that are on without a saved toggle. A toggle saved in the
+                # app settings wins; HealthyPhases has none yet, so this is what
+                # shows it in the sidebar once deployed.
+                apps:
+                  - "phases_v2:workspace"
                 # Every ontology file the engine loads, which is what this
                 # workspace showed before ABI started requiring a list.
                 ontologies:

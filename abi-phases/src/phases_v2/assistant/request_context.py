@@ -13,7 +13,11 @@ from typing import Any
 
 from langchain_core.messages import HumanMessage
 
-from phases_v2.assistant.confirmations import RequestContext, current_turn
+from phases_v2.assistant.confirmations import (
+    RequestContext,
+    current_turn,
+    previous_turn,
+)
 
 
 def nexus_context() -> RequestContext:
@@ -27,23 +31,34 @@ def nexus_context() -> RequestContext:
         conversation=agent_chat_id.get() or _graph_thread() or "",
         user=agent_user_email.get() or agent_user_id.get() or "",
         turn=current_turn.get(),
+        previous_turn=previous_turn.get(),
     )
 
 
 def turn_marker(messages: Sequence[Any]) -> str | None:
     """Identifies the latest user message: a new message, a new marker."""
-    for index in range(len(messages) - 1, -1, -1):
-        message = messages[index]
-        if isinstance(message, HumanMessage):
-            if message.id:
-                return str(message.id)
-            text = (
-                message.content
-                if isinstance(message.content, str)
-                else repr(message.content)
-            )
-            return f"{index}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
-    return None
+    return turn_markers(messages)[0]
+
+
+def turn_markers(messages: Sequence[Any]) -> tuple[str | None, str | None]:
+    """Markers of the latest user message and of the user message before it."""
+    found = [
+        _marker(index, message)
+        for index, message in enumerate(messages)
+        if isinstance(message, HumanMessage)
+    ][-2:]
+    if not found:
+        return None, None
+    return found[-1], found[0] if len(found) == 2 else None
+
+
+def _marker(index: int, message: HumanMessage) -> str:
+    if message.id:
+        return str(message.id)
+    text = (
+        message.content if isinstance(message.content, str) else repr(message.content)
+    )
+    return f"{index}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
 
 def _graph_thread() -> str | None:

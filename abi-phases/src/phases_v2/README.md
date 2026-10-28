@@ -5,7 +5,7 @@
 > *What is this corpus asserting, and how do I know where each claim came from?*
 
 It reads research papers from object storage, splits them into chunks, runs prompts against each
-chunk with an AI model, and records every claim it extracts alongside the exact chunk, model and
+chunk with a model, and records every claim it extracts alongside the exact chunk, model and
 prompt version that produced it.
 
 It runs **alongside [`phases`](../phases/)**, which is not modified and not retired; only its Nexus page
@@ -459,7 +459,7 @@ Each run pins one snapshot and pages through outstanding items in batches of 500
 Derived rows are upserted before the projection ledger is recorded, so retries
 cannot create duplicate relation IDs. Invalid payloads are reported (counts and
 up to 20 item IDs/errors), left untouched, and retried by later runs. The backfill
-never rewrites source extractions or calls an LLM. API startup only creates the
+never rewrites source extractions or calls a model. API startup only creates the
 empty dataset; it does not run a potentially large backfill during startup.
 
 ## HealthyPhases workspace app

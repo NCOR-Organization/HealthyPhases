@@ -12,7 +12,9 @@ from phases_v2.assistant.confirmations import (
 
 PARAMS = {"collection_id": "c1", "prompt_ids": ["p1"], "model_id": "m1"}
 ASKED = RequestContext(conversation="chat-1", user="jeremy@naas.ai", turn="t1")
-ANSWERED = RequestContext(conversation="chat-1", user="jeremy@naas.ai", turn="t2")
+ANSWERED = RequestContext(
+    conversation="chat-1", user="jeremy@naas.ai", turn="t2", previous_turn="t1"
+)
 
 
 class Clock:
@@ -104,8 +106,12 @@ def test_a_token_for_another_action_or_other_parameters_is_refused(
 @pytest.mark.parametrize(
     "context",
     [
-        RequestContext(conversation="chat-2", user="jeremy@naas.ai", turn="t2"),
-        RequestContext(conversation="chat-1", user="maxime@naas.ai", turn="t2"),
+        RequestContext(
+            conversation="chat-2", user="jeremy@naas.ai", turn="t2", previous_turn="t1"
+        ),
+        RequestContext(
+            conversation="chat-1", user="maxime@naas.ai", turn="t2", previous_turn="t1"
+        ),
     ],
 )
 def test_a_token_from_another_conversation_or_user_is_refused(guard, context):
@@ -122,6 +128,20 @@ def test_executing_in_the_turn_that_prepared_is_refused(guard):
     with pytest.raises(ConfirmationRefused, match="has not answered yet"):
         guard.redeem(token, "run", PARAMS, ASKED)
     guard.redeem(token, "run", PARAMS, ANSWERED)
+
+
+def test_a_yes_only_counts_as_the_reply_right_after_the_summary(guard):
+    """Asked in turn 1, an unrelated question in turn 2, "ok thanks" in turn 3."""
+    token = guard.issue("run", PARAMS, ASKED).token
+    later = RequestContext(
+        conversation="chat-1", user="jeremy@naas.ai", turn="t3", previous_turn="t2"
+    )
+
+    with pytest.raises(ConfirmationRefused, match="more than once since"):
+        guard.redeem(token, "run", PARAMS, later)
+    # The summary is stale for good: going back to it needs preparing again.
+    with pytest.raises(ConfirmationRefused, match="not one this assistant issued"):
+        guard.redeem(token, "run", PARAMS, ANSWERED)
 
 
 def test_without_a_known_turn_nothing_is_executed(guard):
@@ -152,7 +172,9 @@ def test_preparing_again_supersedes_the_earlier_summary(guard):
     declined = guard.issue("run", PARAMS, ASKED).token
     changed = dict(PARAMS, model_id="m2")
     latest = guard.issue("run", changed, ANSWERED).token
-    yes = RequestContext(conversation="chat-1", user="jeremy@naas.ai", turn="t3")
+    yes = RequestContext(
+        conversation="chat-1", user="jeremy@naas.ai", turn="t3", previous_turn="t2"
+    )
 
     with pytest.raises(ConfirmationRefused, match="was replaced"):
         guard.redeem(declined, "run", PARAMS, yes)

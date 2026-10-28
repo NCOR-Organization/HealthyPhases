@@ -89,6 +89,9 @@ To try a prompt, find an ingested paper with list_papers, an available model wit
 list_models_and_chunkers, and a chunker the paper is chunked with (the paper's "chunks").
 Report what each chunk gave, and how it differs from the earlier version when you compare.
 Change a collection with one call at a time.
+You cannot upload files. To add the user's own PDFs, send them to
+"Collections → (the collection) → Upload PDFs": the uploaded PDFs join that collection.
+PDFs already in storage can join a collection as a storage folder, with add_to_collection.
 
 ## How to answer
 Plain and short: a few sentences or a short list. Call things by their names (collection,
@@ -147,13 +150,16 @@ class WorkspaceAssistantAgent(Agent):
         """Run the tool calls, telling them which user message they answer.
 
         Tools are not given the conversation, and a costly action's execute
-        needs to know the user has written since it was prepared.
+        needs to know the user's latest message is the reply to its summary.
         """
-        from phases_v2.assistant.confirmations import current_turn
-        from phases_v2.assistant.request_context import turn_marker
+        from phases_v2.assistant.confirmations import current_turn, previous_turn
+        from phases_v2.assistant.request_context import turn_markers
 
-        reset = current_turn.set(turn_marker(state.get("messages") or []))
+        latest, before = turn_markers(state.get("messages") or [])
+        reset_latest = current_turn.set(latest)
+        reset_before = previous_turn.set(before)
         try:
             return super().call_tools(state)
         finally:
-            current_turn.reset(reset)
+            previous_turn.reset(reset_before)
+            current_turn.reset(reset_latest)
