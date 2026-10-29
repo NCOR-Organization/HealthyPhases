@@ -1,13 +1,13 @@
 # OpenAlex enrichment
 
-Adds citation and research metadata to records saved by PubMed. Created with `abi new module openalex src`; enabled in the project configurations. No language model is required by this module.
+Adds citation and research metadata to records saved by PubMed. Created with `abi new module openalex src`; enabled in the project configurations. This module calls no model.
 
 ## Use it
 
-1. Search or ingest papers in **PubMed Library**. Enrichment operates on saved records; use full ingestion first if you want records beyond a search preview.
-2. Choose a saved query and click **Enrich with OpenAlex**, or open the **OpenAlex enrichment** Nexus app.
+1. Search or ingest papers in **HealthyPhases → Library**. Enrichment operates on saved records; use full ingestion first if you want records beyond a search preview.
+2. Choose a saved search and click **Enrich with OpenAlex**, or open **Library → Enrichment**.
 3. Queue enrichment. Every record in the saved query at submission is included, even without a PDF. There is no total-paper cap; the worker processes batches of 25 by default.
-4. Follow progress in either app. In PubMed's **Papers** page, use **All discovered records** to include papers without PDFs. Filter by OpenAlex status, minimum citations, topic or institution; click a paper's OpenAlex button for details.
+4. Follow progress under **Library → Enrichment**. In **Library → Papers**, use **All discovered records** to include papers without PDFs. Filter by OpenAlex status, minimum citations, topic or institution; click a paper's OpenAlex button for details.
 
 Metadata includes OpenAlex ID, DOI/PMID, citation count, authors and institutional affiliations, topics, references, related works, locations and open-access information. Open-access links are source-reported links, not proof that a downloadable PDF is available. This module does not download those links or run the Phase v2 pipeline.
 

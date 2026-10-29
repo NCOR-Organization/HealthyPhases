@@ -5,11 +5,11 @@
 > *What is this corpus asserting, and how do I know where each claim came from?*
 
 It reads research papers from object storage, splits them into chunks, runs prompts against each
-chunk with an AI model, and records every claim it extracts alongside the exact chunk, model and
+chunk with a model, and records every claim it extracts alongside the exact chunk, model and
 prompt version that produced it.
 
-It runs **alongside [`phases`](../phases/)**, which is not modified and not retired. The two share a
-vocabulary (`documents.owl#`) but never a named graph, a vector collection, or a dataset.
+It runs **alongside [`phases`](../phases/)**, which is not modified and not retired; only its Nexus page
+gave way to the HealthyPhases app. The two share a vocabulary (`documents.owl#`) but never a named graph, a vector collection, or a dataset.
 
 ## The one idea everything else follows from
 
@@ -103,6 +103,9 @@ Namespace `phases_v2`. Every one is keyed and written only with `mode="upsert"`.
 | `extraction_runs` | invocation | `run_id` |
 | `projections` | key already projected to a target | `target` + `key` |
 | `run_requests` | requested run | `request_id` |
+| `paper_collections` | collection of papers | `collection_id` |
+| `paper_paths` | storage path a paper was read from | `path` |
+| `source_manifests` | exact artifacts a manifest-sourced request reads | `request_id` |
 
 `extractions` keeps the model's output twice: `response` is a queryable JSON column, `raw_response`
 the verbatim text. The JSON column *rejects* unparseable output — which is exactly the case where
@@ -175,7 +178,7 @@ phases_v2/
 ├── identity.py             # every id derivation, in one place
 ├── sql.py                  # SQL literal escaping (the dataset port takes no parameters)
 ├── datasets/
-│   ├── schemas.py          # the ten DatasetSpecs
+│   ├── schemas.py          # every DatasetSpec
 │   └── store.py            # the ONLY code that writes to a dataset
 ├── papers/                 # ─┐
 ├── chunking/               #  │ each: interfaces.py, domain.py, fakes.py,
@@ -183,14 +186,17 @@ phases_v2/
 ├── projection/             #  │
 ├── requests/               #  │
 ├── search/                 # ─┘ reverse search: semantic + keyword, over extracted_items
+├── paper_collections/      # collections of papers and resolving one into exact documents
 ├── prompts/                # templates declared in code + their text
-├── models/                 # the AI models a run may use
+├── playground/             # trying a prompt on a few chunks of one paper; writes nothing
+├── models/                 # the models a run may use
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
-├── app/                    # the pipeline and reverse-search apps' services and HTTP endpoints
+├── app/                    # the workspace app's services and HTTP endpoints
+├── assistant/              # the Assistant's actions and tools, and the guard on costly ones
+├── agents/                 # WorkspaceAssistantAgent, which Nexus loads in its right pane
 └── apps/
-    ├── pipeline/           # manifest.json + the page itself
-    └── reverse_search/     # manifest.json + the page itself
+    └── workspace/          # the HealthyPhases Nexus app: index.html, css/, js/ modules, tests/
 ```
 
 Each domain takes its collaborators as arguments and imports no adapter, so its tests run against
@@ -279,7 +285,7 @@ not an already-running extraction process.
 
 ## Authoring pipelines in the web app
 
-The Phases Pipeline app supports the following workflow:
+The HealthyPhases app's **Collections**, **Prompts** and **Runs** sections support the following workflow:
 
 1. Create an input collection under the configured `papers_root`.
 2. Upload PDFs into that collection (25 MiB per file). Each file reports its own
@@ -291,7 +297,8 @@ The Phases Pipeline app supports the following workflow:
    requires changing the name or template too, preserving existing prompt IDs.
 4. Choose locations, prompt versions, chunker, and model. Request a run immediately,
    or save a named configuration and use **Run saved pipeline** later.
-5. Use **Refresh status** to follow requests. The app does not poll continuously.
+5. Follow requests under **Runs**. The list refreshes every 10 seconds while it is open,
+   and again whenever you come back to the app.
 
 Saved configurations are immutable copies of their inputs; load one, edit the form,
 and save a new configuration to make a variant. They reference exact prompt versions
@@ -322,9 +329,32 @@ New endpoints under `/phases_v2/api`:
 - `POST /documents?location=...&filename=...`: upload raw PDF bytes.
 - `GET /pipelines` and `POST /pipelines`: list/save `{name, inputs}` configurations.
 - `POST /pipelines/{pipeline_id}/requests`: request the saved configuration.
+- `GET /papers?q=&chunker_id=&limit=&offset=`: ingested papers whose file name,
+  path, PubMed title or PMID matches `q`, each with its `path` and chunk counts per
+  chunker; with `chunker_id`, only papers chunked with it. Returns `{papers, total,
+  limit, offset}` (`limit` up to 200). Collections picks single papers from it,
+  Prompts tries a prompt on one, and Results lists them (see Results per paper for
+  the other filters and fields).
+- `GET /papers/{paper_id}/chunks?chunker_id=`: each chunk's `seq` and a short preview.
+- `POST /prompts/try`: run a `draft` (`{name, template, output_key}`) or a saved
+  `prompt_id` with `model_id` on `seqs` (or the `first` N, 1 to 10, default 3) chunks of
+  `paper_id` cut with `chunker_id`, at most 10. Answers in the same request, each
+  chunk with its items (relations as objects), or its error and raw output, and the
+  time taken. With `baseline_prompt_id`, each chunk also carries what that version
+  stored for it with the same model, or `not_run`. Model calls run four at a time
+  under a 90-second deadline; chunks still running then come back `timed_out`. It
+  renders and parses through `extraction.domain.attempt`, as a run does, and writes
+  nothing: no prompt, extraction, item, run or projection.
+- `GET /prompts/versions?name=`: every version saved under a name, newest first,
+  with its text, the extraction runs and run requests that used it, and its item
+  counts per model. Versions are ordered by `first_seen`, the earliest of their
+  `registered_at`, first run and first request. On start, declared prompts already
+  in `prompts` are not rewritten, so a built-in text keeps the time it first
+  appeared and never lists above versions saved after it.
 
 Management request shapes and validation are defined in
-`app/contracts/pipeline_management.proto`. `make proto` regenerates both checked-in
+`app/contracts/pipeline_management.proto` and, for trying a prompt,
+`app/contracts/prompt_playground.proto`. `make proto` regenerates the checked-in
 Protobuf descriptors using the existing checksum-pinned Protovalidate source. Python
 loads the generated descriptors and runs Protovalidate before persistence. Format
 compatibility and storage-root containment are checked by the application service.
@@ -429,53 +459,227 @@ Each run pins one snapshot and pages through outstanding items in batches of 500
 Derived rows are upserted before the projection ledger is recorded, so retries
 cannot create duplicate relation IDs. Invalid payloads are reported (counts and
 up to 20 item IDs/errors), left untouched, and retried by later runs. The backfill
-never rewrites source extractions or calls an LLM. API startup only creates the
+never rewrites source extractions or calls a model. API startup only creates the
 empty dataset; it does not run a potentially large backfill during startup.
 
-## Pipeline workspace
+## HealthyPhases workspace app
 
-The Phases Pipeline app has four pages in its left navigation:
+`apps/workspace/` is the one Nexus app of this project. It replaced the Phases Pipeline,
+Phases V2 Reverse Search, PubMed Library and OpenAlex enrichment apps, and the v1 Reverse
+Search app; their HTTP APIs are unchanged. Its sections, in the left navigation:
 
-- **New run**: select a saved collection or storage locations, preview documents,
-  save the selected locations as a collection, choose prompt versions, and queue a run.
-  Existing saved pipeline configurations can still be saved, loaded, and run here.
-- **Input collections**: create, rename, edit, and archive named groups of locations.
-  The contents preview includes each location's subfolders. Archiving a collection
-  leaves its source documents and queued requests intact. Create storage locations
-  and upload PDFs from this page as well.
-- **Prompt library**: browse full prompt text, create prompts, and save edits as
+- **Overview**: the workflow in four steps (collect papers, prepare prompts, run, explore
+  results) with live counts and links into each section.
+- **Library**: PubMed search and ingestion, the paper library with its OpenAlex filters,
+  downloads (ingestion requests and full ingestions), scheduled searches and OpenAlex
+  enrichment. See [`../pubmed/README.md`](../pubmed/README.md) and
+  [`../openalex/README.md`](../openalex/README.md).
+- **Collections**: sets of papers gathered four ways, on one screen: PDFs uploaded into
+  the collection, saved PubMed searches, storage folders (with their subfolders) and
+  single papers picked from the library. A collection's page lists its members with how
+  many papers each brings, and the papers themselves, each once, marked not ingested yet,
+  ingested, or with results. Rename it, describe it, remove members, archive it, run the
+  pipeline on it or search within it. Archiving and removing ask first and delete nothing.
+  Library rows with a downloaded PDF, and whole saved searches, have **Add to collection**.
+  Storage folders can still be created and uploaded into from this page.
+- **Prompts**: browse full prompt text, create prompts, and save edits as
   new versions. Prompt text must contain `{chunk_text}` and use one of the supported
   extraction output schemas. Old versions remain selectable and resolvable by workers.
-- **Order requests**: filter the latest 100 requests by status and inspect timestamps,
-  source locations, all selected prompts, execution IDs, counts, and errors.
-  Monitoring refreshes every 10 seconds while the page is visible.
+- **Runs**: **New run** selects a collection, storage folders or a PubMed search,
+  previews documents, saves the selected folders as a collection, chooses prompt versions,
+  and queues a run; saved pipeline configurations can be saved, loaded, and run here.
+  **Requests** filters the latest 100 requests by status and opens one to inspect
+  timestamps, sources, all selected prompts, execution IDs, counts, and errors. The list
+  refreshes every 10 seconds while it is visible.
+- **Search**: semantic, keyword and effects search over extracted items (see
+  [Reverse search](#reverse-search)), optionally limited to one collection.
 
-Collections are stored in the new `input_collections` dataset through the existing
-row-store adapter. Restart the ABI API and Dagster processes after updating: normal
-module startup creates the missing dataset. No existing dataset needs to be dropped or recreated. Collection edits use
-last-write-wins semantics; a queued request stores a copy of its selected locations.
+Every section has a deep link (`#/runs/<request_id>`, `#/search?q=...&mode=keyword`,
+`#/library/schedules`, ...), and the last route comes back when Nexus reloads the app.
+The open section re-reads its data whenever the app becomes visible or regains focus, so
+changes made elsewhere appear. There is no build step: `index.html` loads ES modules from
+`js/` through relative imports, which Nexus serves next to it under
+`/app-html/phases_v2/workspace/`. [`apps/workspace/README.md`](apps/workspace/README.md)
+describes the files.
+
+### Collections of papers
+
+A collection is a name, a description and a list of members (`paper_collections`):
+
+- `folder`: a storage prefix under `papers_root`, including its subfolders. PDFs uploaded
+  into a collection (`POST /phases_v2/api/collections/<id>/documents`) are stored under
+  `<papers_root>/collections/<id>/`, which joins the collection as a folder member.
+- `pubmed_query`: a saved PubMed search. It is live: every use reads the search's
+  currently published PDFs, so newly downloaded papers join without any change.
+- `paper`: an ingested paper (`paper_id`) or a PubMed paper with a downloaded PDF (`pmid`).
+
+`paper_collections.domain.resolve` is the one function that turns a collection into the
+exact documents it holds, one per distinct content: a known checksum is the paper's
+identity, so the same PDF through two members, or at two paths, counts once. Folder
+documents nobody has read yet have no checksum; an upload's is in its key (a 64-hex
+folder holding that one file), and anything read before is matched by path. Ingestion
+records every path it reads in `paper_paths`, the copies it skips as already known
+included, because `papers` keeps only the first path of each paper: after one run, a
+copy elsewhere is recognised as that paper, with its status and its search results. The collection page, run submission and search
+scoping all call it. A member that cannot be read is reported on the page; a run or a
+search on that collection is refused rather than covering part of it.
+
+Collections first stored in `input_collections` (storage folders only) still list, edit
+and run: each is read as a collection of folder members, and its first edit writes it to
+`paper_collections` under the same id, which takes precedence from then on. The old
+table is never altered, so no dataset needs to be dropped or recreated; restart the ABI
+API and Dagster processes and startup creates `paper_collections`. Edits are
+last-write-wins.
+
+Endpoints, under `/phases_v2/api/collections`: list with member and paper counts
+(`?counts=false` skips resolving every collection; the app asks for counts on its first
+visit only), create, read one with its members and resolved
+papers, update the name and description, add members, remove a member
+(`DELETE .../members/<member_id>`), archive (`DELETE`) and upload PDFs into it.
+`GET /phases_v2/api/papers?q=` finds ingested papers to pick.
+
+A run on a collection (`POST /phases_v2/api/requests` or a saved configuration with
+`collection_id` instead of `locations`) resolves it, writes the artifacts to
+`source_manifests` and only then records the request with the location
+`dataset:collection:<collection_id>`. Ingestion reads exactly those artifacts, verifying
+each known checksum, so later changes to the collection never change a submitted run.
+An empty collection cannot be run. Runs show the collection's name, even once archived.
+
+Search endpoints accept `collection=<collection_id>`. It resolves to the collection's
+ingested paper ids and combines with the other filters: keyword and effects search filter
+in SQL, semantic search goes through the per-paper vector metadata filter. A collection
+with no ingested papers finds nothing.
 Prompts continue using the existing `prompts` dataset and content-based identities.
 Changing an output schema requires a changed name or text to preserve that identity.
 
 Location selection scopes ingestion, chunking, and extraction to the selected
 documents, preserving the current orchestrator behavior.
 
-Collection mutation commands are defined in
-`app/contracts/app_resources.proto` and validated server-side with Protovalidate.
-The checked-in descriptor is packaged with the module. `make proto` regenerates it
+Collection commands and manifests are defined in
+`app/contracts/app_resources.proto` and validated server-side with Protovalidate;
+run inputs and search queries in `pipeline_management.proto` and `search.proto`.
+The checked-in descriptors are packaged with the module. `make proto` regenerates them
 using the existing extraction descriptor's pinned validation dependency. Resource
 endpoints inherit the ABI API's existing access controls; no separate role model
 is introduced.
 
 Run backend and browser-logic regressions with `make test` (or run
-`uv run pytest src/phases_v2/app` and
-`node --test src/phases_v2/apps/pipeline/pipeline_test.cjs` individually).
+`uv run pytest src/phases_v2/app` and `make test-app` individually).
 
+## Results per paper
+
+The app's **Results** section lists every ingested paper and opens one paper with
+everything extracted from it. Both read the datasets directly, so results show as soon
+as a run writes them, with no projection needed.
+
+`GET /phases_v2/api/papers` takes, besides `q` and `chunker_id`:
+
+- `collection=<collection_id>`: the papers the collection holds now;
+- `request_id=<request_id>`: the papers that run request covered: those in its
+  manifest (by hash or path), those under its folders found before it finished, and
+  those it wrote extractions for;
+- `prompt=<name>`, `prompt_id=<version>` and `model=<model_id>` (repeatable): papers
+  these ran on, with each row's counts covering those runs only;
+- `has_results=true|false`: papers with at least one extracted item, or none;
+- `paper_id=` (repeatable, up to 200): only those papers, which is how the Library
+  learns which of its PDFs are ingested;
+- `sort=title|newest|oldest`. Every order ends on the paper id, so pages are stable.
+
+Each row adds `title` (the PubMed title when the PDF is a published PubMed artifact
+with the same `content_sha256`, else the file name), `pmid`, `source` (`pubmed` or
+`file`), `extractions` (`succeeded` and `failed` chunks) and `items` (count per prompt
+name) with their total `item_count`. A page costs three queries whatever its size: the
+filtered, sorted page with its total, and one query for every count on it. The PubMed
+title comes from a join on `pubmed.artifacts` and `pubmed.papers`, made only when those
+tables exist.
+
+`GET /phases_v2/api/papers/{paper_id}` returns:
+
+- `paper`: title, file, path, every other path it was read from, size, ingestion time;
+- `pubmed`: the PubMed record (authors, journal, date, DOI, PMCID) when it has a PMID;
+- `openalex`: the enrichment and its matched work, when OpenAlex has one;
+- `chunkers`: chunk counts per chunker;
+- `ran`: one summary per prompt version × model run on it, with succeeded and failed
+  chunks, item and relation counts, and the requests whose runs wrote them;
+- `requests`: every run request that covered the paper (same rules as `request_id`);
+- `results`: per prompt version × model, its items in reading order (each with its
+  chunk id and position, and its probability relations), and its failed chunks with
+  their error and the start of what the model returned;
+- `chunks`: the text of every chunk those results refer to, once.
+
+`GET /phases_v2/api/papers/{paper_id}/export?prompt_id=&model_id=` writes the paper's
+results as CSV with the search export's columns (`mode` is `paper`): one row per item,
+or one per relation for items that carry relations. `prompt_id` keeps one version and
+`model_id` one model; `model_id=` (empty) keeps the results whose model is unknown,
+and leaving it out keeps every model. It reads only the results, not the paper's
+records or runs. `GET /phases_v2/api/search/paper?paper_id=` downloads the paper's
+own PDF through the same path checks as a search hit's download (`item_id=`).
+
+The list filters and the export are validated by `app/contracts/paper_results.proto`.
+
+On production data (269 papers, 6,113 chunks, 54,791 extractions, 106,458 items),
+read-only, a page of the list took 0.3 to 0.7 s (median per filter, including a run's
+papers), a median paper's page 0.55 s and the largest one (2,666 items in 18 version ×
+model groups, 1.4 MB) 0.8 s. Most of that is the fixed cost of each DuckLake read.
+
+
+## The Assistant
+
+With the HealthyPhases app open, the Nexus right pane loads `WorkspaceAssistantAgent`
+(`agents/`): the app's manifest declares `"agent": "phases_v2 WorkspaceAssistantAgent"`,
+and the workspace lists it under `agents:` in `config.yaml`, since Nexus binds the pane
+only to an agent the workspace runs. It is the same for owners and members. Users open
+the pane with its button at the top right of Nexus, or ⌘K / Ctrl+K once focus is outside
+the app; the app's sidebar and Overview say so, with example requests.
+
+The pane gets no message from the app, so the Assistant does not know the section or
+item on screen. Its instructions describe each section, the workflow and the names of
+the buttons, and tell it to look things up or ask.
+
+Its tools (`assistant/tools.py`) are thin wrappers (`assistant/workspace.py`) over the
+same services the endpoints use: `PipelineAppService` and its collections, prompt
+versions, playground, papers and results, the search service, and the PubMed and OpenAlex
+services when those modules are loaded. It never calls the HTTP API.
+
+- **Reads** collections with their members and papers, saved PubMed searches and the
+  library, prompts and versions, models and chunkers, runs and their counts, PubMed
+  downloads, schedules and enrichments, saved configurations, papers and a paper's
+  results, and searches findings by meaning or keyword.
+- **Acts freely**: searches PubMed (saving the search), creates a collection, renames or
+  describes it, adds members, saves a prompt version, tries a prompt (at most 10 chunks,
+  writing nothing) and saves a run configuration.
+- **Acts after a yes**: queuing a run on a collection, downloading a PubMed search's
+  papers (previewed ones, or all it matches as a full ingestion), creating a PubMed
+  schedule and queuing OpenAlex enrichment. Each is a `prepare_*` tool, which checks what
+  queuing would check and returns a plain summary with a token, and a `queue_*` or
+  `create_*` tool, which needs that token with the same parameters.
+- **Never** deletes, archives, removes a member or turns a schedule off: no tool does.
+  It has only these tools; the default agent tools (files, commands) are off.
+
+`assistant/confirmations.py` enforces the yes. A token is single-use, expires after ten
+minutes, and is bound to the action, a digest of its parameters, the conversation and
+the user (from what Nexus sets on the request: `agent_chat_id`, `agent_user_email`).
+Preparing the same action again in a conversation replaces the earlier token, so a
+summary the user turned down cannot be executed afterwards. A token is refused in the
+turn that prepared it: the agent records the latest user message around its tool calls
+(`WorkspaceAssistantAgent.call_tools`), so the user must have written since. Where what an
+action covers can change after it was prepared, the token is also bound to it: a run to
+the exact papers the collection resolved to (`PipelineAppService.collection_run_scope`,
+also used to submit that same resolution), a previewed download to its PMIDs (passed to
+the publisher by name), an enrichment to its paper count. If that changed, the action is
+prepared again. Tokens live in the API process, which is a single one; a restart only
+means preparing again. A queued run records the user as `requested_by`; PubMed downloads,
+schedules and OpenAlex requests have no such field.
+
+Nexus builds every agent when it starts, and one failing stops the rest loading, so the
+Assistant builds its services (`assistant/factory.py`) on first use: a store or module
+that cannot be reached makes the tools that need it answer that it is unavailable, and
+the next call tries again.
 
 ## Published PubMed sources
 
-The pipeline app offers **Object storage** and **PubMed dataset** sources.
-Choose a saved PubMed query to preview its successfully published PDF artifacts,
+**Runs → New run** offers **Storage folders** and **PubMed search** sources.
+Choose a saved PubMed search to preview its successfully published PDF artifacts,
 then select chunker, prompt versions and model and click **Request run**.
 Each query option includes its distinct published-paper count and last completed
 ingestion date in the browser's local timezone. Multiple PDF versions count as one
@@ -499,5 +703,6 @@ new-paper ingestion are a later phase. Existing object-storage collections remai
 available, with their own configured root; PubMed access is through its explicit
 published dataset, not by relaxing the collection root restriction.
 
-PubMed requests carry a `dataset:pubmed:<query_id>` source marker. If their
-manifest is missing, the job fails instead of treating the source as a prefix.
+PubMed requests carry a `dataset:pubmed:<query_id>` source marker, and collection
+requests `dataset:collection:<collection_id>`. Any `dataset:` request whose manifest is
+missing fails instead of treating the source as a prefix.

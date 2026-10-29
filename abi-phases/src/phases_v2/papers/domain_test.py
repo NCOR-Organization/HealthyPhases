@@ -270,3 +270,41 @@ def test_a_location_holding_nothing_ingestable_records_nothing():
     assert report.discovered == 1
     assert report.unsupported == 1
     assert store.papers == {}
+
+
+# -- every path a paper is read from ------------------------------------
+
+
+def test_a_copy_at_a_second_path_is_recorded_as_the_known_paper():
+    source = FakeObjectSource()
+    source.add("papers", "a.pdf", b"a")
+    store = FakePaperStore()
+    _ingest(source, store)
+    # Byte-identical, placed elsewhere later: nothing new to render or record,
+    # but the new path must still name the paper.
+    source.add("copies", "y.pdf", b"a")
+
+    report = _ingest(source, store, locations=("copies",))
+
+    assert report.skipped == 1
+    assert len(store.papers) == 1
+    assert store.paths == {
+        "papers/a.pdf": identity.paper_id(b"a"),
+        "copies/y.pdf": identity.paper_id(b"a"),
+    }
+
+
+def test_paths_of_objects_that_are_not_papers_are_not_recorded():
+    source = FakeObjectSource()
+    source.add("papers", "notes.txt", b"n")
+    source.add("papers", "z-notes.txt", b"n")
+    source.add("papers", "bad.pdf", b"x")
+    source.add("papers", "bad-copy.pdf", b"x")
+    store = FakePaperStore()
+    renderer = FakeTextRenderer(
+        unreadable={"bad-copy.pdf", "bad.pdf"}, suffixes=(".pdf",)
+    )
+
+    _ingest(source, store, renderer=renderer)
+
+    assert store.paths == {}

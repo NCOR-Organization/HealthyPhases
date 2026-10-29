@@ -54,7 +54,6 @@ def test_pipelines_endpoint():
     assert set(res.json()["pipelines"]) >= {"causes", "effects"}
 
 
-def test_static_ui_served():
-    res = _client().get("/phases/app/")
-    assert res.status_code == 200
-    assert "Reverse Search" in res.text
+def test_the_retired_page_is_no_longer_served():
+    # The HealthyPhases workspace app replaced it; only the API remains.
+    assert _client().get("/phases/app/").status_code == 404

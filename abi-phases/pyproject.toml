@@ -6,10 +6,10 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "langchain-google-genai>=2.1.12",
-    "naas-abi>=1.11.0",
-    "naas-abi-cli>=1.23.0",
-    "naas-abi-core[all]>=1.20.1",
-    "naas-abi-marketplace[ai-chatgpt]>=1.8.0",
+    "naas-abi>=2.93.1",
+    "naas-abi-cli>=2.28.1",
+    "naas-abi-core[all]>=2.44.0",
+    "naas-abi-marketplace[ai-chatgpt]>=3.60.0",
     "protobuf>=6.33.6,<7",
     "protovalidate>=2.0,<3",
     "pymupdf-layout>=1.26.6",
@@ -36,16 +36,16 @@ naas-abi-cli = { path = ".abi/libs/naas-abi-cli",  editable = true }
 dev = ["pytest>=9.1.1", "ruff>=0.16.3"]
 
 [tool.setuptools.package-data]
-"phases_v2" = ["apps/*/*.html", "apps/*/manifest.json", "prompts/templates/*.txt", "ontologies/*.ttl", "README.md"]
+"phases_v2" = ["apps/*/*.html", "apps/*/*.json", "apps/*/**/*.css", "apps/*/**/*.js", "prompts/templates/*.txt", "ontologies/*.ttl", "README.md"]
 "phases_v2.extraction.contracts" = ["*.proto", "*.pb"]
 
 "phases_v2.app.contracts" = ["*.proto", "*.pb"]
 
 "phases_v2.projection.contracts" = ["*.proto", "*.pb"]
 
-"pubmed" = ["LICENSE", "UPSTREAM.md", "README.md", "apps/search/*", "contracts/*.proto", "contracts/*.pb", "ontologies/*.ttl"]
+"pubmed" = ["LICENSE", "UPSTREAM.md", "README.md", "contracts/*.proto", "contracts/*.pb", "ontologies/*.ttl"]
 
-"openalex" = ["README.md", "apps/openalex/*.html", "apps/openalex/manifest.json", "contracts/*.proto", "contracts/*.pb"]
+"openalex" = ["README.md", "contracts/*.proto", "contracts/*.pb"]
 
 [tool.ruff]
 target-version = "py312"

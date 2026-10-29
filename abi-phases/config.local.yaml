@@ -50,7 +50,7 @@ modules:
             - slides
           role_baseline:
             owner: [maps, chat, files, agents, skills, apps, marketplace, search, ontology, graph, datasets, settings, code, slides]
-            admin: [chat, files, agents, search, ontology, graph, settings]
+            admin: [chat, files, agents, apps, search, ontology, graph, settings]
             member: [chat, files, apps, ontology, graph, datasets]
             viewer: [chat, files]
           workspace_overrides: {}
@@ -97,6 +97,73 @@ modules:
                 slug: "main"
                 owner_email: "maxime@naas.ai"
                 primary_color: "#22c55e"
+                # Agents the workspace runs. Nexus re-aligns enabled agents to
+                # this list on every sync, so an app manifest's "agent" only
+                # binds the right pane to an agent listed here. The default
+                # agent and Abi are always enabled. The HealthyPhases app's
+                # manifest binds the pane to its assistant.
+                agents:
+                  - "phases ELOAgent"
+                  - "phases_v2 WorkspaceAssistantAgent"
+                # Apps that are on without a saved toggle. A toggle saved in the
+                # app settings wins; HealthyPhases has none yet, so this is what
+                # shows it in the sidebar once deployed.
+                apps:
+                  - "phases_v2:workspace"
+                # Every ontology file the engine loads, which is what this
+                # workspace showed before ABI started requiring a list.
+                ontologies:
+                  - "bfo:bfo-core.ttl"
+                  - "cco:agentontology.ttl"
+                  - "cco:artifactontology.ttl"
+                  - "cco:currencyunitontology.ttl"
+                  - "cco:eventontology.ttl"
+                  - "cco:extendedrelationontology.ttl"
+                  - "cco:facilityontology.ttl"
+                  - "cco:geospatialontology.ttl"
+                  - "cco:informationentityontology.ttl"
+                  - "cco:qualityontology.ttl"
+                  - "cco:timeontology.ttl"
+                  - "cco:unitsofmeasureontology.ttl"
+                  - "chatgpt:chatgptontology.ttl"
+                  - "naas_abi:abiontology.ttl"
+                  - "naas_abi:agentontology.ttl"
+                  - "naas_abi:artifactontology.ttl"
+                  - "naas_abi:bfo-core.ttl"
+                  - "naas_abi:bfo7bucketsprocessontology.ttl"
+                  - "naas_abi:currencyunitontology.ttl"
+                  - "naas_abi:datasourceontology.ttl"
+                  - "naas_abi:documentcontententityontology.ttl"
+                  - "naas_abi:eventontology.ttl"
+                  - "naas_abi:extendedrelationontology.ttl"
+                  - "naas_abi:facilityontology.ttl"
+                  - "naas_abi:geospatialontology.ttl"
+                  - "naas_abi:geospatialpositionontology.ttl"
+                  - "naas_abi:geospatialregionontology.ttl"
+                  - "naas_abi:informationentityontology.ttl"
+                  - "naas_abi:naasabiontology.ttl"
+                  - "naas_abi:nexusplatformontology.ttl"
+                  - "naas_abi:owl.ttl"
+                  - "naas_abi:offeringontology.ttl"
+                  - "naas_abi:organizationontology.ttl"
+                  - "naas_abi:personontology.ttl"
+                  - "naas_abi:qualityontology.ttl"
+                  - "naas_abi:timeontology.ttl"
+                  - "naas_abi:unitsofmeasureontology.ttl"
+                  - "phases:bfo_core.ttl"
+                  - "phases:axioms.ttl"
+                  - "phases:documents.ttl"
+                  - "phases:labels.ttl"
+                  - "phases:relations.ttl"
+                  - "phases:phases.ttl"
+                  - "phases_v2:bfo_core.ttl"
+                  - "phases_v2:documents.ttl"
+                  - "pubmed:pubmed.ttl"
+                  - "templatablesparqlquery:templatablesparqlqueryontology.ttl"
+                # Read access to every data graph, as before graph grants
+                # existed.
+                graphs:
+                  read_all: true
                 members:
                   - email: "maxime@naas.ai"
                     role: "owner"
