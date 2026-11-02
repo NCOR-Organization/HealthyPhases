@@ -4,7 +4,7 @@ from google.protobuf.json_format import MessageToDict
 from naas_abi_core.services.dataset.DatasetPort import DatasetNotFoundError
 
 from phases_v2.app.contracts.app_validation import validate_command
-from phases_v2.sql import literal
+from phases_v2.sql import in_list, literal
 
 
 class PubmedCatalog:
@@ -54,3 +54,47 @@ class PubmedCatalog:
             ).rows
         except DatasetNotFoundError:
             return []
+
+    def paper_artifacts(self, pmid):
+        """One paper's ready PDFs, the way :meth:`artifacts` reads a query's."""
+        try:
+            for table in ("artifacts", "papers"):
+                self.dataset.describe(table, namespace="pubmed")
+            return self.dataset.query(
+                "SELECT a.*, p.title FROM artifacts a "
+                "JOIN papers p ON p.pmid = a.pmid "
+                "WHERE a.status = 'ready' AND a.contract_version = 1 "
+                f"AND a.pmid = {literal(pmid)} ORDER BY a.artifact_id",
+                namespace="pubmed",
+            ).rows
+        except DatasetNotFoundError:
+            return []
+
+    def query_texts(self, query_ids):
+        """Saved searches' query text by id; unknown ids are left out."""
+        if not query_ids:
+            return {}
+        try:
+            self.dataset.describe("queries", namespace="pubmed")
+            rows = self.dataset.query(
+                "SELECT query_id, query FROM queries "
+                f"WHERE query_id IN {in_list(sorted(set(query_ids)))}",
+                namespace="pubmed",
+            ).rows
+        except DatasetNotFoundError:
+            return {}
+        return {row["query_id"]: row["query"] for row in rows}
+
+    def titles(self, pmids):
+        if not pmids:
+            return {}
+        try:
+            self.dataset.describe("papers", namespace="pubmed")
+            rows = self.dataset.query(
+                "SELECT pmid, title FROM papers "
+                f"WHERE pmid IN {in_list(sorted(set(pmids)))}",
+                namespace="pubmed",
+            ).rows
+        except DatasetNotFoundError:
+            return {}
+        return {row["pmid"]: row["title"] for row in rows}

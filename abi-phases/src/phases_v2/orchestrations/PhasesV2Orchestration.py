@@ -21,6 +21,8 @@ from naas_abi_core.orchestrations.DagsterOrchestration import DagsterOrchestrati
 
 SENSOR_INTERVAL_SECONDS = 30
 REQUEST_TAG = "phases_v2/request_id"
+#: Locations a request can only be run from with its source manifest.
+MANIFEST_SOURCE = "dataset:"
 
 
 def extraction_run_id(request_id: str, prompt_id: str) -> str:
@@ -78,12 +80,14 @@ def ingest_papers_op(
         artifacts = manifest_for(
             DatasetRowStore(engine.services.dataset), config.request_id
         )
-    is_dataset_source = any(
-        location.startswith("dataset:pubmed:") for location in config.locations
+    # A `dataset:` location (a PubMed search, a collection) names no storage
+    # to scan: its request reads exactly the artifacts submitted with it.
+    is_manifest_source = any(
+        location.startswith(MANIFEST_SOURCE) for location in config.locations
     )
-    if is_dataset_source and artifacts is None:
+    if is_manifest_source and artifacts is None:
         raise dg.Failure(
-            "The submitted PubMed source manifest is missing; refusing a storage scan"
+            "The submitted source manifest is missing; refusing a storage scan"
         )
     report = (
         ingest_papers(

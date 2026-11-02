@@ -8,8 +8,8 @@ Scaffolded with `abi new module openalex src`. Implements on-demand research met
 - Primary adapter: authenticated mutation endpoints queue jobs, never make external OpenAlex calls.
 - Orchestration: `openalex_orchestration.py`, discovered via `OpenalexOrchestration.New()`. Keep business logic in the application service.
 - Contracts: `.proto` plus checked-in descriptor `.pb`; `make proto` regenerates descriptors, Protovalidate validates incoming commands and persisted records.
-- Nexus app: `apps/openalex`, API base from Nexus runtime config, credentials from existing Nexus auth. Never embed an OpenAlex key in browser code.
-- Tests: `tests/openalex_*_test.py`, fake external HTTP plus real temporary DuckLake catalogs; app tests use Node.
+- Nexus app: none of its own. The Library section of the HealthyPhases app (`phases_v2/apps/workspace`) calls this API with the base from the Nexus runtime config and existing Nexus auth. Never embed an OpenAlex key in browser code.
+- Tests: `tests/openalex_*_test.py`, fake external HTTP plus real temporary DuckLake catalogs; browser tests live in `phases_v2/apps/workspace/tests` and use Node.
 - Use `openalex_` filename prefixes and UV. Run `make test-openalex` and scoped Ruff checks.
 
 Dataset contracts and operating defaults are documented in README.md. Respect generation/run ownership on every worker write. Request results allow recovery after publication but before the progress checkpoint. Do not add automatic enrichment or Phase v2 runs without a separate feature request.

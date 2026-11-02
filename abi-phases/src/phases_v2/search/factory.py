@@ -18,6 +18,7 @@ from phases_v2.search.adapters.secondary.VectorStoreSemanticAdapter import (
 )
 from phases_v2.search.domain import SearchService
 from phases_v2.search.interfaces import IExtractedItemsPort, ISemanticIndexPort
+from phases_v2.sources.library_links import is_published_pdf, linked_schemas
 
 
 def search_service(
@@ -43,14 +44,18 @@ def search_service(
         if isinstance(getattr(store, "adapter", None), QdrantAdapter):
             store.initialize()
             native = QdrantSemanticAdapter(store.adapter.client, embedding)
+    rows = DatasetRowStore(engine.services.dataset)
     return SearchService(
         native_index=native,
         semantic_index=semantic_index
         or VectorStoreSemanticAdapter(engine.services.vector_store, embedding),
         extracted_items=extracted_items
         or DatasetExtractedItemsAdapter(
-            DatasetRowStore(engine.services.dataset),
+            rows,
             object_storage=getattr(engine.services, "object_storage", None),
             papers_root=configuration.papers_root if configuration else "phases_v2",
+            published_pdf=lambda prefix, key, sha256: is_published_pdf(
+                rows, linked_schemas(rows), prefix, key, sha256
+            ),
         ),
     )

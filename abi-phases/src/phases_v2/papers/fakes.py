@@ -62,6 +62,7 @@ class FakeTextRenderer:
 class FakePaperStore:
     def __init__(self) -> None:
         self.papers: dict[str, PaperRecord] = {}
+        self.paths: dict[str, str] = {}
         self.reads = 0
 
     def already_ingested(self) -> dict[str, str | None]:
@@ -73,3 +74,6 @@ class FakePaperStore:
     def save(self, papers: list[PaperRecord]) -> None:
         for record in papers:
             self.papers[record.paper_id] = record
+
+    def save_paths(self, paths, seen_at) -> None:
+        self.paths.update(paths)

@@ -93,3 +93,29 @@ def test_registering_nothing_is_not_an_error():
 
     assert register_prompts(store, []) == []
     assert store.count("prompts") == 0
+
+
+def test_a_version_already_registered_keeps_the_time_it_first_appeared():
+    store = InMemoryRowStore()
+    register_prompts(store, [_template()])
+    [first] = store.rows("prompts")
+
+    ids = register_prompts(
+        store,
+        [_template(), _template(text="Newer {chunk_text}")],
+        already_registered={first["prompt_id"]},
+    )
+
+    rows = {row["prompt_id"]: row for row in store.rows("prompts")}
+    assert ids[0] == first["prompt_id"]
+    assert rows[first["prompt_id"]]["registered_at"] == first["registered_at"]
+    assert len(rows) == 2
+
+
+def test_nothing_is_written_when_every_version_is_already_registered():
+    store = InMemoryRowStore()
+    ids = register_prompts(store, [_template()])
+
+    register_prompts(store, [_template()], already_registered=set(ids))
+
+    assert store.writes == ["prompts"]

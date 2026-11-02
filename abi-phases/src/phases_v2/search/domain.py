@@ -43,6 +43,9 @@ class SearchService:
     def download_paper(self, item_id: str) -> tuple[str, bytes]:
         return self._items.download_paper(item_id)
 
+    def download_paper_by_id(self, paper_id: str) -> tuple[str, bytes]:
+        return self._items.download_paper_by_id(paper_id)
+
     def semantic_search(
         self,
         query: str,
@@ -135,7 +138,7 @@ class SearchService:
             self._native_index,
         ), version
 
-    def _key(self, mode, query, threshold, prompts, models, paths):
+    def _key(self, mode, query, threshold, prompts, models, paths, papers=None):
         return (
             mode,
             self._snapshot,
@@ -144,22 +147,31 @@ class SearchService:
             tuple(sorted(set(prompts or []))),
             tuple(sorted(set(models or []))),
             tuple(sorted(set(paths or []))),
+            None if papers is None else tuple(sorted(set(papers))),
         )
 
     def _semantic_matches(
-        self, query, score_threshold=None, prompts=None, models=None, paths=None
+        self,
+        query,
+        score_threshold=None,
+        prompts=None,
+        models=None,
+        paths=None,
+        papers=None,
     ):
         def compute():
             if not query.strip():
                 return ()
             allowed = (
-                self._items.matching_item_ids(prompts, models, paths)
-                if prompts or models or paths
+                self._items.matching_item_ids(prompts, models, paths, papers)
+                if prompts or models or paths or papers is not None
                 else None
             )
             if allowed == set():
                 return ()
-            paper_ids = self._items.paper_ids_for_paths(paths) if paths else None
+            paper_ids = _scope(
+                self._items.paper_ids_for_paths(paths) if paths else None, papers
+            )
             matches = self._index.search_all(
                 query.strip(), score_threshold, models, paper_ids
             )
@@ -175,7 +187,9 @@ class SearchService:
             return tuple(result)
 
         return self._cache.get_or_compute(
-            self._key("semantic", query, score_threshold, prompts, models, paths),
+            self._key(
+                "semantic", query, score_threshold, prompts, models, paths, papers
+            ),
             compute,
         )
 
@@ -204,7 +218,15 @@ class SearchService:
         direction="",
         subject="",
         participant="",
+        papers=None,
     ) -> tuple[list[SearchHit], int]:
+        """One page of results. ``papers`` limits them to those paper ids.
+
+        ``None`` means every paper; an empty list means none, so a collection
+        with no ingested papers finds nothing rather than everything.
+        """
+        if papers is not None and not papers:
+            return [], 0
         if mode == "effects":
             return self._items.effects_page(
                 query,
@@ -216,21 +238,29 @@ class SearchService:
                 prompts,
                 models,
                 paths,
+                papers=papers,
             )
         if mode == "keyword":
             tokens = tokenize(query)
             total = self._cache.get_or_compute(
-                self._key("keyword", query, None, prompts, models, paths),
-                lambda: self._items.keyword_count(tokens, prompts, models, paths),
+                self._key("keyword", query, None, prompts, models, paths, papers),
+                lambda: self._items.keyword_count(
+                    tokens, prompts, models, paths, papers=papers
+                ),
             )
             rows = self._items.keyword_search(
-                tokens, prompts, limit, models, paths, offset
+                tokens, prompts, limit, models, paths, offset, papers=papers
             )
             return [
                 SearchHit.build(item_id=item_id, extracted_text=text, location=location)
                 for item_id, text, location in rows
             ], total
-        if self._native_index is not None and self._native_index.ready():
+        # A paper scope goes through the per-paper vector metadata path.
+        if (
+            papers is None
+            and self._native_index is not None
+            and self._native_index.ready()
+        ):
             matches, total = self._native_index.page(
                 query,
                 limit,
@@ -242,7 +272,9 @@ class SearchService:
                 snapshot=self._snapshot,
             )
             return list(self._located_hits(matches)), total
-        matches = self._semantic_matches(query, score_threshold, prompts, models, paths)
+        matches = self._semantic_matches(
+            query, score_threshold, prompts, models, paths, papers
+        )
         return list(self._located_hits(matches[offset : offset + limit])), len(matches)
 
     def all_hits(
@@ -256,7 +288,10 @@ class SearchService:
         direction="",
         subject="",
         participant="",
+        papers=None,
     ) -> Iterator[SearchHit]:
+        if papers is not None and not papers:
+            return
         if mode == "effects":
             offset = 0
             while True:
@@ -270,6 +305,7 @@ class SearchService:
                     prompts,
                     models,
                     paths,
+                    papers=papers,
                 )
                 yield from hits
                 offset += len(hits)
@@ -281,6 +317,7 @@ class SearchService:
                     )
         if (
             mode == "semantic"
+            and papers is None
             and self._native_index is not None
             and self._native_index.ready()
         ):
@@ -306,13 +343,15 @@ class SearchService:
                     )
         if mode == "semantic":
             yield from self._located_hits(
-                self._semantic_matches(query, score_threshold, prompts, models, paths)
+                self._semantic_matches(
+                    query, score_threshold, prompts, models, paths, papers
+                )
             )
             return
         tokens, offset = tokenize(query), 0
         while True:
             rows = self._items.keyword_search(
-                tokens, prompts, 500, models, paths, offset
+                tokens, prompts, 500, models, paths, offset, papers=papers
             )
             for item_id, text, location in rows:
                 yield SearchHit.build(
@@ -330,3 +369,12 @@ class SearchService:
 
     def list_paths(self) -> list[str]:
         return self._items.list_paths()
+
+
+def _scope(path_ids: list[str] | None, papers: list[str] | None) -> list[str] | None:
+    """Paper ids allowed by both a folder and a paper scope; None if neither."""
+    if papers is None:
+        return path_ids
+    if path_ids is None:
+        return sorted(set(papers))
+    return sorted(set(path_ids) & set(papers))

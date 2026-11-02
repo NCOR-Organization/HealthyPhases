@@ -15,8 +15,15 @@ message SearchQuery {
   string direction = 10 [(buf.validate.field).string = {in: ["", "increases", "decreases", "no-effect"]}];
   string subject = 11 [(buf.validate.field).string.max_len = 10000];
   string participant = 12 [(buf.validate.field).string.max_len = 10000];
+  // Limits results to the papers a collection resolves to.
+  string collection = 13 [(buf.validate.field).string.pattern = "^([0-9a-fA-F-]{36})?$"];
 }
 
+// The PDF a search hit came from, or a paper's own PDF.
 message PaperDownloadRequest {
-  string item_id = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  oneof target {
+    option (buf.validate.oneof).required = true;
+    string item_id = 1 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+    string paper_id = 2 [(buf.validate.field).string = {min_len: 1, max_len: 200}];
+  }
 }

@@ -2,14 +2,48 @@ syntax = "proto3";
 package phases_v2.app.v1;
 import "buf/validate/validate.proto";
 
-message SaveCollection {
+// A collection member is a storage folder (with its subfolders), a saved PubMed
+// search (live: whatever it has published when the collection is used), or one
+// paper: an ingested document by its paper_id, or a PubMed paper by its PMID.
+message FolderMember {
+  string prefix = 1 [(buf.validate.field).string = {min_len: 1, max_len: 512}];
+}
+message PubmedQueryMember {
+  string query_id = 1 [(buf.validate.field).string.uuid = true];
+}
+message PaperMember {
+  oneof paper {
+    option (buf.validate.oneof).required = true;
+    string paper_id = 1 [(buf.validate.field).string.pattern = "^[a-f0-9]{64}$"];
+    string pmid = 2 [(buf.validate.field).string.pattern = "^[0-9]{1,12}$"];
+  }
+}
+message CollectionMember {
+  oneof member {
+    option (buf.validate.oneof).required = true;
+    FolderMember folder = 1;
+    PubmedQueryMember pubmed_query = 2;
+    PaperMember paper = 3;
+  }
+}
+
+message CreateCollection {
   string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 120, pattern: "\\S"}];
-  repeated string locations = 2 [(buf.validate.field).repeated = {
-    min_items: 1, max_items: 100, unique: true,
+  string description = 2 [(buf.validate.field).string.max_len = 2000];
+  repeated CollectionMember members = 3 [(buf.validate.field).repeated.max_items = 500];
+  // The first form of a collection, storage folders only; read as folder members.
+  repeated string locations = 4 [(buf.validate.field).repeated = {
+    max_items: 100, unique: true,
     items: {string: {min_len: 1, max_len: 512}}
   }];
 }
-
+message UpdateCollection {
+  string name = 1 [(buf.validate.field).string = {min_len: 1, max_len: 120, pattern: "\\S"}];
+  string description = 2 [(buf.validate.field).string.max_len = 2000];
+}
+message AddCollectionMembers {
+  repeated CollectionMember members = 1 [(buf.validate.field).repeated = {min_items: 1, max_items: 500}];
+}
 
 message SubmitPubmedRun {
   string query_id = 1 [(buf.validate.field).string.uuid = true];
@@ -40,4 +74,18 @@ message SourceManifest {
   string request_id = 1 [(buf.validate.field).string.uuid = true];
   string source_query_id = 2 [(buf.validate.field).string.uuid = true];
   repeated SourceArtifact artifacts = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 1000}];
+}
+// What a run on a collection reads: its resolved papers at submission time.
+// A folder document not ingested yet has no known checksum.
+message CollectionArtifact {
+  string storage_prefix = 1 [(buf.validate.field).string = {min_len: 1, max_len: 1024}];
+  string storage_key = 2 [(buf.validate.field).string = {min_len: 1, max_len: 1024}];
+  string content_sha256 = 3 [(buf.validate.field).string.pattern = "^([a-f0-9]{64})?$"];
+  string artifact_id = 4 [(buf.validate.field).string.max_len = 200];
+}
+message CollectionManifest {
+  string request_id = 1 [(buf.validate.field).string.uuid = true];
+  // The collection the artifacts were resolved from.
+  string source_query_id = 2 [(buf.validate.field).string.uuid = true];
+  repeated CollectionArtifact artifacts = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 10000}];
 }

@@ -1,6 +1,8 @@
-"""The ``papers`` dataset, as the domain's :class:`PaperStore`."""
+"""The ``papers`` and ``paper_paths`` datasets, as the domain's :class:`PaperStore`."""
 
 from __future__ import annotations
+
+from datetime import datetime
 
 from phases_v2.papers.interfaces import PaperRecord
 from phases_v2.ports import RowStore
@@ -32,5 +34,14 @@ class DatasetPaperStore:
                     "discovered_at": record.discovered_at,
                 }
                 for record in papers
+            ],
+        )
+
+    def save_paths(self, paths: dict[str, str], seen_at: datetime) -> None:
+        self._rows.write_rows(
+            "paper_paths",
+            [
+                {"path": path, "paper_id": paper_id, "seen_at": seen_at}
+                for path, paper_id in paths.items()
             ],
         )

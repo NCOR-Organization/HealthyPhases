@@ -1,0 +1,28 @@
+{
+    "name": "HealthyPhases",
+    "description": "One workspace for the whole research workflow: collect papers from PubMed or your own PDFs, prepare extraction prompts, run the pipeline and follow it, then search the findings back to their source papers.",
+    "category": "domain",
+    "url": "html:index.html",
+    "agent": "phases_v2 WorkspaceAssistantAgent",
+    "icon_emoji": "🧬",
+    "version": "1.0.0",
+    "author": "HealthyPhases",
+    "license": "MIT",
+    "keywords": [
+        "papers",
+        "pubmed",
+        "openalex",
+        "collections",
+        "prompts",
+        "pipeline",
+        "extraction",
+        "search",
+        "phases"
+    ],
+    "tier": "community",
+    "maintainer": "HealthyPhases",
+    "pricing": {
+        "type": "free",
+        "price": 0
+    }
+}

@@ -40,7 +40,7 @@ CI runs publisher/source, pipeline and reverse-search checks on pull requests.
 - `src/pubmed/application/pubmed_service.py`: publication and request lifecycle.
 - `src/pubmed/application/pubmed_schedules.py`: schedule claims and transitions.
 - `src/pubmed/adapters/secondary/pubmed_dataset_store.py`: schemas and atomic writes.
-- `src/pubmed/apps/search/index.html`: Nexus app.
+- `src/phases_v2/apps/workspace/js/sections/library.js`: the Library section of the HealthyPhases app.
 - `src/phases_v2/sources/`: public dataset consumption and fixed manifests.
 - `openspec/changes/add-pubmed-dataset-app/`: initial proposal, specs and tasks.
 

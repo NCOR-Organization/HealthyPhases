@@ -59,6 +59,9 @@ class FakeExtractedItems:
     def download_paper(self, item_id):
         raise FileNotFoundError(item_id)
 
+    def download_paper_by_id(self, paper_id):
+        raise FileNotFoundError(paper_id)
+
     def snapshot(self):
         return None
 
@@ -67,16 +70,21 @@ class FakeExtractedItems:
 
         return deepcopy(self)
 
-    def keyword_count(self, tokens, prompts=None, models=None, paths=None):
-        return len(self.keyword_search(tokens, prompts, len(self.items), models, paths))
+    def keyword_count(self, tokens, prompts=None, models=None, paths=None, papers=None):
+        return len(
+            self.keyword_search(
+                tokens, prompts, len(self.items), models, paths, papers=papers
+            )
+        )
 
-    def matching_item_ids(self, prompts=None, models=None, paths=None):
+    def matching_item_ids(self, prompts=None, models=None, paths=None, papers=None):
         return {
             i.item_id
             for i in self.items
             if not prompts or i.location.prompt_name in prompts
             if not models or i.location.model_id in models
             if not paths or matches_path(i.location.source_path, paths)
+            if papers is None or i.location.paper_id in papers
         }
 
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
@@ -91,6 +99,7 @@ class FakeExtractedItems:
         models: list[str] | None = None,
         paths: list[str] | None = None,
         offset: int = 0,
+        papers: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         if not tokens:
             return []
@@ -98,6 +107,8 @@ class FakeExtractedItems:
         rows: list[tuple[str, str, ItemLocation]] = []
         for item in self.items:
             if paths and not matches_path(item.location.source_path, paths):
+                continue
+            if papers is not None and item.location.paper_id not in papers:
                 continue
             if models and item.location.model_id not in models:
                 continue

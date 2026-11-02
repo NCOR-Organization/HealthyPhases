@@ -360,7 +360,12 @@ def test_pipeline_carries_selected_paper_ids_to_each_stage(monkeypatch):
         assert operation.call_args.kwargs["paper_ids"] == ["selected"]
 
 
-def test_missing_pubmed_manifest_cannot_fall_back_to_a_storage_scan(monkeypatch):
+@pytest.mark.parametrize(
+    "location", ["dataset:pubmed:query", "dataset:collection:collection-id"]
+)
+def test_missing_source_manifest_cannot_fall_back_to_a_storage_scan(
+    monkeypatch, location
+):
     from phases_v2.orchestrations.PhasesV2Orchestration import (
         RunConfig,
         ingest_papers_op,
@@ -379,7 +384,43 @@ def test_missing_pubmed_manifest_cannot_fall_back_to_a_storage_scan(monkeypatch)
         dg.build_op_context() as context,
         pytest.raises(dg.Failure, match="manifest is missing"),
     ):
-        ingest_papers_op(
-            context, RunConfig(request_id="request", locations=["dataset:pubmed:query"])
-        )
+        ingest_papers_op(context, RunConfig(request_id="request", locations=[location]))
     ingest.assert_not_called()
+
+
+def test_a_collection_request_ingests_only_its_manifest(monkeypatch):
+    from phases_v2.orchestrations.PhasesV2Orchestration import (
+        RunConfig,
+        ingest_papers_op,
+    )
+
+    engine = SimpleNamespace(services=SimpleNamespace(dataset=object()))
+    manifest = [
+        {"storage_prefix": "phases_v2/mine", "storage_key": "a.pdf"},
+        {"storage_prefix": "pubmed/papers", "storage_key": "1.pdf"},
+    ]
+    monkeypatch.setattr(
+        "phases_v2.orchestrations.PhasesV2Orchestration._engine", lambda: engine
+    )
+    monkeypatch.setattr(
+        "phases_v2.sources.phases_v2_sources.manifest_for", lambda *args: manifest
+    )
+    ingest = Mock(
+        return_value=SimpleNamespace(
+            ingested=2,
+            skipped=0,
+            failed=0,
+            paper_ids=["a", "b"],
+            failed_locations={},
+            failed_papers={},
+        )
+    )
+    monkeypatch.setattr("phases_v2.papers.factory.ingest_papers", ingest)
+    with dg.build_op_context() as context:
+        result = ingest_papers_op(
+            context,
+            RunConfig(request_id="request", locations=["dataset:collection:c"]),
+        )
+    assert ingest.call_args.args[1] == ["phases_v2/mine", "pubmed/papers"]
+    assert ingest.call_args.kwargs["artifacts"] == manifest
+    assert result["paper_ids"] == ["a", "b"]

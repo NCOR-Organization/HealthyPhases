@@ -74,6 +74,7 @@ class RetryPolicy:
 
 
 DEFAULT_RETRY = RetryPolicy()
+_ONCE = RetryPolicy(max_attempts=1)
 
 
 def parse_items(raw: str, output_key: str) -> tuple[object, list[str]]:
@@ -206,6 +207,50 @@ def run_extraction(
     return report
 
 
+@dataclass(frozen=True)
+class Attempt:
+    """One prompt sent to the model for one chunk's text, and what came back."""
+
+    status: str
+    response: object
+    raw: str | None
+    error: str | None
+    items: list[str]
+
+
+def attempt(
+    model: ExtractionModel,
+    prompt: PromptTemplate,
+    text: str,
+    *,
+    retry: RetryPolicy | None = None,
+    sleep: Callable[[float], None] = time.sleep,
+) -> Attempt:
+    """Render ``prompt`` for ``text``, call the model and parse its answer.
+
+    With a ``retry`` policy, transient provider failures are retried before the
+    call is given up on; without one the model is called once.
+
+    The only place a prompt is rendered and its answer parsed, so a run and a
+    try of the same prompt on the same text cannot read the answer differently.
+    Writes nothing.
+    """
+    raw: str | None = None
+    try:
+        raw = _complete_with_retry(
+            model, prompt.rendered_for(text), retry=retry or _ONCE, sleep=sleep
+        )
+        response, items = parse_items(raw, prompt.output_key)
+    except (ModelFailed, UnusableResponse) as failure:
+        if isinstance(failure, ModelFailed):
+            raw = failure.raw_response
+        # `response` is a JSON column, so unparseable output cannot go there —
+        # but it is exactly the case where keeping the text matters, so it
+        # goes to `raw` verbatim.
+        return Attempt(FAILED, None, raw, str(failure), [])
+    return Attempt(SUCCEEDED, response, raw, None, items)
+
+
 def _extract_one(
     chunk: ChunkRef,
     *,
@@ -217,48 +262,21 @@ def _extract_one(
     sleep: Callable[[float], None],
 ) -> tuple[ExtractionRecord, list[ExtractedItemRecord]]:
     extraction_id = identity.extraction_id(chunk.chunk_id, model_id, prompt.prompt_id)
-    raw: str | None = None
-
-    try:
-        raw = _complete_with_retry(
-            model, prompt.rendered_for(chunk.text), retry=retry, sleep=sleep
-        )
-        response, items = parse_items(raw, prompt.output_key)
-    except (ModelFailed, UnusableResponse) as failure:
-        if isinstance(failure, ModelFailed):
-            raw = failure.raw_response
-        return (
-            _record(
-                extraction_id,
-                chunk,
-                model_id,
-                prompt,
-                run_id,
-                status=FAILED,
-                # `response` is a JSON column, so unparseable output cannot go
-                # there — but it is exactly the case where keeping the text
-                # matters, so it goes to `raw_response` verbatim.
-                response=None,
-                raw=raw,
-                error=str(failure),
-                item_count=0,
-            ),
-            [],
-        )
-
+    outcome = attempt(model, prompt, chunk.text, retry=retry, sleep=sleep)
+    record = _record(
+        extraction_id,
+        chunk,
+        model_id,
+        prompt,
+        run_id,
+        status=outcome.status,
+        response=outcome.response,
+        raw=outcome.raw,
+        error=outcome.error,
+        item_count=len(outcome.items),
+    )
     return (
-        _record(
-            extraction_id,
-            chunk,
-            model_id,
-            prompt,
-            run_id,
-            status=SUCCEEDED,
-            response=response,
-            raw=raw,
-            error=None,
-            item_count=len(items),
-        ),
+        record,
         [
             ExtractedItemRecord(
                 item_id=identity.item_id(extraction_id, seq),
@@ -269,7 +287,7 @@ def _extract_one(
                 seq=seq,
                 text=text,
             )
-            for seq, text in enumerate(items)
+            for seq, text in enumerate(outcome.items)
         ],
     )
 
@@ -286,21 +304,21 @@ def _complete_with_retry(
     The last failure is re-raised with the attempt count in its message, so a
     chunk that stays failed says it was not for want of trying.
     """
-    attempt = 1
+    tries = 1
     while True:
         try:
             return model.complete(prompt)
         except ModelFailed as failure:
-            if not failure.transient or attempt >= retry.max_attempts:
-                if attempt > 1:
+            if not failure.transient or tries >= retry.max_attempts:
+                if tries > 1:
                     raise ModelFailed(
-                        f"{failure} (gave up after {attempt} attempts)",
+                        f"{failure} (gave up after {tries} attempts)",
                         raw_response=failure.raw_response,
                         transient=failure.transient,
                     ) from failure
                 raise
-            sleep(retry.delay_before_retry(attempt))
-            attempt += 1
+            sleep(retry.delay_before_retry(tries))
+            tries += 1
 
 
 def _record(

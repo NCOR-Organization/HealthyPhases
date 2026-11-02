@@ -6,6 +6,7 @@ import csv
 import io
 import logging
 import re
+from collections.abc import Callable
 from dataclasses import asdict
 from tempfile import SpooledTemporaryFile
 from typing import Annotated
@@ -16,6 +17,7 @@ from fastapi.responses import Response, StreamingResponse
 from starlette.background import BackgroundTask
 
 from phases_v2.app.contracts.pipeline_validation import validate_message
+from phases_v2.app.pipeline_management import ManagementUnavailable
 from phases_v2.search.domain import SearchService
 
 PREFIX = "/phases_v2/api/search"
@@ -54,6 +56,7 @@ def search_filters(
     direction: str = "",
     subject: str = "",
     participant: str = "",
+    collection: str = "",
 ):
     return {
         "query": q,
@@ -65,6 +68,7 @@ def search_filters(
         "direction": direction,
         "subject": subject,
         "participant": participant,
+        "collection": collection,
     }
 
 
@@ -82,7 +86,8 @@ def _csv_line(values):
     return output.getvalue().encode("utf-8")
 
 
-def _csv_document(hits, query, mode):
+def csv_document(hits, query, mode):
+    """The export's rows, as bytes: a BOM, the header, then one line per hit."""
     yield b"\xef\xbb\xbf"
     yield _csv_line(CSV_COLUMNS)
     for hit in hits:
@@ -90,7 +95,14 @@ def _csv_document(hits, query, mode):
         yield _csv_line(row[column] for column in CSV_COLUMNS)
 
 
-def build_router(service: SearchService) -> APIRouter:
+def build_router(
+    service: SearchService,
+    collection_papers: Callable[[str], list[str]] | None = None,
+) -> APIRouter:
+    """``collection_papers`` resolves a collection to its paper ids.
+
+    It raises ``KeyError`` for a collection that does not exist.
+    """
     router = APIRouter(prefix=PREFIX, tags=["phases_v2-search"])
 
     def view(mode, filters, limit=25, offset=0):
@@ -99,9 +111,34 @@ def build_router(service: SearchService) -> APIRouter:
             validate_message("SearchQuery", payload)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
-        options = {key: value for key, value in filters.items() if key != "snapshot"}
+        options = {
+            key: value
+            for key, value in filters.items()
+            if key not in ("snapshot", "collection")
+        }
+        if filters["collection"]:
+            options["papers"] = papers_of(filters["collection"])
         scoped, snapshot = service.read_view(filters["snapshot"])
         return scoped, snapshot, options
+
+    def papers_of(collection_id):
+        if collection_papers is None:
+            raise HTTPException(
+                status_code=503, detail="Collections are unavailable for search."
+            )
+        try:
+            return collection_papers(collection_id)
+        except KeyError as missing:
+            raise HTTPException(
+                status_code=404,
+                detail="Collection not found. It may have been archived.",
+            ) from missing
+        except ValueError as unreadable:
+            raise HTTPException(status_code=503, detail=str(unreadable)) from unreadable
+        except ManagementUnavailable as unavailable:
+            raise HTTPException(
+                status_code=503, detail=str(unavailable)
+            ) from unavailable
 
     def unavailable(error):
         logging.getLogger(__name__).exception("Reverse search failed")
@@ -132,13 +169,26 @@ def build_router(service: SearchService) -> APIRouter:
         }
 
     @router.get("/paper")
-    def download_paper(item_id: str):
+    def download_paper(item_id: str = "", paper_id: str = ""):
+        """The PDF a hit came from (``item_id``), or a paper's own (``paper_id``)."""
+        target = {
+            key: value
+            for key, value in (("item_id", item_id), ("paper_id", paper_id))
+            if value
+        }
         try:
-            validate_message("PaperDownloadRequest", {"item_id": item_id})
+            # Checked first: the contract's own wording for this is less clear.
+            if len(target) > 1:
+                raise ValueError("Give an item_id or a paper_id, not both.")
+            validate_message("PaperDownloadRequest", target)
         except ValueError as error:
             raise HTTPException(status_code=422, detail=str(error)) from error
         try:
-            filename, content = service.download_paper(item_id)
+            filename, content = (
+                service.download_paper(item_id)
+                if item_id
+                else service.download_paper_by_id(paper_id)
+            )
         except FileNotFoundError as error:
             raise HTTPException(
                 status_code=404, detail="Source PDF is unavailable."
@@ -184,7 +234,7 @@ def build_router(service: SearchService) -> APIRouter:
         try:
             scoped, _, options = view(mode, filters)
             output.writelines(
-                _csv_document(scoped.all_hits(mode, **options), filters["query"], mode)
+                csv_document(scoped.all_hits(mode, **options), filters["query"], mode)
             )
             length = output.tell()
             output.seek(0)
@@ -227,5 +277,9 @@ def build_router(service: SearchService) -> APIRouter:
     return router
 
 
-def register(app: FastAPI, service: SearchService) -> None:
-    app.include_router(build_router(service))
+def register(
+    app: FastAPI,
+    service: SearchService,
+    collection_papers: Callable[[str], list[str]] | None = None,
+) -> None:
+    app.include_router(build_router(service, collection_papers))

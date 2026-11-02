@@ -28,6 +28,20 @@ def validate_command(name: str, payload: dict[str, Any]) -> Message:
     try:
         json_format.ParseDict(payload, message)
         protovalidate.validate(message)
-    except (json_format.ParseError, protovalidate.ValidationError) as invalid:
+    except protovalidate.ValidationError as invalid:
+        # Name each field and rule, so the user can see what to change.
+        details = [
+            f"{_field_path(v.field.elements)}: {v.message}".lstrip(": ")
+            for v in invalid.to_proto().violations
+        ]
+        raise ValueError("; ".join(details) or str(invalid)) from invalid
+    except json_format.ParseError as invalid:
         raise ValueError(str(invalid)) from invalid
     return message
+
+
+def _field_path(elements) -> str:
+    return ".".join(
+        f"{e.field_name}[{e.subscript.value}]" if e.subscript else e.field_name
+        for e in elements
+    )

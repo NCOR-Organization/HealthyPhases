@@ -20,9 +20,18 @@ def _loc(prompt_name: str, seq: int = 0, paper_name: str = "a.pdf") -> ItemLocat
 
 def _items() -> list[FakeItem]:
     return [
-        FakeItem("a", "Solitude reduces stress.", _loc("solitude_effects", 1), similarity=0.9),
-        FakeItem("b", "Loneliness raises cortisol.", _loc("solitude_causes", 2), similarity=0.7),
-        FakeItem("c", "Older adults seek solitude.", _loc("solitude_when", 3), similarity=0.5),
+        FakeItem(
+            "a", "Solitude reduces stress.", _loc("solitude_effects", 1), similarity=0.9
+        ),
+        FakeItem(
+            "b",
+            "Loneliness raises cortisol.",
+            _loc("solitude_causes", 2),
+            similarity=0.7,
+        ),
+        FakeItem(
+            "c", "Older adults seek solitude.", _loc("solitude_when", 3), similarity=0.5
+        ),
     ]
 
 
@@ -91,4 +100,54 @@ def test_keyword_search_prompt_filter_and_no_score():
 def test_list_prompts_sorted_distinct():
     items = _items()
     svc = SearchService(FakeSemanticIndex(items), FakeExtractedItems(items))
-    assert svc.list_prompts() == ["solitude_causes", "solitude_effects", "solitude_when"]
+    assert svc.list_prompts() == [
+        "solitude_causes",
+        "solitude_effects",
+        "solitude_when",
+    ]
+
+
+def _two_papers() -> list[FakeItem]:
+    from dataclasses import replace
+
+    items = _items()
+    items[1].location = replace(items[1].location, paper_id="paper-b")
+    return items
+
+
+def test_a_paper_scope_limits_every_mode_and_an_empty_scope_finds_nothing():
+    items = _two_papers()
+    svc = SearchService(FakeSemanticIndex(items), FakeExtractedItems(items))
+
+    hits, total = svc.page("semantic", "anything", papers=["paper-b"])
+    assert ([h.item_id for h in hits], total) == (["b"], 1)
+    hits, total = svc.page("keyword", "cortisol", papers=["paper-a"])
+    assert (hits, total) == ([], 0)
+    for mode in ("semantic", "keyword", "effects"):
+        assert svc.page(mode, "solitude", papers=[]) == ([], 0)
+        assert list(svc.all_hits(mode, "solitude", papers=[])) == []
+    assert [
+        h.item_id for h in svc.all_hits("keyword", "solitude", papers=["paper-a"])
+    ] == [
+        "a",
+        "c",
+    ]
+
+
+def test_a_paper_scope_skips_the_native_index_for_the_per_paper_path():
+    class Native:
+        def ready(self):
+            return True
+
+        def page(self, *args, **kwargs):
+            raise AssertionError("a paper scope must not use the native index")
+
+    items = _two_papers()
+    svc = SearchService(
+        FakeSemanticIndex(items), FakeExtractedItems(items), native_index=Native()
+    )
+
+    hits, total = svc.page("semantic", "anything", papers=["paper-b"])
+
+    assert [h.item_id for h in hits] == ["b"]
+    assert total == 1

@@ -280,3 +280,23 @@ def test_keyword_count_matches_page_with_each_filter_combination(
     assert adapter.keyword_count(["solitude"], prompts=prompts, models=models) == len(
         page
     )
+
+
+def test_a_paper_scope_limits_every_query_and_combines_with_other_filters(adapter):
+    only_b = ["paper-b"]
+
+    assert adapter.matching_item_ids(papers=only_b) == {"item-causes"}
+    assert adapter.matching_item_ids(papers=[]) == set()
+    assert adapter.keyword_count(["isolation"], papers=only_b) == 1
+    assert adapter.keyword_count(["solitude"], papers=only_b) == 0
+    assert [
+        row[0] for row in adapter.keyword_search(["isolation"], None, 10, papers=only_b)
+    ] == ["item-causes"]
+    # Combined with a prompt filter, both must hold.
+    assert (
+        adapter.keyword_search(
+            ["isolation"], ["solitude_effects"], 10, papers=["paper-a", "paper-b"]
+        )
+        == []
+    )
+    assert adapter.matching_item_ids(papers=None) == {"item-effects", "item-causes"}

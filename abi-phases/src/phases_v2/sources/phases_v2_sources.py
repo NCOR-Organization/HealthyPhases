@@ -9,38 +9,53 @@ from phases_v2.requests.domain import submit
 from phases_v2.sql import literal
 
 
-def submit_pubmed(rows, requests, catalog, payload):
-    command = validate_command("SubmitPubmedRun", payload)
-    artifacts = catalog.artifacts(command.query_id)
-    if not artifacts:
-        raise ValueError("This query has no published PDF artifacts")
+def submit_with_manifest(
+    rows, requests, *, contract, source_id, artifacts, location, **choices
+):
+    """Record the exact artifacts a request reads, then the request itself.
+
+    The manifest is written first, so the orchestrator never sees a pending
+    request without it. ``contract`` names the manifest message that
+    validates it; ``location`` is the request's ``dataset:`` source marker.
+    """
     request_id = str(uuid4())
     manifest = validate_command(
-        "SourceManifest",
+        contract,
         {
             "request_id": request_id,
-            "source_query_id": command.query_id,
-            "artifacts": [
-                {
-                    key: a[key]
-                    for key in (
-                        "artifact_id",
-                        "storage_prefix",
-                        "storage_key",
-                        "content_sha256",
-                    )
-                }
-                for a in artifacts
-            ],
+            "source_query_id": source_id,
+            "artifacts": artifacts,
         },
     )
     rows.write_rows(
         "source_manifests", [MessageToDict(manifest, preserving_proto_field_name=True)]
     )
-    return submit(
+    return submit(requests, request_id=request_id, locations=[location], **choices)
+
+
+def submit_pubmed(rows, requests, catalog, payload):
+    command = validate_command("SubmitPubmedRun", payload)
+    artifacts = catalog.artifacts(command.query_id)
+    if not artifacts:
+        raise ValueError("This query has no published PDF artifacts")
+    return submit_with_manifest(
+        rows,
         requests,
-        request_id=request_id,
-        locations=[f"dataset:pubmed:{command.query_id}"],
+        contract="SourceManifest",
+        source_id=command.query_id,
+        artifacts=[
+            {
+                key: a[key]
+                for key in (
+                    "artifact_id",
+                    "storage_prefix",
+                    "storage_key",
+                    "content_sha256",
+                )
+            }
+            for a in artifacts
+        ],
+        location=f"dataset:pubmed:{command.query_id}",
         chunker_id=command.chunker_id,
         prompt_ids=list(command.prompt_ids),
         model_id=command.model_id,

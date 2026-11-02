@@ -5,12 +5,15 @@ start. A template's identity is its text, so editing one produces a new
 ``prompt_id`` and the extractions made under the old text keep pointing at the
 exact text that produced them.
 
-Registration is a blind upsert — no read first. Re-registering an unchanged
-template rewrites the row it already had.
+Registration is an upsert with no read of its own. A caller that already
+knows which versions exist passes their ids, and those rows are left alone, so
+a version's ``registered_at`` stays the time it first appeared rather than the
+last engine start.
 """
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
@@ -50,12 +53,24 @@ def validate(templates: list[PromptTemplate]) -> None:
             )
 
 
-def register_prompts(store: RowStore, templates: list[PromptTemplate]) -> list[str]:
-    """Publish every declared template. Returns their ids, in declaration order."""
+def register_prompts(
+    store: RowStore,
+    templates: list[PromptTemplate],
+    *,
+    already_registered: Collection[str] = (),
+) -> list[str]:
+    """Publish every declared template. Returns their ids, in declaration order.
+
+    Templates whose id is in ``already_registered`` are not rewritten.
+    """
     validate(templates)
     if not templates:
         return []
 
+    registered = set(already_registered)
+    new = [t for t in templates if t.prompt_id not in registered]
+    if not new:
+        return [template.prompt_id for template in templates]
     now = datetime.now(UTC)
     store.write_rows(
         "prompts",
@@ -68,7 +83,7 @@ def register_prompts(store: RowStore, templates: list[PromptTemplate]) -> list[s
                 "output_key": template.output_key,
                 "registered_at": now,
             }
-            for template in templates
+            for template in new
         ],
     )
     return [template.prompt_id for template in templates]

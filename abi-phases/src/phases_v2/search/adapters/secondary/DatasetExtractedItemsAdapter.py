@@ -9,7 +9,9 @@ behind what was actually extracted.
 
 from __future__ import annotations
 
+import hashlib
 import json
+from collections.abc import Callable
 from dataclasses import replace
 from pathlib import PurePosixPath
 from typing import Any
@@ -69,11 +71,18 @@ def _row_to_location(row: dict[str, Any]) -> ItemLocation:
 
 class DatasetExtractedItemsAdapter:
     def __init__(
-        self, rows: RowStore, object_storage=None, papers_root: str = "phases_v2"
+        self,
+        rows: RowStore,
+        object_storage=None,
+        papers_root: str = "phases_v2",
+        published_pdf: Callable[[str, str, str], bool] | None = None,
     ):
+        """``published_pdf(prefix, key, sha256)`` says whether PubMed published
+        exactly that object; those PDFs are served from outside the papers root."""
         self._rows = rows
         self._storage = object_storage
         self._papers_root = papers_root.strip("/")
+        self._published_pdf = published_pdf
 
     def _query(self, sql: str) -> list[dict[str, Any]]:
         try:
@@ -83,13 +92,27 @@ class DatasetExtractedItemsAdapter:
             raise
 
     def download_paper(self, item_id: str) -> tuple[str, bytes]:
-        if self._storage is None:
-            raise FileNotFoundError("Source PDF is unavailable.")
-        rows = self._query(
-            "SELECT p.storage_prefix, p.storage_key, p.file_name "
+        return self._download(
+            "SELECT p.storage_prefix, p.storage_key, p.file_name, p.content_sha256 "
             "FROM extracted_items ei JOIN papers p ON p.paper_id = ei.paper_id "
             f"WHERE ei.item_id = {literal(item_id)} LIMIT 1"
         )
+
+    def download_paper_by_id(self, paper_id: str) -> tuple[str, bytes]:
+        return self._download(
+            "SELECT storage_prefix, storage_key, file_name, content_sha256 FROM papers "
+            f"WHERE paper_id = {literal(paper_id)} LIMIT 1"
+        )
+
+    def _download(self, sql: str) -> tuple[str, bytes]:
+        """The PDF of the one paper ``sql`` selects.
+
+        Served from under the papers root, or as the exact PubMed artifact it
+        was ingested from, whose bytes must still hash to the paper's identity.
+        """
+        if self._storage is None:
+            raise FileNotFoundError("Source PDF is unavailable.")
+        rows = self._query(sql)
         if not rows:
             raise FileNotFoundError("Source PDF is unavailable.")
         row = rows[0]
@@ -105,8 +128,15 @@ class DatasetExtractedItemsAdapter:
             or "\\" in prefix + key
             or "\x00" in prefix + key
             or any(part in {".", ".."} for part in parts)
-            or not (prefix == root or prefix.startswith(root + "/"))
             or PurePosixPath(key).suffix.lower() != ".pdf"
+        ):
+            raise FileNotFoundError("Source PDF is unavailable.")
+        sha256 = row.get("content_sha256") or ""
+        published = not (prefix == root or prefix.startswith(root + "/"))
+        if published and not (
+            self._published_pdf is not None
+            and sha256
+            and self._published_pdf(prefix, key, sha256)
         ):
             raise FileNotFoundError("Source PDF is unavailable.")
         try:
@@ -114,6 +144,8 @@ class DatasetExtractedItemsAdapter:
         except Exceptions.ObjectNotFound as missing:
             raise FileNotFoundError("Source PDF is unavailable.") from missing
         if not content.startswith(b"%PDF-"):
+            raise FileNotFoundError("Source PDF is unavailable.")
+        if published and hashlib.sha256(content).hexdigest() != sha256:
             raise FileNotFoundError("Source PDF is unavailable.")
         return PurePosixPath(key).name, content
 
@@ -128,6 +160,7 @@ class DatasetExtractedItemsAdapter:
         prompts=None,
         models=None,
         paths=None,
+        papers=None,
     ) -> tuple[list[SearchHit], int]:
         filters = []
         if direction:
@@ -149,8 +182,8 @@ class DatasetExtractedItemsAdapter:
             filters.append(f"pr.name IN {in_list(prompts)}")
         if models:
             filters.append(f"e.model_id IN {in_list(models)}")
-        if paths:
-            filters.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
+        if (scope := self._paper_scope(paths, papers)) is not None:
+            filters.append(f"ei.paper_id IN {in_list(scope)}")
         source = _FROM + " JOIN probabilistic_relations r ON r.item_id = ei.item_id "
         where = " WHERE " + " AND ".join(filters) if filters else ""
         total = int(
@@ -184,14 +217,16 @@ class DatasetExtractedItemsAdapter:
             )
         return hits, total
 
-    def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
+    def matching_item_ids(
+        self, prompts=None, models=None, paths=None, papers=None
+    ) -> set[str]:
         where = []
         if prompts:
             where.append(f"pr.name IN {in_list(prompts)}")
         if models:
             where.append(f"e.model_id IN {in_list(models)}")
-        if paths:
-            where.append(f"ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}")
+        if (scope := self._paper_scope(paths, papers)) is not None:
+            where.append(f"ei.paper_id IN {in_list(scope)}")
         sql = "SELECT ei.item_id FROM extracted_items ei "
         if prompts:
             sql += "LEFT JOIN prompts pr ON pr.prompt_id = ei.prompt_id "
@@ -221,10 +256,21 @@ class DatasetExtractedItemsAdapter:
 
     def at_snapshot(self, snapshot: int | None):
         return DatasetExtractedItemsAdapter(
-            self._rows.at_snapshot(snapshot), self._storage, self._papers_root
+            self._rows.at_snapshot(snapshot),
+            self._storage,
+            self._papers_root,
+            self._published_pdf,
         )
 
-    def _keyword_where(self, tokens, prompts, models, paths) -> str:
+    def _paper_scope(self, paths, papers) -> list[str] | None:
+        """Paper ids allowed by the folder and paper filters; None if neither."""
+        if papers is None:
+            return self.paper_ids_for_paths(paths) if paths else None
+        if not paths:
+            return sorted(set(papers))
+        return sorted(set(self.paper_ids_for_paths(paths)) & set(papers))
+
+    def _keyword_where(self, tokens, prompts, models, paths, papers=None) -> str:
         if not tokens:
             return "WHERE FALSE"
         clauses = []
@@ -240,12 +286,14 @@ class DatasetExtractedItemsAdapter:
             where += f" AND pr.name IN {in_list(prompts)}"
         if models:
             where += f" AND e.model_id IN {in_list(models)}"
-        if paths:
-            where += f" AND ei.paper_id IN {in_list(self.paper_ids_for_paths(paths))}"
+        if (scope := self._paper_scope(paths, papers)) is not None:
+            where += f" AND ei.paper_id IN {in_list(scope)}"
         return where
 
-    def keyword_count(self, tokens, prompts=None, models=None, paths=None) -> int:
-        where = self._keyword_where(tokens, prompts, models, paths)
+    def keyword_count(
+        self, tokens, prompts=None, models=None, paths=None, papers=None
+    ) -> int:
+        where = self._keyword_where(tokens, prompts, models, paths, papers)
         source = "FROM extracted_items ei"
         if prompts:
             source += " LEFT JOIN prompts pr ON pr.prompt_id = ei.prompt_id"
@@ -263,8 +311,9 @@ class DatasetExtractedItemsAdapter:
         models: list[str] | None = None,
         paths: list[str] | None = None,
         offset: int = 0,
+        papers: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
-        where = self._keyword_where(tokens, prompts, models, paths)
+        where = self._keyword_where(tokens, prompts, models, paths, papers)
         sql = (
             f"SELECT {_COLUMNS} {_FROM} {where} "
             f"ORDER BY p.file_name, c.seq, ei.item_id LIMIT {int(limit)} OFFSET {int(offset)}"

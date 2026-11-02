@@ -1,4 +1,4 @@
-"""Which AI models the pipeline may run extractions with.
+"""Which models the pipeline may run extractions with.
 
 The catalog exists so the webapp can offer a chooser and so a run cannot name
 a model nobody declared.

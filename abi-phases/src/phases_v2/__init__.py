@@ -8,6 +8,8 @@ collections are projections built from them and can be dropped and rebuilt
 without losing anything.
 """
 
+from collections.abc import Collection
+
 from naas_abi_core import logger
 from naas_abi_core.module.Module import (
     BaseModule,
@@ -63,16 +65,15 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
         other from mounting, or the engine from booting — the way v1's `api()`
         also degrades rather than taking the API down.
         """
+        pipeline = None
         try:
             from phases_v2.app.adapters.primary.PipelineAPI import register
             from phases_v2.app.factory import app_service
 
-            register(
-                app,
-                app_service(
-                    self._engine, papers_root=self._configuration.papers_root
-                ),
+            pipeline = app_service(
+                self._engine, papers_root=self._configuration.papers_root
             )
+            register(app, pipeline)
             logger.debug("Mounted phases_v2 pipeline API at /phases_v2/api")
         except Exception as exc:  # noqa: BLE001
             logger.error(f"Failed to mount the phases_v2 pipeline app: {exc}")
@@ -84,7 +85,10 @@ class ABIModule(BaseModule[PhasesV2Configuration]):
             from phases_v2.search.factory import search_service
 
             register_search(
-                app, search_service(self._engine, configuration=self._configuration)
+                app,
+                search_service(self._engine, configuration=self._configuration),
+                # Search can be limited to a collection's papers.
+                collection_papers=pipeline.resources.paper_ids if pipeline else None,
             )
             logger.debug("Mounted phases_v2 reverse-search API at /phases_v2/api/search")
         except Exception as exc:  # noqa: BLE001
@@ -122,12 +126,16 @@ def ensure_datasets_if_available(engine) -> set[str]:
     return created
 
 
-def register_declarations(store) -> dict[str, list[str]]:
+def register_declarations(
+    store, registered_prompt_ids: Collection[str] = ()
+) -> dict[str, list[str]]:
     """Publish the prompts, chunkers and models this module declares.
 
     Every write is an upsert, so this needs no read: re-registering an
     unchanged declaration rewrites the row it already had. That is what makes
-    it safe to run on every engine start in every process.
+    it safe to run on every engine start in every process. Prompt versions in
+    ``registered_prompt_ids`` are left as they are, so each keeps the time it
+    first appeared and version history stays in order.
     """
     from phases_v2.chunking.chunkers import DECLARED_CHUNKERS
     from phases_v2.chunking.registry import register_chunkers
@@ -136,7 +144,11 @@ def register_declarations(store) -> dict[str, list[str]]:
     from phases_v2.prompts.templates import declared_prompts
 
     return {
-        "prompts": register_prompts(store, list(declared_prompts())),
+        "prompts": register_prompts(
+            store,
+            list(declared_prompts()),
+            already_registered=registered_prompt_ids,
+        ),
         "chunkers": register_chunkers(store, list(DECLARED_CHUNKERS)),
         "models": register_models(store, list(DECLARED_MODELS)),
     }
@@ -154,4 +166,10 @@ def load_module_declarations(engine) -> dict[str, list[str]]:
 
     from phases_v2.datasets.row_store import DatasetRowStore
 
-    return register_declarations(DatasetRowStore(engine.services.dataset))
+    store = DatasetRowStore(engine.services.dataset)
+    # One small read per start: rewriting an existing version would move its
+    # registered_at to now and put a built-in text above versions saved after it.
+    registered = {
+        row["prompt_id"] for row in store.query("SELECT prompt_id FROM prompts")
+    }
+    return register_declarations(store, registered)

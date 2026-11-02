@@ -58,12 +58,17 @@ class IExtractedItemsPort(Protocol):
         prompts=None,
         models=None,
         paths=None,
+        papers=None,
     ) -> tuple[list[SearchHit], int]:
         """Query typed relation fields and enrich matches with source provenance."""
         ...
 
     def download_paper(self, item_id: str) -> tuple[str, bytes]:
         """Original PDF filename and bytes; FileNotFoundError if unavailable."""
+        ...
+
+    def download_paper_by_id(self, paper_id: str) -> tuple[str, bytes]:
+        """The same, for a paper named by its id."""
         ...
 
     def snapshot(self) -> int | None: ...
@@ -76,10 +81,17 @@ class IExtractedItemsPort(Protocol):
         prompts: list[str] | None = None,
         models: list[str] | None = None,
         paths: list[str] | None = None,
+        papers: list[str] | None = None,
     ) -> int: ...
 
-    def matching_item_ids(self, prompts=None, models=None, paths=None) -> set[str]:
-        """IDs satisfying provenance filters, without loading source text."""
+    def matching_item_ids(
+        self, prompts=None, models=None, paths=None, papers=None
+    ) -> set[str]:
+        """IDs satisfying provenance filters, without loading source text.
+
+        Every method taking ``papers`` limits results to those paper ids when
+        it is not None; an empty list matches nothing.
+        """
         ...
 
     def resolve_locations(self, item_ids: list[str]) -> dict[str, ItemLocation]:
@@ -94,6 +106,7 @@ class IExtractedItemsPort(Protocol):
         models: list[str] | None = None,
         paths: list[str] | None = None,
         offset: int = 0,
+        papers: list[str] | None = None,
     ) -> list[tuple[str, str, ItemLocation]]:
         """Word-presence search over extracted text.
 

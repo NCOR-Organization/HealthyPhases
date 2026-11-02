@@ -49,10 +49,19 @@ def ingest(
 
     records: list[PaperRecord] = []
     seen: set[str] = set()
+    # Every path whose content is a paper, the known ones included: `papers`
+    # keeps one path per paper, and a copy elsewhere must still be recognised.
+    paths: dict[str, str] = {}
+    papers_seen: set[str] = set()
     now = datetime.now(UTC)
 
     for location, key, content in discovered:
         paper_id = identity.paper_id(content)
+        path = f"{location.rstrip('/')}/{key.lstrip('/')}"
+        if known.get(paper_id):
+            papers_seen.add(paper_id)
+        if paper_id in papers_seen:
+            paths[path] = paper_id
 
         # Twice in one run, or already recorded with its text: either way
         # there is nothing left to do for this content.
@@ -84,6 +93,8 @@ def ingest(
         text_key = f"{paper_id}.md"
         source.put_object(text_prefix, text_key, text.encode("utf-8"))
 
+        paths[path] = paper_id
+        papers_seen.add(paper_id)
         report.paper_ids.append(paper_id)
         records.append(
             PaperRecord(
@@ -101,6 +112,8 @@ def ingest(
 
     if records:
         papers.save(records)
+    if paths:
+        papers.save_paths(paths, now)
     report.ingested = len(records)
     return report
 

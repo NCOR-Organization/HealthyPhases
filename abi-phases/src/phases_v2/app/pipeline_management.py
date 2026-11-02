@@ -46,11 +46,14 @@ class PipelineManagement:
         storage: ObjectSource | None,
         papers_root: str,
         is_model_available: Callable[[str], bool] | None = None,
+        paper_collections=None,
     ):
         self.rows = rows
         self.storage = storage
         self.root = papers_root
         self.is_model_available = is_model_available
+        #: Looks a collection up by id; raises KeyError when there is none.
+        self.paper_collections = paper_collections
 
     def _rows(self) -> RowStore:
         if self.rows is None:
@@ -139,9 +142,22 @@ class PipelineManagement:
         }
 
     def validate_inputs(self, inputs: dict) -> dict:
+        """Papers from storage folders or from one collection, and valid choices."""
         validate_message("PipelineInputs", inputs)
-        for location in inputs["locations"]:
+        locations = inputs.get("locations") or []
+        collection_id = inputs.get("collection_id") or ""
+        if locations and collection_id:
+            raise ValueError("Choose a collection or storage folders, not both.")
+        if not locations and not collection_id:
+            raise ValueError(
+                "locations: choose at least one storage folder, or a collection"
+            )
+        for location in locations:
             self.location(location)
+        if collection_id:
+            if self.paper_collections is None:
+                raise ManagementUnavailable("Collections are unavailable.")
+            self.paper_collections.collection(collection_id)
         self.validate_choices(inputs)
         return inputs
 
