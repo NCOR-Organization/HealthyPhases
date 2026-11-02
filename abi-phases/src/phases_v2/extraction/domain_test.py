@@ -3,8 +3,8 @@
 import json
 
 from phases_v2 import identity
-from phases_v2.extraction.domain import run_extraction
-from phases_v2.extraction.fakes import FakeExtractionStore, FakeModel
+from phases_v2.extraction.domain import RetryPolicy, run_extraction
+from phases_v2.extraction.fakes import FakeExtractionStore, FakeModel, FlakyModel
 from phases_v2.extraction.interfaces import FAILED, SUCCEEDED, ChunkRef
 from phases_v2.prompts.domain import PromptTemplate
 
@@ -366,3 +366,125 @@ def test_structured_items_are_stored_as_json_not_python_dictionary_repr():
     assert parse_items('{"results": ["ordinary claim"]}', "results")[1] == [
         "ordinary claim"
     ]
+
+
+# -- transient failures are retried, bounded ----------------------------
+
+
+def test_a_transient_failure_is_retried_and_then_succeeds():
+    store = _store(count=2)
+    model = FlakyModel(failures=2)
+    pauses: list[float] = []
+
+    report = _run(store, model=model, sleep=pauses.append)
+
+    assert (report.succeeded, report.failed) == (2, 0)
+    assert all(record.status == SUCCEEDED for record in store.extractions.values())
+    assert all(record.error is None for record in store.extractions.values())
+    # Two failures then the answer: three calls and two pauses per chunk.
+    assert sorted(model.calls.values()) == [3, 3]
+    assert len(pauses) == 4
+
+
+def test_retry_pauses_grow_and_stay_within_the_cap():
+    policy = RetryPolicy(max_attempts=6, base_delay=2.0, max_delay=10.0)
+
+    ceilings = [min(10.0, 2.0 * 2**n) for n in range(5)]
+    for attempt, ceiling in enumerate(ceilings, start=1):
+        for _ in range(50):
+            assert ceiling * 0.5 <= policy.delay_before_retry(attempt) <= ceiling
+
+
+def test_a_transient_failure_that_never_clears_is_recorded_after_the_last_attempt():
+    store = _store()
+    model = FlakyModel(failures=99)
+    pauses: list[float] = []
+
+    report = _run(
+        store,
+        model=model,
+        retry=RetryPolicy(max_attempts=4, base_delay=1.0, max_delay=8.0),
+        sleep=pauses.append,
+    )
+
+    record = next(iter(store.extractions.values()))
+    assert record.status == FAILED
+    assert "Connection error." in record.error
+    assert "gave up after 4 attempts" in record.error
+    assert (report.succeeded, report.failed) == (0, 1)
+    assert list(model.calls.values()) == [4]
+    assert len(pauses) == 3
+    assert store.items == {}
+
+
+def test_a_failed_chunk_is_still_outstanding_after_retries_are_exhausted():
+    store = _store()
+    _run(store, model=FlakyModel(failures=99), sleep=lambda _: None)
+
+    report = _run(store, model=FakeModel(), sleep=lambda _: None)
+
+    assert report.succeeded == 1
+
+
+def test_a_failure_the_model_does_not_call_transient_is_not_retried():
+    store = _store()
+    model = FlakyModel(failures=99, message="bad request", transient=False)
+    pauses: list[float] = []
+
+    _run(store, model=model, sleep=pauses.append)
+
+    record = next(iter(store.extractions.values()))
+    assert record.status == FAILED
+    assert record.error == "bad request"
+    assert list(model.calls.values()) == [1]
+    assert pauses == []
+
+
+def test_unusable_output_is_not_retried():
+    store = _store()
+    model = FakeModel(response="not json")
+    pauses: list[float] = []
+
+    _run(store, model=model, sleep=pauses.append)
+
+    record = next(iter(store.extractions.values()))
+    assert record.status == FAILED
+    assert len(model.prompts) == 1
+    assert pauses == []
+
+
+def test_a_single_attempt_policy_never_retries():
+    store = _store()
+    model = FlakyModel(failures=1)
+
+    report = _run(store, model=model, retry=RetryPolicy(max_attempts=1))
+
+    assert report.failed == 1
+    assert list(model.calls.values()) == [1]
+
+
+def test_a_retry_policy_must_allow_at_least_one_attempt():
+    import pytest
+
+    with pytest.raises(ValueError):
+        RetryPolicy(max_attempts=0)
+
+
+def test_a_response_under_the_key_a_renamed_prompt_used_to_use_still_parses():
+    from phases_v2.extraction.domain import parse_items
+
+    parsed, items = parse_items(
+        json.dumps({"logical_sentences": ["If a, then b."]}), "conditional_statement"
+    )
+
+    assert items == ["If a, then b."]
+    assert parsed == {"logical_sentences": ["If a, then b."]}
+
+
+def test_the_legacy_key_is_only_accepted_for_the_prompt_that_had_it():
+    import pytest
+
+    from phases_v2.extraction.domain import UnusableResponse, parse_items
+
+    with pytest.raises(UnusableResponse):
+        parse_items(json.dumps({"logical_sentences": ["x"]}), "results")

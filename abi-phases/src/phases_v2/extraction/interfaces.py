@@ -9,13 +9,33 @@ from typing import Any, Protocol
 SUCCEEDED = "succeeded"
 FAILED = "failed"
 
+# Answer keys a prompt's output used to be returned under. A prompt that was
+# renamed keeps the wording its earlier extractions were made with, and that
+# wording still asks for the old key, so both are accepted.
+LEGACY_OUTPUT_KEYS: dict[str, tuple[str, ...]] = {
+    "conditional_statement": ("logical_sentences",),
+}
+
 
 class ModelFailed(Exception):
-    """The model could not be called, or returned something unusable."""
+    """The model could not be called, or returned something unusable.
 
-    def __init__(self, message: str, *, raw_response: str | None = None):
+    ``transient`` is the adapter's statement that trying the same call again
+    may succeed — a dropped connection, a timeout, a rate limit, a provider
+    5xx. It is never set for unusable output: asking again for a different
+    answer is a decision about the prompt, not about the network.
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        raw_response: str | None = None,
+        transient: bool = False,
+    ):
         super().__init__(message)
         self.raw_response = raw_response
+        self.transient = transient
 
 
 @dataclass(frozen=True)
@@ -84,7 +104,8 @@ class ExtractionModel(Protocol):
         Implementations must support concurrent calls from extraction workers.
 
         Raises :class:`ModelFailed` for anything that stops one unit of work,
-        so a single bad call is recorded and the run continues.
+        so a single bad call is recorded and the run continues. Failures worth
+        retrying carry ``transient=True``; the domain does the retrying.
         """
         ...
 

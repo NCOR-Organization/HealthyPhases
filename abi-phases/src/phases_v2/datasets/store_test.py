@@ -7,6 +7,7 @@ a single stray ``append`` would duplicate rows with no error and no warning.
 
 import ast
 import pathlib
+import re
 
 import pytest
 from naas_abi_core.services.dataset.adapters.secondary.DatasetSecondaryAdapterDuckLake import (
@@ -171,10 +172,39 @@ def test_store_is_the_only_module_code_that_writes_to_a_dataset():
                     f"{path.relative_to(module_root)}:{node.lineno}"
                 )
 
+    offenders += _sql_mutations_outside_the_store(module_root)
+
     assert offenders == [], (
         "these call sites write to a dataset directly instead of going through "
         f"store.write_rows, so they can bypass mode='upsert': {offenders}"
     )
+
+
+_MUTATING_SQL = re.compile(
+    r"^\s*(DELETE\s+FROM|INSERT\s+INTO|UPDATE\s+\w+\s+SET|DROP\s+TABLE|TRUNCATE\s+TABLE)\b",
+    re.IGNORECASE,
+)
+
+
+def _sql_mutations_outside_the_store(module_root: pathlib.Path) -> list[str]:
+    """``DatasetService.query`` accepts any SQL, so a DELETE written anywhere
+    else would bypass the store just as a direct ``write`` would. Tests build
+    their own fixtures and are left alone."""
+    found = []
+    for path in sorted(module_root.rglob("*.py")):
+        if path.name in {"store.py"} or path.name.endswith("_test.py"):
+            continue
+        for node in ast.walk(ast.parse(path.read_text(), filename=str(path))):
+            text = None
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                text = node.value
+            elif isinstance(node, ast.JoinedStr) and node.values:
+                first = node.values[0]
+                if isinstance(first, ast.Constant) and isinstance(first.value, str):
+                    text = first.value
+            if text and _MUTATING_SQL.match(text):
+                found.append(f"{path.relative_to(module_root)}:{node.lineno}")
+    return found
 
 
 # -- helpers ------------------------------------------------------------
@@ -275,3 +305,39 @@ def test_recreate_brings_a_drifted_dataset_back_to_its_declared_schema(dataset):
 def test_recreate_rejects_an_unknown_dataset(dataset):
     with pytest.raises(KeyError):
         store.recreate(dataset, "not_a_dataset")
+
+
+def test_delete_rows_removes_only_the_named_rows(dataset):
+    store.ensure_datasets(dataset)
+    store.write_rows(dataset, "papers", [_paper("p1"), _paper("p2"), _paper("p3")])
+
+    deleted = store.delete_rows(dataset, "papers", "paper_id", ["p1", "p3", "nope"])
+
+    assert deleted == 2
+    assert _paper_ids(dataset) == ["p2"]
+
+
+def test_delete_rows_of_nothing_is_a_no_op(dataset):
+    store.ensure_datasets(dataset)
+    store.write_rows(dataset, "papers", [_paper("p1")])
+
+    assert store.delete_rows(dataset, "papers", "paper_id", []) == 0
+    assert _paper_ids(dataset) == ["p1"]
+
+
+def test_delete_rows_cannot_be_pointed_at_anything_but_a_declared_column(dataset):
+    store.ensure_datasets(dataset)
+
+    with pytest.raises(KeyError):
+        store.delete_rows(dataset, "nope", "paper_id", ["p1"])
+    with pytest.raises(KeyError):
+        store.delete_rows(dataset, "papers", "1=1 OR paper_id", ["p1"])
+
+
+def test_delete_rows_treats_values_as_data_not_sql(dataset):
+    store.ensure_datasets(dataset)
+    store.write_rows(dataset, "papers", [_paper("p1"), _paper("it's")])
+
+    store.delete_rows(dataset, "papers", "paper_id", ["it's", "x' OR '1'='1"])
+
+    assert _paper_ids(dataset) == ["p1"]

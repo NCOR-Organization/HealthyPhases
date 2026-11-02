@@ -32,6 +32,36 @@ class FakeModel:
         return self._response
 
 
+class FlakyModel:
+    """Fails transiently a set number of times, then answers.
+
+    ``failures`` counts per prompt text, so a run over several chunks gives each
+    chunk its own run of bad luck.
+    """
+
+    def __init__(
+        self,
+        failures: int,
+        *,
+        response: str | None = None,
+        message: str = "Connection error.",
+        transient: bool = True,
+    ):
+        self._failures = failures
+        self._response = (
+            response if response is not None else json.dumps({"results": ["a claim"]})
+        )
+        self._message = message
+        self._transient = transient
+        self.calls: dict[str, int] = {}
+
+    def complete(self, prompt: str) -> str:
+        self.calls[prompt] = self.calls.get(prompt, 0) + 1
+        if self.calls[prompt] <= self._failures:
+            raise ModelFailed(self._message, transient=self._transient)
+        return self._response
+
+
 class FakeExtractionStore:
     def __init__(self, chunks: list[ChunkRef] | None = None):
         self._chunks = list(chunks or [])

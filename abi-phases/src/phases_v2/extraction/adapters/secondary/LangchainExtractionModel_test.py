@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage
 
 from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
     LangchainExtractionModel,
+    is_transient,
 )
 from phases_v2.extraction.interfaces import ModelFailed
 from phases_v2.extraction.tests.extraction_model__secondary_adapter__generic_test import (
@@ -117,6 +118,68 @@ class TestLangchainExtractionModel(ExtractionModelContract):
     def test_provider_error_is_preserved(self):
         with pytest.raises(ModelFailed, match="503"):
             LangchainExtractionModel(_StubChat(RuntimeError("503"))).complete("x")
+
+
+class _StatusError(Exception):
+    def __init__(self, status_code):
+        super().__init__(f"HTTP {status_code}")
+        self.status_code = status_code
+
+
+class APIConnectionError(Exception):
+    """Stands in for the provider SDKs' same-named connection error."""
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [
+        APIConnectionError("Connection error."),
+        ConnectionResetError("reset"),
+        TimeoutError("timed out"),
+        _StatusError(429),
+        _StatusError(500),
+        _StatusError(503),
+        _StatusError(529),
+        _StatusError(408),
+    ],
+)
+def test_connection_timeout_rate_limit_and_server_errors_are_transient(failure):
+    chat = _StubChat(failure)
+    with pytest.raises(ModelFailed) as caught:
+        LangchainExtractionModel(chat).complete("x")
+    assert caught.value.transient is True
+    assert is_transient(failure)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    [_StatusError(400), _StatusError(401), _StatusError(404), RuntimeError("boom")],
+)
+def test_client_errors_and_unknown_errors_are_not_transient(failure):
+    with pytest.raises(ModelFailed) as caught:
+        LangchainExtractionModel(_StubChat(failure)).complete("x")
+    assert caught.value.transient is False
+
+
+def test_an_answer_under_the_legacy_key_is_accepted_as_the_current_one():
+    chat = _StubChat(_message({"logical_sentences": ["If a, then b."]}))
+
+    result = LangchainExtractionModel(chat, "conditional_statement").complete("x")
+
+    assert json.loads(result) == {"conditional_statement": ["If a, then b."]}
+
+
+def test_the_legacy_key_is_not_accepted_for_other_outputs():
+    with pytest.raises(ModelFailed):
+        LangchainExtractionModel(
+            _StubChat(_message({"logical_sentences": ["x"]})), "what"
+        ).complete("x")
+
+
+def test_unusable_tool_output_is_never_transient():
+    with pytest.raises(ModelFailed) as caught:
+        LangchainExtractionModel(_StubChat(_message({"wrong": []}))).complete("x")
+    assert caught.value.transient is False
 
 
 RELATION = {

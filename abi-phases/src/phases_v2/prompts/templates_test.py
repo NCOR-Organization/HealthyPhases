@@ -1,5 +1,6 @@
 """The declared templates must be valid, stable, and literally what is sent."""
 
+from phases_v2.extraction.interfaces import LEGACY_OUTPUT_KEYS
 from phases_v2.prompts.domain import CHUNK_PLACEHOLDER, validate
 from phases_v2.prompts.templates import declared_prompts
 
@@ -64,4 +65,28 @@ def test_rendering_is_unfazed_by_braces_in_the_chunk_text():
 
 def test_output_keys_match_what_each_prompt_asks_the_model_for():
     for template in declared_prompts():
-        assert f'"{template.output_key}"' in template.template, template.name
+        accepted = (
+            template.output_key,
+            *LEGACY_OUTPUT_KEYS.get(template.output_key, ()),
+        )
+        assert any(f'"{key}"' in template.template for key in accepted), template.name
+
+
+def test_the_two_conditional_statement_versions_are_distinct_prompts():
+    versions = [t for t in declared_prompts() if t.name == "conditional_statement"]
+
+    assert len(versions) == 2
+    assert len({t.prompt_id for t in versions}) == 2
+
+
+def test_the_earlier_conditional_statement_version_is_the_text_the_model_received():
+    # The id is a hash of the template, and extractions made before the rename
+    # were keyed by it. Any edit here — even whitespace — would orphan them.
+    earlier = {t.prompt_id: t for t in declared_prompts()}[
+        "conditional_statement_1624d6b1d2f8"
+    ]
+
+    assert earlier.name == "conditional_statement"
+    assert earlier.output_key == "conditional_statement"
+    # It still asks the model for its answer under the name it had before.
+    assert '"logical_sentences"' in earlier.template

@@ -24,16 +24,25 @@ from phases_v2.prompts.domain import PromptTemplate
 
 _DIR = Path(__file__).parent / "templates"
 
-# (file stem, output key) — the key the model is asked to return its list under.
-_DECLARED: tuple[tuple[str, str], ...] = (
-    ("solitude_what", "what"),
-    ("solitude_causes", "causes"),
-    ("solitude_how", "how"),
-    ("solitude_when", "when"),
-    ("solitude_where", "where"),
-    ("solitude_effects", "effects"),
-    ("conditional_statement", "conditional_statement"),
-    ("probabilistic_processes", "relations"),
+# (prompt name, file stem, output key) — the key the model is asked to return
+# its list under.
+#
+# `conditional_statement` is declared twice, as two versions of one prompt: the
+# current text, and the earlier wording the prompt had when it was called
+# `logical_sentences`. The earlier version carries the extractions made before
+# the rename, so its text must stay byte-for-byte what the model received (its
+# id is a hash of that text). That wording asks for its answer under the old
+# key, which `extraction.interfaces.LEGACY_OUTPUT_KEYS` still accepts.
+_DECLARED: tuple[tuple[str, str, str], ...] = (
+    ("solitude_what", "solitude_what", "what"),
+    ("solitude_causes", "solitude_causes", "causes"),
+    ("solitude_how", "solitude_how", "how"),
+    ("solitude_when", "solitude_when", "when"),
+    ("solitude_where", "solitude_where", "where"),
+    ("solitude_effects", "solitude_effects", "effects"),
+    ("conditional_statement", "conditional_statement", "conditional_statement"),
+    ("conditional_statement", "conditional_statement_v1", "conditional_statement"),
+    ("probabilistic_processes", "probabilistic_processes", "relations"),
 )
 
 
@@ -41,9 +50,9 @@ _DECLARED: tuple[tuple[str, str], ...] = (
 def declared_prompts() -> tuple[PromptTemplate, ...]:
     return tuple(
         PromptTemplate(
-            name=stem,
+            name=name,
             template=(_DIR / f"{stem}.txt").read_text(),
             output_key=output_key,
         )
-        for stem, output_key in _DECLARED
+        for name, stem, output_key in _DECLARED
     )
