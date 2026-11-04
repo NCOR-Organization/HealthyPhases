@@ -243,7 +243,8 @@ def attempt(
     With a ``retry`` policy, transient provider failures are retried before the
     call is given up on; without one the model is called once. An answer that
     fails validation or parsing is asked for again with the identical request,
-    up to ``answer_attempts`` answers in all; the last one is kept.
+    up to ``answer_attempts`` answers in all; the last one is kept, also when a
+    later attempt ends in a provider failure (whose message is the error).
 
     The only place a prompt is rendered and its answer parsed, so a run and a
     try of the same prompt on the same text cannot read the answer differently.
@@ -253,6 +254,9 @@ def attempt(
         raise ValueError("answer_attempts must be at least 1")
     rendered = prompt.rendered_for(text)
     answers = 0
+    # The last invalid answer, kept if a later attempt ends at the provider,
+    # so the chunk still has an answer a later re-check can read.
+    last_answer: str | None = None
     while True:
         answers += 1
         raw: str | None = None
@@ -265,6 +269,7 @@ def attempt(
             if isinstance(failure, InvalidAnswer):
                 raw = failure.raw_response
             if answers < answer_attempts:
+                last_answer = raw if raw is not None else last_answer
                 continue
             error = str(failure)
             if answers > 1:
@@ -274,7 +279,14 @@ def attempt(
             # matters, so it goes to `raw` verbatim.
             return Attempt(FAILED, None, raw, error, [])
         except ModelFailed as failure:
-            return Attempt(FAILED, None, failure.raw_response, str(failure), [])
+            kept = failure.raw_response
+            return Attempt(
+                FAILED,
+                None,
+                kept if kept is not None else last_answer,
+                str(failure),
+                [],
+            )
         return Attempt(SUCCEEDED, response, raw, None, items)
 
 

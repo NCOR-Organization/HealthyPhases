@@ -322,7 +322,10 @@ with the identical request, with nothing added, up to 3 answers in all
 (`ANSWER_ATTEMPTS` in `extraction/domain.py`). Each answer has its own
 transient-failure budget. A chunk still invalid after the third answer is
 recorded `failed`, with the last answer in `raw_response` and the reason plus
-`(gave up after 3 attempts)` in `error`. Trying a prompt in the playground
+`(gave up after 3 attempts)` in `error`. If a later attempt ends at the
+provider instead (a non-transient error, or transient retries running out), the
+error is the provider's, and the last invalid answer is still kept in
+`raw_response` so it can be re-checked. Trying a prompt in the playground
 (`POST /prompts/try`) asks once, because of its 90-second deadline, and accepts
 the same answers as a run.
 
@@ -340,10 +343,20 @@ passes is written as a live success would be: its items first, with the ids a
 run derives, then the extraction as `succeeded` with `response` and
 `item_count` set and `error` cleared, keeping its `run_id` and `completed_at`.
 An answer still invalid stays `failed`, and its `error` is rewritten with the
-detailed reason if that differs. Failed calls with no stored answer are not
-touched. It prints before/after counts by prompt, model and reason, writes
-nothing on `--dry-run`, and a second run finds nothing to do. It does not
-project: the next projection run picks up the new items.
+detailed reason if that differs (an error a run stored with
+`(gave up after N attempts)` keeps its count). Failed calls with no stored
+answer, stored answers that are not a tool-call message, and prompts with no
+output contract are left as they are and counted. It prints before/after counts
+by prompt, model and reason, writes nothing on `--dry-run`, and a second run
+finds nothing to do. It does not project: the next projection run picks up the
+new items.
+
+Run it while no extraction run is active. As a guard, every row it is about to
+write is read again first, and one whose status, stored answer or error changed
+since the re-check read it (a run finished that chunk meanwhile) is left as the
+run wrote it. The `extraction_runs` totals are not changed: a run whose rows
+flip to `succeeded` still counts them as failed, so read outcomes from
+`extractions`, not from run totals.
 
 ### Renaming a prompt
 

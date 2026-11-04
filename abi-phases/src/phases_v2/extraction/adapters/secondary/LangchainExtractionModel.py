@@ -82,18 +82,29 @@ class LangchainExtractionModel:
         """Read a stored failed answer again, exactly as a live call reads one.
 
         ``raw_response`` is the message a failed call kept. Nothing is sent to
-        the model. Raises :class:`InvalidAnswer` as a live call would, or
-        :class:`NotAToolCallMessage` when there is no message to read.
+        the model. Raises :class:`InvalidAnswer` as a live call would,
+        :class:`NotAToolCallMessage` when there is no message to read, and
+        :class:`UnknownOutput` when ``output_key`` has no output contract.
         """
         from langchain_core.messages import AIMessage
 
+        schema = ExtractionToolSchema(output_key)
         try:
-            response = AIMessage.model_validate_json(raw_response)
-        except ValueError as failure:
+            decoded = json.loads(raw_response)
+        except (TypeError, ValueError) as failure:
+            raise NotAToolCallMessage("stored answer is not JSON") from failure
+        # A failed call stores ``AIMessage.model_dump_json()``, which always
+        # carries ``"type": "ai"``, the type tag of a model reply. Anything else
+        # is not such a reply, whatever keys it happens to have.
+        if not isinstance(decoded, dict) or decoded.get("type") != "ai":
+            raise NotAToolCallMessage("stored answer is not a tool-call message")
+        try:
+            response = AIMessage.model_validate(decoded)
+        except Exception as failure:  # noqa: BLE001 - any rebuild failure means the same
             raise NotAToolCallMessage(
-                "stored answer is not a tool-call message"
+                f"stored answer is not a tool-call message: {failure}"
             ) from failure
-        return _read_answer(response, ExtractionToolSchema(output_key), output_key)
+        return _read_answer(response, schema, output_key)
 
 
 def _read_answer(response: Any, schema: ExtractionToolSchema, output_key: str) -> str:

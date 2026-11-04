@@ -19,6 +19,7 @@ from phases_v2.extraction.domain import run_extraction
 from phases_v2.extraction.fakes import FakeExtractionStore
 from phases_v2.extraction.interfaces import ChunkRef
 from phases_v2.migrations.recheck_failed_extractions import reason, recheck
+from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
 
 PROMPTS = {prompt.name: prompt for prompt in declared_prompts()}
@@ -332,30 +333,130 @@ def test_counts_are_reported_by_prompt_model_and_reason(seeded):
     assert "now accepted: 2" in rendered
 
 
-def test_a_stored_answer_that_is_not_a_tool_call_is_left_as_it_is(dataset):
-    row = _failed("c9", GPT, RELATIONS, args={"relations": []}) | {
-        "raw_response": "Sorry, I cannot help with that."
-    }
-    store.write_rows(dataset, "extractions", [row])
+def _register(dataset, *prompts):
     store.write_rows(
         dataset,
         "prompts",
         [
             {
-                "prompt_id": RELATIONS.prompt_id,
-                "name": RELATIONS.name,
-                "prompt_sha256": identity.prompt_sha256(RELATIONS.template),
-                "template": RELATIONS.template,
-                "output_key": RELATIONS.output_key,
+                "prompt_id": prompt.prompt_id,
+                "name": prompt.name,
+                "prompt_sha256": identity.prompt_sha256(prompt.template),
+                "template": prompt.template,
+                "output_key": prompt.output_key,
                 "registered_at": WHEN,
             }
+            for prompt in prompts
         ],
+    )
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        "Sorry, I cannot help with that.",
+        '{"relations": [{"direction": "increases"}]}',
+        "[]",
+        "null",
+    ],
+)
+def test_a_stored_answer_that_is_not_a_tool_call_is_left_as_it_is(dataset, stored):
+    _register(dataset, RELATIONS)
+    row = _failed("c9", GPT, RELATIONS, args={"relations": []}) | {
+        "raw_response": stored
+    }
+    store.write_rows(dataset, "extractions", [row])
+
+    dry = recheck(dataset, dry_run=True)
+    report = recheck(dataset)
+
+    row = _extraction(dataset, "c9")
+    assert (row["status"], row["raw_response"], row["error"]) == (
+        "failed",
+        stored,
+        OLD_ERROR,
+    )
+    for result in (dry, report):
+        assert result.changed == 0
+        assert (
+            result.outcomes["left as is: stored answer is not a tool-call message"] == 1
+        )
+
+
+def test_a_prompt_with_no_output_contract_is_left_as_it_is(dataset):
+    mystery = PromptTemplate("mystery", "Find {chunk_text}", "no_such_key")
+    _register(dataset, mystery)
+    store.write_rows(
+        dataset,
+        "extractions",
+        [_failed("c9", GPT, mystery, args={"no_such_key": ["x"]})],
     )
 
     report = recheck(dataset)
 
     assert _extraction(dataset, "c9")["error"] == OLD_ERROR
     assert report.changed == 0
+    assert (
+        report.outcomes["left as is: no output contract for the prompt's answer key"]
+        == 1
+    )
+
+
+def test_a_reason_stored_with_its_attempt_count_is_kept(dataset):
+    _register(dataset, RELATIONS)
+    stored = (
+        "invalid RelationsOutput: relations[0].direction: 'alters' is not one of "
+        "increases, decreases, no-effect (gave up after 3 attempts)"
+    )
+    store.write_rows(
+        dataset,
+        "extractions",
+        [_failed("c9", GPT, RELATIONS, args={"relations": [ALTERS]}, error=stored)],
+    )
+
+    report = recheck(dataset)
+
+    assert _extraction(dataset, "c9")["error"] == stored
+    assert report.changed == 0
+    assert report.outcomes["still invalid, reason unchanged"] == 1
+    assert "nothing to do" in report.render()
+
+
+def test_a_row_a_run_writes_while_the_recheck_reads_is_left_as_the_run_wrote_it(
+    seeded,
+):
+    chunk, model, prompt, _ = ROWS["long evidence"]
+    newer = _failed(chunk, model, prompt) | {
+        "run_id": "run-newer",
+        "status": "succeeded",
+        "response": {"relations": [RELATION]},
+        "raw_response": '{"relations": []}',
+        "error": None,
+        "item_count": 1,
+    }
+    done = []
+
+    def read_while_a_run_succeeds(raw, output_key):
+        # The run finishes this chunk after the re-check took its list of
+        # failed rows, and before it writes.
+        if not done:
+            store.write_rows(seeded, "extractions", [newer])
+            done.append(True)
+        return LangchainExtractionModel.reread(raw, output_key)
+
+    report = recheck(seeded, read=read_while_a_run_succeeds)
+
+    row = _extraction(seeded, chunk)
+    assert (row["status"], row["run_id"]) == ("succeeded", "run-newer")
+    assert not [
+        item
+        for item in _rows(seeded, "extracted_items", "item_id")
+        if item["chunk_id"] == chunk
+    ]
+    assert report.outcomes["left as is: changed by a run since it was read"] == 1
+    # The rest went ahead.
+    assert _extraction(seeded, "c2")["status"] == "succeeded"
+    assert report.outcomes["now accepted"] == 1
 
 
 @pytest.mark.parametrize(

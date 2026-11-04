@@ -5,6 +5,9 @@ import json
 import pytest
 from langchain_core.messages import AIMessage
 
+from phases_v2.extraction.adapters.secondary.extraction_tool_schema import (
+    UnknownOutput,
+)
 from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
     LangchainExtractionModel,
     NotAToolCallMessage,
@@ -374,9 +377,27 @@ def test_a_stored_answer_that_is_still_invalid_says_why():
         LangchainExtractionModel.reread(stored.model_dump_json(), "relations")
 
 
-def test_a_stored_answer_that_is_not_a_message_cannot_be_reread():
+@pytest.mark.parametrize(
+    "stored",
+    [
+        '{"relations": []',  # not JSON
+        '{"results": ["x"]}',  # a bare answer object
+        '{"content": "", "tool_calls": []}',  # message-like, but not one
+        "[]",
+        "null",
+        '"text"',
+        "42",
+        '{"type": "ai", "content": 42, "tool_calls": "x"}',
+    ],
+)
+def test_a_stored_answer_that_is_not_a_message_cannot_be_reread(stored):
     with pytest.raises(NotAToolCallMessage):
-        LangchainExtractionModel.reread('{"relations": []', "relations")
+        LangchainExtractionModel.reread(stored, "relations")
+
+
+def test_a_stored_answer_for_an_unknown_output_cannot_be_reread():
+    with pytest.raises(UnknownOutput):
+        LangchainExtractionModel.reread(_message().model_dump_json(), "no_such_key")
 
 
 def test_real_langchain_client_sends_forced_tool_and_parses_arguments():

@@ -17,12 +17,20 @@ the answer is read through the same code as a live call
   from that call;
 - an answer still invalid stays ``failed``; its ``error`` is rewritten with the
   detailed reason only if that differs from the stored one;
-- a failed call with no stored answer is not touched.
+- a failed call with no stored answer is not touched, nor is a stored answer
+  that is not a tool-call message, or one whose prompt has no output contract.
 
-Nothing is projected here; the next projection run picks up the new items. Every
-write goes through :mod:`phases_v2.datasets.store`. A second run finds nothing
-to do: what passed is no longer failed, and what is still invalid already
-carries its detailed reason.
+A run may write to the same rows while this is working. Run it while no
+extraction run is active; in any case every planned row is read again just
+before writing, and a row whose status, stored answer or error changed since it
+was first read is left as the run wrote it.
+
+Nothing is projected here; the next projection run picks up the new items. The
+``extraction_runs`` totals of the runs whose rows flip to ``succeeded`` are not
+changed: they say what each run saw at the time. Every write goes through
+:mod:`phases_v2.datasets.store`. A second run finds nothing to do: what passed
+is no longer failed, and what is still invalid already carries its detailed
+reason (with or without the attempt count a run adds).
 
 Run on the deployment with::
 
@@ -45,6 +53,9 @@ from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.extraction.adapters.secondary.DatasetExtractionStore import (
     DatasetExtractionStore,
 )
+from phases_v2.extraction.adapters.secondary.extraction_tool_schema import (
+    UnknownOutput,
+)
 from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
     LangchainExtractionModel,
     NotAToolCallMessage,
@@ -65,6 +76,7 @@ from phases_v2.extraction.interfaces import (
     InvalidAnswer,
 )
 from phases_v2.prompts.domain import PromptTemplate
+from phases_v2.sql import in_list
 
 # Reads a stored answer as a live call reads one: ``(raw_response, output_key)``
 # to the validated answer text, or raises InvalidAnswer.
@@ -82,9 +94,19 @@ ACCEPTED = "now accepted"
 REWRITTEN = "still invalid, reason rewritten"
 UNCHANGED = "still invalid, reason unchanged"
 NOT_A_MESSAGE = "left as is: stored answer is not a tool-call message"
+NO_CONTRACT = "left as is: no output contract for the prompt's answer key"
+CHANGED = "left as is: changed by a run since it was read"
 NO_PROMPT = "left as is: prompt is not registered"
 NO_CHUNK = "left as is: chunk no longer exists"
 ID_MISMATCH = "left as is: extraction id does not match its chunk, model and prompt"
+
+
+_GAVE_UP = re.compile(r" \(gave up after \d+ attempts\)$")
+
+
+def _without_attempts(error: str) -> str:
+    """``error`` without the attempt count a run appends when it gives up."""
+    return _GAVE_UP.sub("", error)
 
 
 def reason(error: str | None) -> str:
@@ -95,7 +117,7 @@ def reason(error: str | None) -> str:
     """
     if not error:
         return "(no error)"
-    text = re.sub(r" \(gave up after \d+ attempts\)$", "", error)
+    text = _without_attempts(error)
     head, _, rest = text.partition(": ")
     first = rest.split("; ")[0] if rest else ""
     text = f"{head}: {first}" if first else head
@@ -112,15 +134,17 @@ class _Failed:
 
 
 @dataclass
-class _Plan:
-    """What each stored failed answer becomes."""
+class _Entry:
+    """What one stored failed answer becomes."""
 
-    outcomes: dict[str, str] = field(default_factory=dict)  # extraction id -> kind
-    before: Counter = field(default_factory=Counter)
-    after: Counter = field(default_factory=Counter)
+    failed: _Failed
+    kind: str
+    # The row to write, and the items to write before it; None and [] when
+    # the row is left as it is.
+    extraction: ExtractionRecord | None = None
     items: list[ExtractedItemRecord] = field(default_factory=list)
-    extractions: list[ExtractionRecord] = field(default_factory=list)
-    without_answer: int = 0
+    # The reason the report counts it under afterwards.
+    after: str = ""
 
 
 @dataclass
@@ -154,7 +178,9 @@ class Report:
             ACCEPTED,
             REWRITTEN,
             UNCHANGED,
+            CHANGED,
             NOT_A_MESSAGE,
+            NO_CONTRACT,
             NO_PROMPT,
             NO_CHUNK,
             ID_MISMATCH,
@@ -235,9 +261,16 @@ def _recheck(failed: _Failed, read: Reader) -> tuple[str, Any]:
         response, items = parse_items(text, output_key)
     except NotAToolCallMessage:
         return NOT_A_MESSAGE, None
+    except UnknownOutput:
+        return NO_CONTRACT, None
     except (InvalidAnswer, UnusableResponse) as failure:
         error = str(failure)
-        return (UNCHANGED, None) if error == record.error else (REWRITTEN, error)
+        # A run stores the same reason followed by its attempt count; that
+        # count is kept.
+        stored = record.error or ""
+        if error in (stored, _without_attempts(stored)):
+            return UNCHANGED, None
+        return REWRITTEN, error
 
     if failed.paper_id is None:
         return NO_CHUNK, None
@@ -257,37 +290,71 @@ def _recheck(failed: _Failed, read: Reader) -> tuple[str, Any]:
     return ACCEPTED, (extraction, item_rows)
 
 
-def _plan(rows: DatasetRowStore, read: Reader) -> _Plan:
-    plan = _Plan(without_answer=_without_answer(rows))
+def _plan(rows: DatasetRowStore, read: Reader) -> list[_Entry]:
+    entries = []
     for failed in _failed_answers(rows):
         record = failed.record
         kind, detail = _recheck(failed, read)
-        plan.outcomes[record.extraction_id] = kind
-        plan.before[(record.prompt_id, record.model_id, reason(record.error))] += 1
+        entry = _Entry(failed, kind, after=reason(record.error))
         if kind == ACCEPTED:
-            extraction, item_rows = detail
-            plan.items.extend(item_rows)
-            plan.extractions.append(extraction)
-            after = SUCCEEDED
+            entry.extraction, entry.items = detail
+            entry.after = SUCCEEDED
         elif kind == REWRITTEN:
-            plan.extractions.append(replace(record, error=detail))
-            after = reason(detail)
+            entry.extraction = replace(record, error=detail)
+            entry.after = reason(detail)
+        entries.append(entry)
+    return entries
+
+
+def _drop_changed(rows: DatasetRowStore, entries: list[_Entry]) -> None:
+    """Leave alone every planned row a run has written since it was read.
+
+    Without this, a chunk a run extracted successfully while the re-check was
+    reading would be put back to the stale ``failed`` row.
+    """
+    planned = {
+        entry.failed.record.extraction_id: entry
+        for entry in entries
+        if entry.extraction is not None
+    }
+    ids = sorted(planned)
+    current: dict[str, dict[str, Any]] = {}
+    for start in range(0, len(ids), _BATCH):
+        for row in rows.query(
+            "SELECT extraction_id, status, raw_response, error FROM extractions "
+            f"WHERE extraction_id IN {in_list(ids[start : start + _BATCH])}"  # nosec B608 - in_list escapes every value
+        ):
+            current[row["extraction_id"]] = row
+    for extraction_id, entry in planned.items():
+        record = entry.failed.record
+        now = current.get(extraction_id)
+        if now is not None and (
+            now["status"],
+            now["raw_response"],
+            now["error"],
+        ) == (record.status, record.raw_response, record.error):
+            continue
+        entry.kind, entry.extraction, entry.items = CHANGED, None, []
+        if now is None:
+            entry.after = "(row deleted)"
+        elif now["status"] == SUCCEEDED:
+            entry.after = SUCCEEDED
         else:
-            after = reason(record.error)
-        plan.after[(record.prompt_id, record.model_id, after)] += 1
-    return plan
+            entry.after = reason(now["error"])
 
 
-def _write(store: DatasetExtractionStore, plan: _Plan) -> None:
+def _write(store: DatasetExtractionStore, entries: list[_Entry]) -> None:
     """Every item first, then the extraction rows that own them.
 
     The extraction row is what marks a chunk done, so a run that stops half
     way leaves the rest still failed, and a repeat picks them up.
     """
-    for start in range(0, len(plan.items), _BATCH):
-        store.save_items(plan.items[start : start + _BATCH])
-    for start in range(0, len(plan.extractions), _BATCH):
-        store.save_extractions(plan.extractions[start : start + _BATCH])
+    items = [item for entry in entries for item in entry.items]
+    extractions = [entry.extraction for entry in entries if entry.extraction]
+    for start in range(0, len(items), _BATCH):
+        store.save_items(items[start : start + _BATCH])
+    for start in range(0, len(extractions), _BATCH):
+        store.save_extractions(extractions[start : start + _BATCH])
 
 
 def recheck(
@@ -297,16 +364,25 @@ def recheck(
     read: Reader = LangchainExtractionModel.reread,
 ) -> Report:
     rows = DatasetRowStore(dataset)
-    plan = _plan(rows, read)
+    without_answer = _without_answer(rows)
+    entries = _plan(rows, read)
+    _drop_changed(rows, entries)
     if not dry_run:
-        _write(DatasetExtractionStore(rows), plan)
+        _write(DatasetExtractionStore(rows), entries)
+
+    before: Counter = Counter()
+    after: Counter = Counter()
+    for entry in entries:
+        record = entry.failed.record
+        before[(record.prompt_id, record.model_id, reason(record.error))] += 1
+        after[(record.prompt_id, record.model_id, entry.after)] += 1
     return Report(
         dry_run=dry_run,
-        before=plan.before,
-        after=plan.after,
-        outcomes=Counter(plan.outcomes.values()),
-        items=len(plan.items),
-        without_answer=plan.without_answer,
+        before=before,
+        after=after,
+        outcomes=Counter(entry.kind for entry in entries),
+        items=sum(len(entry.items) for entry in entries),
+        without_answer=without_answer,
     )
 
 

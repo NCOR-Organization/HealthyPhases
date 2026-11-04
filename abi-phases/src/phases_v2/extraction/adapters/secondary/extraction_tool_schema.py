@@ -68,6 +68,13 @@ def _field_rules(field) -> Any:
     ]
 
 
+def _messages(messages):
+    """Every message in ``messages``, nested ones included."""
+    for message in messages:
+        yield message
+        yield from _messages(message.nested_type)
+
+
 def _relaxed(descriptor_set: descriptor_pb2.FileDescriptorSet):
     """A copy of ``descriptor_set`` with its length and count limits raised."""
     relaxed = descriptor_pb2.FileDescriptorSet()
@@ -75,7 +82,7 @@ def _relaxed(descriptor_set: descriptor_pb2.FileDescriptorSet):
     for file in relaxed.file:
         if file.package != _PACKAGE:
             continue
-        for message in file.message_type:
+        for message in _messages(file.message_type):
             for field in message.field:
                 options = _OPTIONS.FromString(field.options.SerializeToString())
                 if not options.HasExtension(_RULES):
@@ -95,6 +102,10 @@ def _relaxed(descriptor_set: descriptor_pb2.FileDescriptorSet):
 
 # What we accept: the same messages under the raised limits.
 _ACCEPT_POOL = _pool(_relaxed(_DESCRIPTOR))
+
+
+class UnknownOutput(ValueError):
+    """No output message is declared for this output key."""
 
 
 class InvalidArguments(ValueError):
@@ -175,7 +186,7 @@ class ExtractionToolSchema:
         try:
             descriptor = _ASK_POOL.FindMessageTypeByName(f"{_PACKAGE}.{name}")
         except KeyError as failure:
-            raise ValueError(f"No extraction schema for {output_key!r}") from failure
+            raise UnknownOutput(f"No extraction schema for {output_key!r}") from failure
         self._name = name
         self._message = message_factory.GetMessageClass(
             _ACCEPT_POOL.FindMessageTypeByName(f"{_PACKAGE}.{name}")

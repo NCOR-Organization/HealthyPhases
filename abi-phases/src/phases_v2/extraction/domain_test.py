@@ -577,6 +577,39 @@ def test_transient_failures_after_an_invalid_answer_still_end_the_chunk():
     assert list(model.calls.values()) == [3]
 
 
+def test_an_invalid_answer_is_kept_when_a_later_attempt_fails_at_the_provider():
+    store = _store()
+    model = ScriptedModel(
+        _invalid(raw="the answer"), ModelFailed("HTTP 400 bad request")
+    )
+
+    _run(store, model=model, sleep=lambda _: None)
+
+    [record] = store.extractions.values()
+    assert record.status == FAILED
+    assert record.error == "HTTP 400 bad request"
+    assert record.raw_response == "the answer"
+    assert list(model.calls.values()) == [2]
+
+
+def test_an_invalid_answer_is_kept_when_later_transient_retries_run_out():
+    store = _store()
+    model = ScriptedModel(
+        _invalid(raw="the answer"), ModelFailed("Connection error.", transient=True)
+    )
+
+    _run(
+        store,
+        model=model,
+        retry=RetryPolicy(max_attempts=2, base_delay=0, max_delay=0),
+        sleep=lambda _: None,
+    )
+
+    [record] = store.extractions.values()
+    assert record.error == "Connection error. (gave up after 2 attempts)"
+    assert record.raw_response == "the answer"
+
+
 def test_answer_attempts_can_be_set_per_run():
     store = _store()
     model = ScriptedModel(_invalid())

@@ -10,10 +10,14 @@ import json
 import pytest
 
 from phases_v2.extraction.adapters.secondary.extraction_tool_schema import (
+    _ACCEPT_POOL,
+    _ASK_POOL,
+    _PACKAGE,
     ACCEPTED_MAX_ITEMS,
     ACCEPTED_MAX_LEN,
     ExtractionToolSchema,
     InvalidArguments,
+    _field_rules,
 )
 from phases_v2.prompts.templates import declared_prompts
 
@@ -111,3 +115,45 @@ def test_the_accepted_limits_are_wider_than_the_asked_ones():
     schema.validate({"relations": [relation] * 30})
     with pytest.raises(InvalidArguments, match="length 501 exceeds 500"):
         schema.validate({"relations": [relation | {"evidence_text": "x" * 501}]})
+
+
+def _limits(pool):
+    """Every (message.field, rule, limit) of the output package in ``pool``."""
+    found = []
+
+    def walk(message):
+        for field in message.fields:
+            rules = _field_rules(field)
+            for kind, string in (
+                ("max_len", rules.string),
+                ("max_len", rules.repeated.items.string),
+            ):
+                if string.HasField("max_len"):
+                    found.append((f"{message.name}.{field.name}", kind, string.max_len))
+            if rules.repeated.HasField("max_items"):
+                found.append(
+                    (
+                        f"{message.name}.{field.name}",
+                        "max_items",
+                        rules.repeated.max_items,
+                    )
+                )
+        for nested in message.nested_types:
+            walk(nested)
+
+    file = pool.FindFileContainingSymbol(f"{_PACKAGE}.RelationsOutput")
+    for message in file.message_types_by_name.values():
+        walk(message)
+    return found
+
+
+def test_every_accepted_limit_is_at_least_the_accepted_value():
+    asked = _limits(_ASK_POOL)
+    accepted = _limits(_ACCEPT_POOL)
+    assert [(name, kind) for name, kind, _ in accepted] == [
+        (name, kind) for name, kind, _ in asked
+    ]
+    assert len(accepted) == 10  # 9 list limits and the evidence length
+    floor = {"max_len": ACCEPTED_MAX_LEN, "max_items": ACCEPTED_MAX_ITEMS}
+    for (name, kind, limit), (_, _, ask) in zip(accepted, asked):
+        assert limit >= max(floor[kind], ask), name
