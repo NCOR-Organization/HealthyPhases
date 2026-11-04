@@ -380,7 +380,8 @@ uv run abi run script src/phases_v2/migrations/rename_prompt.py
 
 It re-derives each extraction and item id under the new prompt id, repoints
 `extraction_runs`, `pipelines` and `run_requests`, deletes the old projection
-ledger entries and Qdrant points (so the next vector projection embeds the items
+ledger entries, Qdrant points, and the old extractions' and items' triples in the
+extractions graph (so the next vector and graph projections write them again
 under their new ids), then deletes the old rows. It prints before/after counts,
 changes nothing on `--dry-run`, and a second run finds nothing to do. Stored
 templates and responses are not edited: they are what the model received and
