@@ -498,9 +498,12 @@ def main(engine: Any, argv: list[str]) -> Report:
         QdrantAdapter,
     )
 
-    adapter = engine.services.vector_store.adapter
+    store = engine.services.vector_store
+    adapter = store.adapter
     if not isinstance(adapter, QdrantAdapter):
         raise MigrationError("the vector store is not Qdrant; nothing was changed")
+    # The adapter connects on first use; until then it has no client.
+    store.initialize()
     report = migrate(
         engine.services.dataset,
         QdrantVectorPoints(adapter.client),

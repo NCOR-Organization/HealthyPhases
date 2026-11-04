@@ -20,6 +20,7 @@ from phases_v2.migrations.rename_prompt import (
     OLD_NAME,
     MigrationError,
     QdrantVectorPoints,
+    main,
     migrate,
 )
 from phases_v2.projection.interfaces import GRAPH, VECTOR_ITEMS
@@ -706,3 +707,38 @@ def test_the_migrated_prompt_is_the_one_the_code_declares(dataset, qdrant):
 
 def test_nothing_in_the_declared_catalog_is_named_after_the_old_prompt():
     assert OLD_NAME not in {template.name for template in declared_prompts()}
+
+
+class _UnconnectedQdrantStore:
+    """A vector store whose Qdrant adapter connects only when initialised, as
+    the engine's does."""
+
+    def __init__(self, client: QdrantClient):
+        from naas_abi_core.services.vector_store.adapters.QdrantAdapter import (
+            QdrantAdapter,
+        )
+
+        self.adapter = QdrantAdapter.__new__(QdrantAdapter)
+        self.adapter.client = None
+        self._client = client
+
+    def initialize(self) -> None:
+        self.adapter.client = self._client
+
+
+def test_main_connects_the_vector_store_before_reading_it(
+    dataset, qdrant, seeded, capsys
+):
+    from types import SimpleNamespace
+
+    engine = SimpleNamespace(
+        services=SimpleNamespace(
+            dataset=dataset, vector_store=_UnconnectedQdrantStore(qdrant)
+        )
+    )
+
+    report = main(engine, ["--dry-run"])
+
+    assert report.dry_run is True
+    assert report.before["qdrant points, old prompt"] > 0
+    assert "dry run" in capsys.readouterr().out
