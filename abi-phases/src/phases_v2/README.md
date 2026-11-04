@@ -191,6 +191,7 @@ phases_v2/
 ├── playground/             # trying a prompt on a few chunks of one paper; writes nothing
 ├── models/                 # the models a run may use
 ├── migrations/             # one-off data migrations (re-keying rows, re-checking stored answers)
+├── coverage/               # read-only report: what every source has run, failed or missed
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
 ├── app/                    # the workspace app's services and HTTP endpoints
@@ -382,6 +383,58 @@ changes nothing on `--dry-run`, and a second run finds nothing to do. Stored
 templates and responses are not edited: they are what the model received and
 returned.
 
+
+### Checking ingestion coverage
+
+`coverage/ingestion_status.py` answers "has every paper we hold run through
+every prompt, with this model, and what went wrong?" It reads only: no dataset
+write, no projection, no run request.
+
+```
+uv run abi run script src/phases_v2/coverage/ingestion_status.py -- \
+    [--model openai/gpt-4.1-mini ...] [--prompt-id ID ...] [--chunker-id ID] [--json] [--strict]
+```
+
+Starting the engine publishes the module's prompts, chunkers and models, as
+every engine start does. To read without starting it, run
+`uv run python -m phases_v2.coverage.ingestion_status` with the same flags: it
+loads only the dataset and object storage services from the configuration.
+
+By default it checks `openai/gpt-4.1-mini`, the current version of each
+declared prompt (`templates.current_prompts`), and the declared chunker.
+`--model` and `--prompt-id` repeat; `--prompt-id` replaces the default prompts.
+
+It reports, for every non-archived collection (legacy ones included, resolved
+with `paper_collections.domain.resolve`), every saved PubMed search with
+downloaded PDFs (searches with the same PDFs are one source, listing all their
+ids), and everything we hold (collection papers, downloaded PubMed PDFs and
+ingested papers, once each by content):
+
+- PDFs, PDFs not ingested, ingested papers not chunked with the chunker;
+- per prompt version and model: chunks, succeeded, not run, and failed, split
+  into **failed calls** (no answer stored) and **invalid answers** (an answer is
+  in `raw_response`), each by reason.
+
+Then, overall: failures of every prompt version and model by reason, prompt
+names in `extractions` that are no longer declared, run requests not
+`succeeded`, and the projection backlog per ledger target (`graph`: succeeded
+extractions; `vector_chunks`: chunks; `vector_items`: items of succeeded
+extractions; `probabilistic_relations_v1`: those items whose prompt answers with
+`relations`), overall and within the selection. The relations projector never
+records an item its contract rejects, so such an item stays outstanding; each
+outstanding item is checked with the projector's own `relation_rows`, and the
+rejected ones are counted and listed apart.
+
+Every count is read at one dataset snapshot and aggregated in SQL. A folder
+document nothing has ingested is read once to learn its content hash, so a
+copy of a PubMed PDF in a folder counts once. Object storage has no snapshot.
+
+`--json` prints the same report for machines. `--strict` exits 1 when, for the
+selected prompts and models, a member cannot be read, or any PDFs are not
+ingested, papers not chunked, chunks not run, calls failed or projections are
+behind. Invalid answers and rejected relation items are listed but never fail
+it: some answers stay invalid after every retry. A bad flag or an unknown prompt
+id exits 2.
 
 ## Authoring pipelines in the web app
 

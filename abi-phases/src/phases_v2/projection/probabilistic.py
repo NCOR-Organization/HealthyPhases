@@ -28,6 +28,45 @@ SOURCE_FIELDS = (
 )
 
 
+#: What :func:`relation_rows` raises for an item the contract rejects.
+REJECTED = (ValueError, TypeError, KeyError, RecursionError)
+
+
+def relation_rows(item: dict, validate: Callable[[dict], None]) -> list[dict]:
+    """The relation rows one saved item projects to, each validated.
+
+    Raises one of :data:`REJECTED` when the item cannot be projected; such an
+    item is never recorded in the ledger, so it stays outstanding.
+    """
+    payload = json.loads(canonical_payload_text(item["text"]))
+    relations = (
+        payload
+        if isinstance(payload, list)
+        else (
+            payload["relations"]
+            if isinstance(payload, dict) and "relations" in payload
+            else [payload]
+        )
+    )
+    if not isinstance(relations, list) or not 1 <= len(relations) <= 8:
+        raise ValueError("Expected one to eight relations")
+    rows = []
+    for index, relation in enumerate(relations):
+        if not isinstance(relation, dict):
+            raise ValueError("Relation is not an object")
+        row = {key: item[key] for key in SOURCE_FIELDS}
+        row.update({key: relation.get(key) for key in RELATION_FIELDS})
+        row.update(
+            relation_id=hashlib.sha256(
+                f"{item['item_id']}:{index}".encode()
+            ).hexdigest(),
+            relation_index=index,
+        )
+        validate(row)
+        rows.append(row)
+    return rows
+
+
 @dataclass
 class BackfillReport:
     examined: int = 0
@@ -75,33 +114,8 @@ def project_relations(
         for item in batch:
             report.examined += 1
             try:
-                payload = json.loads(canonical_payload_text(item["text"]))
-                relations = (
-                    payload
-                    if isinstance(payload, list)
-                    else (
-                        payload["relations"]
-                        if isinstance(payload, dict) and "relations" in payload
-                        else [payload]
-                    )
-                )
-                if not isinstance(relations, list) or not 1 <= len(relations) <= 8:
-                    raise ValueError("Expected one to eight relations")
-                item_rows = []
-                for index, relation in enumerate(relations):
-                    if not isinstance(relation, dict):
-                        raise ValueError("Relation is not an object")
-                    row = {key: item[key] for key in SOURCE_FIELDS}
-                    row.update({key: relation.get(key) for key in RELATION_FIELDS})
-                    row.update(
-                        relation_id=hashlib.sha256(
-                            f"{item['item_id']}:{index}".encode()
-                        ).hexdigest(),
-                        relation_index=index,
-                    )
-                    validate(row)
-                    item_rows.append(row)
-            except (ValueError, TypeError, KeyError, RecursionError) as error:
+                item_rows = relation_rows(item, validate)
+            except REJECTED as error:
                 report.invalid += 1
                 if len(report.errors) < 20:
                     report.errors[item["item_id"]] = str(error)
