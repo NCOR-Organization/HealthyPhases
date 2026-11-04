@@ -31,6 +31,7 @@ from phases_v2.coverage.interfaces import (
 )
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.store import ensure_datasets
+from phases_v2.extraction.interfaces import PROVIDER_FAILURE
 from phases_v2.paper_collections.domain import folder_member, member_from_command
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.sources.adapters.secondary.phases_v2_pubmed_catalog import PubmedCatalog
@@ -210,6 +211,14 @@ def env(tmp_path_factory):
             "extraction tool call failed: invalid RelationsOutput",
         ),
         _extraction("p1-0", WHAT, "failed", "  ", "timed out"),
+        # An earlier invalid answer kept, but the last call failed at the provider.
+        _extraction(
+            "p1-0",
+            REL,
+            "failed",
+            '{"relations": [{"direction": "alters"}]}',
+            PROVIDER_FAILURE + "extraction tool call failed: Connection error.",
+        ),
         dict(
             _extraction("a-0", WHAT),
             prompt_id="logical_sentences_old",
@@ -338,6 +347,18 @@ def test_reads_every_source(env):
         "extraction tool call failed: Connection error.": 1,
         "timed out": 1,
     }
+    rel = next(c for c in mixed.coverage if c.prompt_id == REL.prompt_id)
+    assert rel.failed_calls == {
+        PROVIDER_FAILURE + "extraction tool call failed: Connection error.": 1
+    }
+    assert rel.invalid_answers == {
+        "extraction tool call failed: invalid RelationsOutput": 1
+    }
+    assert any(
+        "probabilistic_processes × openai/gpt-4.1-mini: 1 failed calls" in p
+        for p in report.problems()
+        if p.startswith("collection solitude and PubMed")
+    )
     assert report.undeclared_prompts == ["logical_sentences"]
     assert [r["request_id"] for r in report.unfinished_requests] == ["r-bad"]
     relations = next(b for b in report.backlog if b.target == RELATIONS)

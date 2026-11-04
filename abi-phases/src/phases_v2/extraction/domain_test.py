@@ -12,10 +12,12 @@ from phases_v2.extraction.fakes import (
 )
 from phases_v2.extraction.interfaces import (
     FAILED,
+    PROVIDER_FAILURE,
     SUCCEEDED,
     ChunkRef,
     InvalidAnswer,
     ModelFailed,
+    is_failed_call,
 )
 from phases_v2.prompts.domain import PromptTemplate
 
@@ -446,7 +448,7 @@ def test_a_failure_the_model_does_not_call_transient_is_not_retried():
 
     record = next(iter(store.extractions.values()))
     assert record.status == FAILED
-    assert record.error == "bad request"
+    assert record.error == PROVIDER_FAILURE + "bad request"
     assert list(model.calls.values()) == [1]
     assert pauses == []
 
@@ -573,7 +575,10 @@ def test_transient_failures_after_an_invalid_answer_still_end_the_chunk():
     )
 
     [record] = store.extractions.values()
-    assert record.error == "Connection error. (gave up after 2 attempts)"
+    assert (
+        record.error
+        == PROVIDER_FAILURE + "Connection error. (gave up after 2 attempts)"
+    )
     assert list(model.calls.values()) == [3]
 
 
@@ -587,8 +592,10 @@ def test_an_invalid_answer_is_kept_when_a_later_attempt_fails_at_the_provider():
 
     [record] = store.extractions.values()
     assert record.status == FAILED
-    assert record.error == "HTTP 400 bad request"
+    assert record.error == PROVIDER_FAILURE + "HTTP 400 bad request"
     assert record.raw_response == "the answer"
+    # An answer is kept, but the chunk failed at the provider: a failed call.
+    assert is_failed_call(record.raw_response, record.error)
     assert list(model.calls.values()) == [2]
 
 
@@ -606,7 +613,10 @@ def test_an_invalid_answer_is_kept_when_later_transient_retries_run_out():
     )
 
     [record] = store.extractions.values()
-    assert record.error == "Connection error. (gave up after 2 attempts)"
+    assert (
+        record.error
+        == PROVIDER_FAILURE + "Connection error. (gave up after 2 attempts)"
+    )
     assert record.raw_response == "the answer"
 
 
@@ -666,3 +676,11 @@ def test_the_legacy_key_is_only_accepted_for_the_prompt_that_had_it():
 
     with pytest.raises(UnusableResponse):
         parse_items(json.dumps({"logical_sentences": ["x"]}), "results")
+
+
+def test_only_provider_failures_and_rows_without_an_answer_are_failed_calls():
+    assert is_failed_call(None, "extraction tool call failed: Connection error.")
+    assert is_failed_call("  ", "anything")
+    assert is_failed_call('{"relations": []}', PROVIDER_FAILURE + "Connection error.")
+    assert not is_failed_call('{"relations": []}', "invalid RelationsOutput")
+    assert not is_failed_call('{"relations": []}', None)

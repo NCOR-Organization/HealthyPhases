@@ -27,6 +27,7 @@ from phases_v2.coverage.interfaces import (
     SavedSearch,
     Selection,
 )
+from phases_v2.extraction.interfaces import is_failed_call
 from phases_v2.paper_collections.fakes import FakeMemberSources
 from phases_v2.paper_collections.interfaces import Artifact
 
@@ -36,11 +37,9 @@ def _state(extraction: dict[str, Any] | None) -> str:
         return NOT_RUN
     if extraction["status"] == SUCCEEDED:
         return SUCCEEDED
-    return (
-        INVALID_ANSWER
-        if (extraction.get("raw_response") or "").strip()
-        else FAILED_CALL
-    )
+    if is_failed_call(extraction.get("raw_response"), extraction.get("error")):
+        return FAILED_CALL
+    return INVALID_ANSWER
 
 
 @dataclass

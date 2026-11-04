@@ -38,6 +38,7 @@ from phases_v2.coverage.interfaces import (
     SavedSearch,
     Selection,
 )
+from phases_v2.extraction.interfaces import failed_call_sql
 from phases_v2.paper_collections.interfaces import Artifact, MemberSources
 from phases_v2.ports import RowStore
 from phases_v2.sources.library_links import PUBMED, linked_schemas
@@ -45,11 +46,12 @@ from phases_v2.sql import literal
 
 logger = logging.getLogger(__name__)
 
-# How a stored extraction reads: failed with no answer kept is a failed call.
+# How a stored extraction reads. Which failures are failed calls is extraction's
+# rule, not this module's.
 _STATE = (
     f"CASE WHEN e.extraction_id IS NULL THEN {literal(NOT_RUN)} "
     f"WHEN e.status = {literal(SUCCEEDED)} THEN {literal(SUCCEEDED)} "
-    f"WHEN coalesce(trim(e.raw_response), '') = '' THEN {literal(FAILED_CALL)} "
+    f"WHEN {failed_call_sql('e.raw_response', 'e.error')} THEN {literal(FAILED_CALL)} "
     f"ELSE {literal(INVALID_ANSWER)} END"
 )
 

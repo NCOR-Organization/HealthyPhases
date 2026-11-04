@@ -325,8 +325,11 @@ transient-failure budget. A chunk still invalid after the third answer is
 recorded `failed`, with the last answer in `raw_response` and the reason plus
 `(gave up after 3 attempts)` in `error`. If a later attempt ends at the
 provider instead (a non-transient error, or transient retries running out), the
-error is the provider's, and the last invalid answer is still kept in
-`raw_response` so it can be re-checked. Trying a prompt in the playground
+error is the provider's, prefixed `provider failure: `, and the last invalid
+answer is still kept in `raw_response` so it can be re-checked. Every error
+from the provider carries that prefix, so a stored answer alone does not make a
+row an invalid answer: `extraction.interfaces.is_failed_call` (and
+`failed_call_sql`, the same rule for queries) tells the two apart. Trying a prompt in the playground
 (`POST /prompts/try`) asks once, because of its 90-second deadline, and accepts
 the same answers as a run.
 
@@ -412,8 +415,9 @@ ingested papers, once each by content):
 
 - PDFs, PDFs not ingested, ingested papers not chunked with the chunker;
 - per prompt version and model: chunks, succeeded, not run, and failed, split
-  into **failed calls** (no answer stored) and **invalid answers** (an answer is
-  in `raw_response`), each by reason.
+  into **failed calls** (the call failed at the provider, or no answer is
+  stored, by `extraction.interfaces.is_failed_call`) and **invalid answers**
+  (the stored answer broke the output contract), each by reason.
 
 Then, overall: failures of every prompt version and model by reason, prompt
 names in `extractions` that are no longer declared, run requests not

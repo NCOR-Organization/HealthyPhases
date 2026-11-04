@@ -26,6 +26,7 @@ from phases_v2 import identity
 from phases_v2.extraction.interfaces import (
     FAILED,
     LEGACY_OUTPUT_KEYS,
+    PROVIDER_FAILURE,
     SUCCEEDED,
     ChunkRef,
     ExtractedItemRecord,
@@ -280,11 +281,13 @@ def attempt(
             return Attempt(FAILED, None, raw, error, [])
         except ModelFailed as failure:
             kept = failure.raw_response
+            # Marked, because an earlier invalid answer may be kept with it:
+            # the stored answer alone no longer says the call failed.
             return Attempt(
                 FAILED,
                 None,
                 kept if kept is not None else last_answer,
-                str(failure),
+                PROVIDER_FAILURE + str(failure),
                 [],
             )
         return Attempt(SUCCEEDED, response, raw, None, items)

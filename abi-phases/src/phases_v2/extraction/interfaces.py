@@ -9,6 +9,35 @@ from typing import Any, Protocol
 SUCCEEDED = "succeeded"
 FAILED = "failed"
 
+#: Starts the stored ``error`` of an extraction whose last call failed at the
+#: provider (a dropped connection, a timeout, a rate limit, a 5xx) rather than
+#: returning an answer that breaks the output contract. Such a row may still
+#: keep an earlier invalid answer in ``raw_response``, so whether an answer is
+#: stored does not tell the two apart; this marker does.
+PROVIDER_FAILURE = "provider failure: "
+
+
+def is_failed_call(raw_response: str | None, error: str | None) -> bool:
+    """Whether a failed extraction failed at the provider, with no answer to judge.
+
+    True when no answer is stored (every failure recorded before answers were
+    kept across attempts) or when the error carries :data:`PROVIDER_FAILURE`.
+    :func:`failed_call_sql` is the same rule for queries.
+    """
+    return not (raw_response or "").strip() or (error or "").startswith(
+        PROVIDER_FAILURE
+    )
+
+
+def failed_call_sql(raw_response: str, error: str) -> str:
+    """:func:`is_failed_call` as a SQL condition on the two given columns."""
+    marker = PROVIDER_FAILURE.replace("'", "''")
+    return (
+        f"(coalesce(trim({raw_response}), '') = '' "
+        f"OR starts_with(coalesce({error}, ''), '{marker}'))"
+    )
+
+
 # Answer keys a prompt's output used to be returned under. A prompt that was
 # renamed keeps the wording its earlier extractions were made with, and that
 # wording still asks for the old key, so both are accepted.

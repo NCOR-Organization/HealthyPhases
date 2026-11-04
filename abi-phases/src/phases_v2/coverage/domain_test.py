@@ -16,6 +16,7 @@ from phases_v2.coverage.interfaces import (
     SavedSearch,
     Selection,
 )
+from phases_v2.extraction.interfaces import PROVIDER_FAILURE
 from phases_v2.paper_collections.domain import folder_member, member_from_command
 from phases_v2.paper_collections.interfaces import Artifact
 from phases_v2.prompts.domain import PromptTemplate
@@ -199,6 +200,37 @@ def test_a_failed_call_and_an_invalid_answer_are_told_apart():
     assert any("1 failed calls" in p for p in problems)
     # Invalid answers are listed, never failed on.
     assert not any("invalid" in p for p in problems)
+
+
+def test_a_provider_failure_after_an_invalid_answer_is_a_failed_call():
+    # Since answers are kept across attempts, a chunk whose last call failed at
+    # the provider may still store an earlier invalid answer.
+    reader = corpus()
+    chunk = reader.chunks[0]["chunk_id"]
+    row = next(
+        e
+        for e in reader.extractions
+        if e["chunk_id"] == chunk and e["prompt_id"] == RELATIONS_PROMPT.prompt_id
+    )
+    row.update(
+        status="failed",
+        raw_response='{"relations": [{"direction": "alters"}]}',
+        error=PROVIDER_FAILURE + "extraction tool call failed: Connection error.",
+    )
+    reader.items = [i for i in reader.items if not i["item_id"].startswith(chunk)]
+
+    report = report_for(reader)
+
+    relations = coverage(source(report, COLLECTION), RELATIONS_PROMPT)
+    assert relations.failed_calls == {
+        PROVIDER_FAILURE + "extraction tool call failed: Connection error.": 1
+    }
+    assert relations.invalid_answers == {}
+    assert [(f.state, f.count) for f in report.failures] == [("failed_call", 1)]
+    assert (
+        "collection solitude: probabilistic_processes × openai/gpt-4.1-mini: "
+        "1 failed calls"
+    ) in report.problems()
 
 
 def test_a_pdf_that_was_never_ingested_is_listed():
