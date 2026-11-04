@@ -22,8 +22,7 @@ class ModelFailed(Exception):
 
     ``transient`` is the adapter's statement that trying the same call again
     may succeed — a dropped connection, a timeout, a rate limit, a provider
-    5xx. It is never set for unusable output: asking again for a different
-    answer is a decision about the prompt, not about the network.
+    5xx. It is never set for unusable output; that is :class:`InvalidAnswer`.
     """
 
     def __init__(
@@ -36,6 +35,15 @@ class ModelFailed(Exception):
         super().__init__(message)
         self.raw_response = raw_response
         self.transient = transient
+
+
+class InvalidAnswer(ModelFailed):
+    """The model answered, but the answer breaks the output contract.
+
+    The message names the field and the rule that failed. Asking again with
+    the identical request may well produce a valid answer, so a run gives it a
+    small budget of its own, separate from the transient-failure retries.
+    """
 
 
 @dataclass(frozen=True)
@@ -105,7 +113,8 @@ class ExtractionModel(Protocol):
 
         Raises :class:`ModelFailed` for anything that stops one unit of work,
         so a single bad call is recorded and the run continues. Failures worth
-        retrying carry ``transient=True``; the domain does the retrying.
+        retrying carry ``transient=True``, and an answer that breaks the output
+        contract raises :class:`InvalidAnswer`; the domain does the retrying.
         """
         ...
 

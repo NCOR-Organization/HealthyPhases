@@ -6,8 +6,13 @@ import time
 
 import pytest
 
-from phases_v2.extraction.fakes import FakeModel
-from phases_v2.extraction.interfaces import FAILED, SUCCEEDED, ModelFailed
+from phases_v2.extraction.fakes import FakeModel, ScriptedModel
+from phases_v2.extraction.interfaces import (
+    FAILED,
+    SUCCEEDED,
+    InvalidAnswer,
+    ModelFailed,
+)
 from phases_v2.playground.domain import MAX_CHUNKS, TryRefused, try_prompt
 from phases_v2.playground.fakes import BlockingModel, FakePlaygroundStore
 from phases_v2.playground.interfaces import NOT_RUN, TIMED_OUT, StoredExtraction
@@ -97,6 +102,51 @@ def test_unparseable_output_is_reported_with_the_raw_text(store):
     assert chunk.status == FAILED
     assert "not JSON" in chunk.error
     assert chunk.raw_output == "this is not JSON"
+
+
+def test_a_try_asks_once_even_when_the_answer_is_invalid(store):
+    # The playground answers within its deadline, so an invalid answer is
+    # shown rather than asked for again as a run would.
+    model = ScriptedModel(
+        InvalidAnswer("invalid EffectsOutput: effects: 31 items exceed 30"),
+        json.dumps({"effects": ["x"]}),
+    )
+
+    report, _ = _try(store, model, first=1)
+
+    chunk = report.chunks[0]
+    assert chunk.status == FAILED
+    assert chunk.error == "invalid EffectsOutput: effects: 31 items exceed 30"
+    assert list(model.calls.values()) == [1]
+
+
+def test_a_try_accepts_what_a_run_accepts(store):
+    from langchain_core.messages import AIMessage
+
+    from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
+        LangchainExtractionModel,
+    )
+
+    answer = {"effects": [f"effect {n}" for n in range(12)]}
+
+    class _Chat:
+        def bind_tools(self, tools, **kwargs):
+            return self
+
+        def invoke(self, prompt):
+            return AIMessage(
+                content="",
+                tool_calls=[
+                    {"name": "submit_extraction", "args": answer, "id": "call-1"}
+                ],
+            )
+
+    # Asked for at most 10, accepted up to 30.
+    report, _ = _try(store, LangchainExtractionModel(_Chat(), "effects"), first=1)
+
+    chunk = report.chunks[0]
+    assert chunk.status == SUCCEEDED
+    assert len(chunk.items) == 12
 
 
 def test_output_under_the_wrong_key_is_reported(store):

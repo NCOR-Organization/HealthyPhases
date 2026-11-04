@@ -62,6 +62,29 @@ class FlakyModel:
         return self._response
 
 
+class ScriptedModel:
+    """Answers each prompt text from ``script``, one entry per call.
+
+    An entry is a response to return or an exception to raise; the last entry
+    repeats once the script runs out. Calls are counted per prompt text, so a
+    run over several chunks plays the script once for each.
+    """
+
+    def __init__(self, *script: str | Exception):
+        if not script:
+            raise ValueError("a script needs at least one entry")
+        self._script = script
+        self.calls: dict[str, int] = {}
+
+    def complete(self, prompt: str) -> str:
+        made = self.calls.get(prompt, 0)
+        self.calls[prompt] = made + 1
+        step = self._script[min(made, len(self._script) - 1)]
+        if isinstance(step, Exception):
+            raise step
+        return step
+
+
 class FakeExtractionStore:
     def __init__(self, chunks: list[ChunkRef] | None = None):
         self._chunks = list(chunks or [])

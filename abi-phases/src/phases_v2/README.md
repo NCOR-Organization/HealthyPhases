@@ -190,7 +190,7 @@ phases_v2/
 ├── prompts/                # templates declared in code + their text
 ├── playground/             # trying a prompt on a few chunks of one paper; writes nothing
 ├── models/                 # the models a run may use
-├── migrations/             # one-off data migrations (re-keying rows, clearing projections)
+├── migrations/             # one-off data migrations (re-keying rows, re-checking stored answers)
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
 ├── app/                    # the workspace app's services and HTTP endpoints
@@ -291,8 +291,59 @@ such failures (`ModelFailed.transient`); the retry loop is in
 `extraction/domain.py` (`RetryPolicy`). A chunk that stays failed records the
 provider's message and `(gave up after N attempts)`.
 
-Invalid output is never retried. A response that is not valid for the prompt's
-schema costs one call and is recorded as failed with its reason, as before.
+This budget is for the provider only. An answer that arrives but is not valid
+has a separate budget, described next.
+
+### Accepted answers and invalid-answer retries
+
+What a model is *asked* for and what is *accepted* from it are kept apart, so
+that a slightly long answer is kept without changing any prompt version.
+
+- **Asked:** `extraction/contracts/extraction_output.proto` is the one place
+  for the limits we ask for. The tool schema sent with every call is derived
+  from it (`maxLength` 200 for `evidence_text`, `maxItems` 8 relations and 10
+  items for every other output), and the prompt texts state the same limits.
+  Neither changes, so no prompt id changes and nothing already extracted has
+  to run again. `extraction_tool_schema_test.py` pins the schemas and the ids.
+- **Accepted:** `ACCEPTED_MAX_LEN` (500) and `ACCEPTED_MAX_ITEMS` (30) in
+  `extraction/adapters/secondary/extraction_tool_schema.py` are the one place
+  for what we accept. Validation runs the proto's own Protovalidate rules from a
+  copy of the descriptor in which every `max_len` and `max_items` is raised to
+  those values. Everything else is the proto's, unchanged: the `direction`
+  values (`increases`, `decreases`, `no-effect`), non-empty strings, no unknown
+  or missing fields, and the list shapes.
+
+A rejected answer's error names the field and the rule, e.g.
+`invalid RelationsOutput: relations[2].evidence_text: length 612 exceeds 500`
+(the first three problems, then `and N more`).
+
+During a run, an answer that fails validation or parsing is asked for again
+with the identical request, with nothing added, up to 3 answers in all
+(`ANSWER_ATTEMPTS` in `extraction/domain.py`). Each answer has its own
+transient-failure budget. A chunk still invalid after the third answer is
+recorded `failed`, with the last answer in `raw_response` and the reason plus
+`(gave up after 3 attempts)` in `error`. Trying a prompt in the playground
+(`POST /prompts/try`) asks once, because of its 90-second deadline, and accepts
+the same answers as a run.
+
+Answers stored as failures before these limits were relaxed can be recovered
+without calling the model again:
+
+```
+uv run abi run script src/phases_v2/migrations/recheck_failed_extractions.py -- --dry-run
+uv run abi run script src/phases_v2/migrations/recheck_failed_extractions.py
+```
+
+For every `failed` extraction with a stored answer (any model, any prompt), it
+reads `raw_response` through the same code as a live call. An answer that now
+passes is written as a live success would be: its items first, with the ids a
+run derives, then the extraction as `succeeded` with `response` and
+`item_count` set and `error` cleared, keeping its `run_id` and `completed_at`.
+An answer still invalid stays `failed`, and its `error` is rewritten with the
+detailed reason if that differs. Failed calls with no stored answer are not
+touched. It prints before/after counts by prompt, model and reason, writes
+nothing on `--dry-run`, and a second run finds nothing to do. It does not
+project: the next projection run picks up the new items.
 
 ### Renaming a prompt
 

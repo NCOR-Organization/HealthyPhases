@@ -33,6 +33,7 @@ from phases_v2.extraction.interfaces import (
     ExtractionRecord,
     ExtractionReport,
     ExtractionStore,
+    InvalidAnswer,
     ModelFailed,
     RunRecord,
 )
@@ -48,9 +49,10 @@ class RetryPolicy:
     """How hard to try a call that failed for a reason that may pass.
 
     Applies only to failures the model adapter marks transient — a dropped
-    connection, a timeout, a rate limit, a provider 5xx. Unusable output is
-    never retried: it is recorded as failed with its reason, so the cost of a
-    prompt that does not produce valid output stays one call per chunk.
+    connection, a timeout, a rate limit, a provider 5xx. An answer that breaks
+    the output contract has its own, smaller budget (``ANSWER_ATTEMPTS``), so
+    a prompt that never produces valid output costs a bounded number of calls
+    per chunk.
     """
 
     max_attempts: int = 5
@@ -75,6 +77,11 @@ class RetryPolicy:
 
 DEFAULT_RETRY = RetryPolicy()
 _ONCE = RetryPolicy(max_attempts=1)
+
+# How many answers a run asks for before recording a chunk as failed for an
+# invalid answer: the first, then two more with the identical request. Nothing
+# is added to the request, so what the model receives stays the same.
+ANSWER_ATTEMPTS = 3
 
 
 def parse_items(raw: str, output_key: str) -> tuple[object, list[str]]:
@@ -124,12 +131,15 @@ def run_extraction(
     run_id: str | None = None,
     workers: int = 20,
     retry: RetryPolicy = DEFAULT_RETRY,
+    answer_attempts: int = ANSWER_ATTEMPTS,
     sleep: Callable[[float], None] = time.sleep,
 ) -> ExtractionReport:
     """Extract from every chunk that has no succeeded extraction yet.
 
     A call that fails transiently is retried per ``retry`` before the chunk is
-    recorded as failed; ``sleep`` is injectable so tests need not wait.
+    recorded as failed; ``sleep`` is injectable so tests need not wait. An
+    invalid answer is asked for again, up to ``answer_attempts`` answers in
+    all, each with its own transient budget.
 
     ``run_id`` may be supplied so a caller that already has an identity for the
     work — a run request, say — can find this run's counts later by that id
@@ -164,6 +174,7 @@ def run_extraction(
                 model_id=model_id,
                 run_id=run_id,
                 retry=retry,
+                answer_attempts=answer_attempts,
                 sleep=sleep,
             )
 
@@ -224,31 +235,47 @@ def attempt(
     text: str,
     *,
     retry: RetryPolicy | None = None,
+    answer_attempts: int = 1,
     sleep: Callable[[float], None] = time.sleep,
 ) -> Attempt:
     """Render ``prompt`` for ``text``, call the model and parse its answer.
 
     With a ``retry`` policy, transient provider failures are retried before the
-    call is given up on; without one the model is called once.
+    call is given up on; without one the model is called once. An answer that
+    fails validation or parsing is asked for again with the identical request,
+    up to ``answer_attempts`` answers in all; the last one is kept.
 
     The only place a prompt is rendered and its answer parsed, so a run and a
     try of the same prompt on the same text cannot read the answer differently.
     Writes nothing.
     """
-    raw: str | None = None
-    try:
-        raw = _complete_with_retry(
-            model, prompt.rendered_for(text), retry=retry or _ONCE, sleep=sleep
-        )
-        response, items = parse_items(raw, prompt.output_key)
-    except (ModelFailed, UnusableResponse) as failure:
-        if isinstance(failure, ModelFailed):
-            raw = failure.raw_response
-        # `response` is a JSON column, so unparseable output cannot go there —
-        # but it is exactly the case where keeping the text matters, so it
-        # goes to `raw` verbatim.
-        return Attempt(FAILED, None, raw, str(failure), [])
-    return Attempt(SUCCEEDED, response, raw, None, items)
+    if answer_attempts < 1:
+        raise ValueError("answer_attempts must be at least 1")
+    rendered = prompt.rendered_for(text)
+    answers = 0
+    while True:
+        answers += 1
+        raw: str | None = None
+        try:
+            raw = _complete_with_retry(
+                model, rendered, retry=retry or _ONCE, sleep=sleep
+            )
+            response, items = parse_items(raw, prompt.output_key)
+        except (InvalidAnswer, UnusableResponse) as failure:
+            if isinstance(failure, InvalidAnswer):
+                raw = failure.raw_response
+            if answers < answer_attempts:
+                continue
+            error = str(failure)
+            if answers > 1:
+                error += f" (gave up after {answers} attempts)"
+            # `response` is a JSON column, so unparseable output cannot go
+            # there — but it is exactly the case where keeping the text
+            # matters, so it goes to `raw` verbatim.
+            return Attempt(FAILED, None, raw, error, [])
+        except ModelFailed as failure:
+            return Attempt(FAILED, None, failure.raw_response, str(failure), [])
+        return Attempt(SUCCEEDED, response, raw, None, items)
 
 
 def _extract_one(
@@ -259,10 +286,43 @@ def _extract_one(
     model_id: str,
     run_id: str,
     retry: RetryPolicy,
+    answer_attempts: int,
     sleep: Callable[[float], None],
 ) -> tuple[ExtractionRecord, list[ExtractedItemRecord]]:
+    outcome = attempt(
+        model,
+        prompt,
+        chunk.text,
+        retry=retry,
+        answer_attempts=answer_attempts,
+        sleep=sleep,
+    )
+    return rows_for(
+        chunk,
+        model_id=model_id,
+        prompt=prompt,
+        run_id=run_id,
+        outcome=outcome,
+        completed_at=datetime.now(UTC),
+    )
+
+
+def rows_for(
+    chunk: ChunkRef,
+    *,
+    model_id: str,
+    prompt: PromptTemplate,
+    run_id: str,
+    outcome: Attempt,
+    completed_at: datetime,
+) -> tuple[ExtractionRecord, list[ExtractedItemRecord]]:
+    """The extraction row and item rows one outcome is recorded as.
+
+    Ids come from :mod:`phases_v2.identity` (chunk × model × prompt, then the
+    extraction and the item's position), so an answer recorded later — by the
+    re-check of stored answers — lands on exactly the rows a run would write.
+    """
     extraction_id = identity.extraction_id(chunk.chunk_id, model_id, prompt.prompt_id)
-    outcome = attempt(model, prompt, chunk.text, retry=retry, sleep=sleep)
     record = _record(
         extraction_id,
         chunk,
@@ -274,6 +334,7 @@ def _extract_one(
         raw=outcome.raw,
         error=outcome.error,
         item_count=len(outcome.items),
+        completed_at=completed_at,
     )
     return (
         record,
@@ -302,12 +363,15 @@ def _complete_with_retry(
     """Call the model, retrying only failures it says are transient.
 
     The last failure is re-raised with the attempt count in its message, so a
-    chunk that stays failed says it was not for want of trying.
+    chunk that stays failed says it was not for want of trying. An invalid
+    answer is re-raised as it is: it has a budget of its own in :func:`attempt`.
     """
     tries = 1
     while True:
         try:
             return model.complete(prompt)
+        except InvalidAnswer:
+            raise
         except ModelFailed as failure:
             if not failure.transient or tries >= retry.max_attempts:
                 if tries > 1:
@@ -333,6 +397,7 @@ def _record(
     raw: str | None,
     error: str | None,
     item_count: int,
+    completed_at: datetime,
 ) -> ExtractionRecord:
     return ExtractionRecord(
         extraction_id=extraction_id,
@@ -345,7 +410,7 @@ def _record(
         raw_response=raw,
         error=error,
         item_count=item_count,
-        completed_at=datetime.now(UTC),
+        completed_at=completed_at,
     )
 
 

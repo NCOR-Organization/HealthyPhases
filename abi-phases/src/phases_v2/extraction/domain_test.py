@@ -3,9 +3,20 @@
 import json
 
 from phases_v2 import identity
-from phases_v2.extraction.domain import RetryPolicy, run_extraction
-from phases_v2.extraction.fakes import FakeExtractionStore, FakeModel, FlakyModel
-from phases_v2.extraction.interfaces import FAILED, SUCCEEDED, ChunkRef
+from phases_v2.extraction.domain import RetryPolicy, attempt, run_extraction
+from phases_v2.extraction.fakes import (
+    FakeExtractionStore,
+    FakeModel,
+    FlakyModel,
+    ScriptedModel,
+)
+from phases_v2.extraction.interfaces import (
+    FAILED,
+    SUCCEEDED,
+    ChunkRef,
+    InvalidAnswer,
+    ModelFailed,
+)
 from phases_v2.prompts.domain import PromptTemplate
 
 PROMPT = PromptTemplate(
@@ -390,9 +401,9 @@ def test_retry_pauses_grow_and_stay_within_the_cap():
     policy = RetryPolicy(max_attempts=6, base_delay=2.0, max_delay=10.0)
 
     ceilings = [min(10.0, 2.0 * 2**n) for n in range(5)]
-    for attempt, ceiling in enumerate(ceilings, start=1):
+    for tries, ceiling in enumerate(ceilings, start=1):
         for _ in range(50):
-            assert ceiling * 0.5 <= policy.delay_before_retry(attempt) <= ceiling
+            assert ceiling * 0.5 <= policy.delay_before_retry(tries) <= ceiling
 
 
 def test_a_transient_failure_that_never_clears_is_recorded_after_the_last_attempt():
@@ -440,7 +451,63 @@ def test_a_failure_the_model_does_not_call_transient_is_not_retried():
     assert pauses == []
 
 
-def test_unusable_output_is_not_retried():
+# -- invalid answers are asked for again, bounded -------------------------
+
+VALID = json.dumps({"results": ["a claim"]})
+
+
+def _invalid(detail="results: 31 items exceed 30", raw='{"tool_calls": "kept"}'):
+    return InvalidAnswer(f"invalid ResultsOutput: {detail}", raw_response=raw)
+
+
+def test_an_invalid_answer_then_a_valid_one_succeeds_after_two_calls():
+    store = _store()
+    model = ScriptedModel(_invalid(), VALID)
+    pauses: list[float] = []
+
+    report = _run(store, model=model, sleep=pauses.append)
+
+    assert (report.succeeded, report.failed) == (1, 0)
+    [record] = store.extractions.values()
+    assert record.status == SUCCEEDED
+    assert record.error is None
+    assert record.raw_response == VALID
+    assert list(model.calls.values()) == [2]
+    assert [item.text for item in store.items.values()] == ["a claim"]
+    assert pauses == []
+
+
+def test_an_answer_that_stays_invalid_fails_after_three_calls_with_its_reason():
+    store = _store()
+    model = ScriptedModel(
+        _invalid(raw="first"), _invalid(raw="second"), _invalid(raw="last")
+    )
+
+    report = _run(store, model=model)
+
+    assert (report.succeeded, report.failed) == (0, 1)
+    [record] = store.extractions.values()
+    assert record.status == FAILED
+    assert record.error == (
+        "invalid ResultsOutput: results: 31 items exceed 30 (gave up after 3 attempts)"
+    )
+    assert record.raw_response == "last"
+    assert record.response is None
+    assert list(model.calls.values()) == [3]
+    assert store.items == {}
+    assert report.errors["c0"] == record.error
+
+
+def test_each_retry_sends_the_identical_request():
+    store = _store()
+    model = ScriptedModel(_invalid(), _invalid(), VALID)
+
+    _run(store, model=model)
+
+    assert model.calls == {"Find claims in chunk text 0": 3}
+
+
+def test_unparseable_output_is_retried_as_an_invalid_answer():
     store = _store()
     model = FakeModel(response="not json")
     pauses: list[float] = []
@@ -449,8 +516,86 @@ def test_unusable_output_is_not_retried():
 
     record = next(iter(store.extractions.values()))
     assert record.status == FAILED
-    assert len(model.prompts) == 1
+    assert record.raw_response == "not json"
+    assert record.error.endswith("(gave up after 3 attempts)")
+    assert len(model.prompts) == 3
     assert pauses == []
+
+
+def test_the_invalid_answer_budget_is_separate_from_the_transient_one():
+    store = _store()
+    # Two dropped connections, an invalid answer, another dropped connection,
+    # then a valid answer: within both budgets.
+    model = ScriptedModel(
+        ModelFailed("Connection error.", transient=True),
+        ModelFailed("Connection error.", transient=True),
+        _invalid(),
+        ModelFailed("Connection error.", transient=True),
+        VALID,
+    )
+    pauses: list[float] = []
+
+    report = _run(
+        store,
+        model=model,
+        retry=RetryPolicy(max_attempts=3, base_delay=0, max_delay=0),
+        sleep=pauses.append,
+    )
+
+    assert report.succeeded == 1
+    assert list(model.calls.values()) == [5]
+    assert len(pauses) == 3
+
+
+def test_an_invalid_answer_after_a_transient_failure_keeps_its_reason():
+    store = _store()
+    model = ScriptedModel(
+        ModelFailed("Connection error.", transient=True), _invalid(), _invalid()
+    )
+
+    _run(store, model=model, sleep=lambda _: None)
+
+    [record] = store.extractions.values()
+    assert record.error == (
+        "invalid ResultsOutput: results: 31 items exceed 30 (gave up after 3 attempts)"
+    )
+
+
+def test_transient_failures_after_an_invalid_answer_still_end_the_chunk():
+    store = _store()
+    model = ScriptedModel(_invalid(), ModelFailed("Connection error.", transient=True))
+
+    _run(
+        store,
+        model=model,
+        retry=RetryPolicy(max_attempts=2, base_delay=0, max_delay=0),
+        sleep=lambda _: None,
+    )
+
+    [record] = store.extractions.values()
+    assert record.error == "Connection error. (gave up after 2 attempts)"
+    assert list(model.calls.values()) == [3]
+
+
+def test_answer_attempts_can_be_set_per_run():
+    store = _store()
+    model = ScriptedModel(_invalid())
+
+    _run(store, model=model, answer_attempts=1)
+
+    [record] = store.extractions.values()
+    assert record.error == "invalid ResultsOutput: results: 31 items exceed 30"
+    assert list(model.calls.values()) == [1]
+
+
+def test_a_single_try_asks_once_for_an_answer():
+    model = ScriptedModel(_invalid(), VALID)
+
+    outcome = attempt(model, PROMPT, "some text")
+
+    assert outcome.status == FAILED
+    assert outcome.error == "invalid ResultsOutput: results: 31 items exceed 30"
+    assert list(model.calls.values()) == [1]
 
 
 def test_a_single_attempt_policy_never_retries():
