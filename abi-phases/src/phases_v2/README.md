@@ -862,4 +862,5 @@ published dataset, not by relaxing the collection root restriction.
 
 PubMed requests carry a `dataset:pubmed:<query_id>` source marker, and collection
 requests `dataset:collection:<collection_id>`. Any `dataset:` request whose manifest is
-missing fails instead of treating the source as a prefix.
+missing fails instead of treating the source as a prefix. Like `POST /requests`,
+`POST /sources/pubmed/requests` takes an optional `requested_by`, recorded on the request.

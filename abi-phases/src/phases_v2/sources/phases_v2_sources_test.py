@@ -124,6 +124,26 @@ def test_manual_manifest_does_not_expand_with_later_publication(dataset):
     assert request_store(engine).get(request.request_id).status == "pending"
 
 
+def test_pubmed_request_records_who_asked_for_it(dataset):
+    _publisher, query, engine = setup(dataset)
+    choices = {
+        "query_id": query["query_id"],
+        "chunker_id": "chunker",
+        "prompt_ids": ["prompt"],
+        "model_id": "model",
+    }
+    rows, catalog = DatasetRowStore(dataset), PubmedCatalog(dataset)
+    store = request_store(engine)
+
+    named = submit_pubmed(rows, store, catalog, {**choices, "requested_by": "me"})
+    unnamed = submit_pubmed(rows, store, catalog, choices)
+
+    assert store.get(named.request_id).requested_by == "me"
+    assert store.get(unnamed.request_id).requested_by is None
+    with pytest.raises(ValueError, match="requested_by"):
+        submit_pubmed(rows, store, catalog, {**choices, "requested_by": "x" * 201})
+
+
 def test_selected_artifact_is_verified_and_only_selected_objects_are_read(
     dataset, monkeypatch
 ):

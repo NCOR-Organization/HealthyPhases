@@ -50,6 +50,7 @@ message SubmitPubmedRun {
   string chunker_id = 2 [(buf.validate.field).string.min_len = 1];
   repeated string prompt_ids = 3 [(buf.validate.field).repeated = {min_items: 1, max_items: 100, unique: true, items: {string: {min_len: 1}}}];
   string model_id = 4 [(buf.validate.field).string.min_len = 1];
+  optional string requested_by = 5 [(buf.validate.field).string.max_len = 200];
 }
 message PubmedQuerySummary {
   string query_id = 1 [(buf.validate.field).string.uuid = true];
