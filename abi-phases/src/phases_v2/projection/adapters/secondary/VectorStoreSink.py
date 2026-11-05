@@ -9,18 +9,39 @@ real run.
 Qdrant point IDs are deterministic UUIDs derived from the collection and row
 ID. Original row IDs remain in metadata and the projection ledger, while
 re-storing a document upserts the same point.
+
+That is also what makes a write safe to send again. A write that got no
+response at all (Qdrant closed an idle keep-alive connection just as the
+client reused it) is retried, up to ``STORE_ATTEMPTS`` in all; any other error
+is raised at once.
 """
 
 from __future__ import annotations
 
+import logging
+import time
+from collections.abc import Callable
 from uuid import NAMESPACE_URL, uuid5
 
 import numpy as np
 
+logger = logging.getLogger(__name__)
+
+STORE_ATTEMPTS = 3
+
+
+def _got_no_response(error: Exception) -> bool:
+    try:
+        from qdrant_client.http.exceptions import ResponseHandlingException
+    except ImportError:  # pragma: no cover - qdrant_client is a dependency
+        return False
+    return isinstance(error, ResponseHandlingException)
+
 
 class VectorStoreSink:
-    def __init__(self, vector_store):
+    def __init__(self, vector_store, *, sleep: Callable[[float], None] = time.sleep):
         self._vector_store = vector_store
+        self._sleep = sleep
 
     def ensure_collection(self, name: str, dimension: int) -> None:
         self._vector_store.ensure_collection(name, dimension)
@@ -39,7 +60,7 @@ class VectorStoreSink:
     def store(self, name, docs, vectors) -> None:
         if not docs:
             return
-        self._vector_store.add_documents(
+        request = dict(
             collection_name=name,
             ids=[
                 str(uuid5(NAMESPACE_URL, f"phases_v2/{name}/{doc.id}")) for doc in docs
@@ -54,3 +75,19 @@ class VectorStoreSink:
             ],
             payloads=[{"text": doc.text} for doc in docs],
         )
+        for attempt in range(1, STORE_ATTEMPTS + 1):
+            try:
+                self._vector_store.add_documents(**request)
+                return
+            except Exception as error:
+                if attempt == STORE_ATTEMPTS or not _got_no_response(error):
+                    raise
+                logger.warning(
+                    "Vector write to %s got no response (attempt %d of %d); "
+                    "sending it again: %s",
+                    name,
+                    attempt,
+                    STORE_ATTEMPTS,
+                    error,
+                )
+                self._sleep(attempt)
