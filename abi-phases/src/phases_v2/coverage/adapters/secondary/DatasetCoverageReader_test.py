@@ -210,7 +210,8 @@ def env(tmp_path_factory):
             '{"relations": []}',
             "extraction tool call failed: invalid RelationsOutput",
         ),
-        _extraction("p1-0", WHAT, "failed", "  ", "timed out"),
+        # Only blanks, not only spaces: still no answer.
+        _extraction("p1-0", WHAT, "failed", " \n\t", "timed out"),
         # An earlier invalid answer kept, but the last call failed at the provider.
         _extraction(
             "p1-0",

@@ -277,8 +277,12 @@ def attempt(
                 error += f" (gave up after {answers} attempts)"
             # `response` is a JSON column, so unparseable output cannot go
             # there — but it is exactly the case where keeping the text
-            # matters, so it goes to `raw` verbatim.
-            return Attempt(FAILED, None, raw, error, [])
+            # matters, so it goes to `raw` verbatim. A last failure with no
+            # text keeps the earlier answer, so the row still reads as an
+            # invalid answer rather than a failed call.
+            return Attempt(
+                FAILED, None, raw if raw is not None else last_answer, error, []
+            )
         except ModelFailed as failure:
             kept = failure.raw_response
             # Marked, because an earlier invalid answer may be kept with it:

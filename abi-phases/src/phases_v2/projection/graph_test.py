@@ -183,3 +183,37 @@ def test_a_batch_that_fails_leaves_the_earlier_batches_recorded():
     )
     assert report.already_projected == 2
     assert report.projected == 3
+
+
+class _RecordingSink(FakeTripleSink):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent: list[tuple] = []
+
+    def insert(self, graph_uri, triples):
+        self.sent.extend(triples)
+        super().insert(graph_uri, triples)
+
+
+def test_a_chunk_shared_by_several_batches_is_sent_once():
+    one = _reader()
+    reader = FakeExtractionReader(
+        papers=one.papers(),
+        chunks=one.chunks(),
+        extractions=[
+            {"extraction_id": f"e{n}", "chunk_id": "c0", "model_id": "m",
+             "prompt_id": f"pr{n}", "item_count": 0}
+            for n in range(4)
+        ],
+    )
+    sink = _RecordingSink()
+
+    report = project_graph(
+        reader=reader, sink=sink, ledger=FakeProjectionLedger(), batch_size=2
+    )
+
+    assert report.projected == 4
+    texts = [t for t in sink.sent if t[1] == v.DOC.chunk_text]
+    assert len(texts) == 1
+    # Two batches: the corpus with the first, the extractions of each.
+    assert sink.inserts == 3

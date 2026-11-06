@@ -620,6 +620,24 @@ def test_an_invalid_answer_is_kept_when_later_transient_retries_run_out():
     assert record.raw_response == "the answer"
 
 
+def test_an_earlier_answer_is_kept_when_the_last_invalid_answer_has_no_text():
+    store = _store()
+    model = ScriptedModel(
+        _invalid(raw="the answer"), _invalid(raw=None), _invalid(raw=None)
+    )
+
+    _run(store, model=model, sleep=lambda _: None)
+
+    [record] = store.extractions.values()
+    assert record.status == FAILED
+    assert record.raw_response == "the answer"
+    assert record.error == (
+        "invalid ResultsOutput: results: 31 items exceed 30 (gave up after 3 attempts)"
+    )
+    # Still an invalid answer, which a later re-check can read.
+    assert not is_failed_call(record.raw_response, record.error)
+
+
 def test_answer_attempts_can_be_set_per_run():
     store = _store()
     model = ScriptedModel(_invalid())
@@ -681,6 +699,7 @@ def test_the_legacy_key_is_only_accepted_for_the_prompt_that_had_it():
 def test_only_provider_failures_and_rows_without_an_answer_are_failed_calls():
     assert is_failed_call(None, "extraction tool call failed: Connection error.")
     assert is_failed_call("  ", "anything")
+    assert is_failed_call(" \n\t", "anything")
     assert is_failed_call('{"relations": []}', PROVIDER_FAILURE + "Connection error.")
     assert not is_failed_call('{"relations": []}', "invalid RelationsOutput")
     assert not is_failed_call('{"relations": []}', None)

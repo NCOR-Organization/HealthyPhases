@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
@@ -17,23 +18,30 @@ FAILED = "failed"
 PROVIDER_FAILURE = "provider failure: "
 
 
+#: What counts as blank in a stored answer, for :func:`is_failed_call` and
+#: :func:`failed_call_sql` alike. Both use this one pattern, so Python and the
+#: query engine (whose ``trim`` strips only spaces) cannot disagree.
+_BLANK = r"[ \t\n\r\f\v]*"
+
+
 def is_failed_call(raw_response: str | None, error: str | None) -> bool:
     """Whether a failed extraction failed at the provider, with no answer to judge.
 
     True when no answer is stored (every failure recorded before answers were
-    kept across attempts) or when the error carries :data:`PROVIDER_FAILURE`.
-    :func:`failed_call_sql` is the same rule for queries.
+    kept across attempts), or only blanks, or when the error carries
+    :data:`PROVIDER_FAILURE`. :func:`failed_call_sql` is the same rule for
+    queries.
     """
-    return not (raw_response or "").strip() or (error or "").startswith(
-        PROVIDER_FAILURE
-    )
+    return re.fullmatch(_BLANK, raw_response or "") is not None or (
+        error or ""
+    ).startswith(PROVIDER_FAILURE)
 
 
 def failed_call_sql(raw_response: str, error: str) -> str:
     """:func:`is_failed_call` as a SQL condition on the two given columns."""
     marker = PROVIDER_FAILURE.replace("'", "''")
     return (
-        f"(coalesce(trim({raw_response}), '') = '' "
+        f"(regexp_full_match(coalesce({raw_response}, ''), '{_BLANK}') "
         f"OR starts_with(coalesce({error}, ''), '{marker}'))"
     )
 

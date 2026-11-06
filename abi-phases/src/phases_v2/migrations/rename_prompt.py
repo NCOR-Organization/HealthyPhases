@@ -133,16 +133,25 @@ class TripleStoreGraphTriples:
         self._triple_store = triple_store
         self._graph = rdflib.URIRef(graph)
 
-    def _triples(self, subjects: list[str]) -> rdflib.Graph:
+    def _pattern(self, subjects: list[str]) -> str:
         values = " ".join(f"<{subject}>" for subject in subjects)
+        return f"GRAPH <{self._graph}> {{ VALUES ?s {{ {values} }} ?s ?p ?o }}"
+
+    def _triples(self, subjects: list[str]) -> rdflib.Graph:
         result = self._triple_store.query(
-            "CONSTRUCT { ?s ?p ?o } WHERE { "
-            f"GRAPH <{self._graph}> {{ VALUES ?s {{ {values} }} ?s ?p ?o }} }}"
+            f"CONSTRUCT {{ ?s ?p ?o }} WHERE {{ {self._pattern(subjects)} }}"
         )
         return result if isinstance(result, rdflib.Graph) else result.graph
 
+    def _count(self, subjects: list[str]) -> int:
+        # Only the number comes back, not the triples.
+        result = self._triple_store.query(
+            f"SELECT (COUNT(*) AS ?n) WHERE {{ {self._pattern(subjects)} }}"
+        )
+        return sum(int(row[0]) for row in result)
+
     def count(self, subjects: list[str]) -> int:
-        return sum(len(self._triples(batch)) for batch in _batches(subjects))
+        return sum(self._count(batch) for batch in _batches(subjects))
 
     def delete(self, subjects: list[str]) -> None:
         for batch in _batches(subjects):
@@ -543,12 +552,12 @@ def main(engine: Any, argv: list[str]) -> Report:
         QdrantAdapter,
     )
 
-    store = engine.services.vector_store
-    adapter = store.adapter
+    vector_store = engine.services.vector_store
+    adapter = vector_store.adapter
     if not isinstance(adapter, QdrantAdapter):
         raise MigrationError("the vector store is not Qdrant; nothing was changed")
     # The adapter connects on first use; until then it has no client.
-    store.initialize()
+    vector_store.initialize()
     report = migrate(
         engine.services.dataset,
         QdrantVectorPoints(adapter.client),

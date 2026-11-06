@@ -59,10 +59,15 @@ def project_graph(
 
     chunks = {chunk["chunk_id"]: chunk for chunk in reader.chunks()}
     papers = {paper["paper_id"]: paper for paper in reader.papers()}
+    # Chunks whose triples this run already inserted: a chunk shared by
+    # several batches (one extraction per prompt) sends its text only once.
+    inserted: set[str] = set()
     for start in range(0, len(outstanding), batch_size):
         batch = outstanding[start : start + batch_size]
         ids = [e["extraction_id"] for e in batch]
-        _project_corpus(sink, chunks, papers, {e["chunk_id"] for e in batch})
+        new_chunks = {e["chunk_id"] for e in batch} - inserted
+        _project_corpus(sink, chunks, papers, new_chunks)
+        inserted |= new_chunks
         _project_extractions(sink, batch, reader.items_for(ids))
         ledger.record(GRAPH, ids)
         report.projected += len(batch)

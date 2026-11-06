@@ -326,7 +326,8 @@ recorded `failed`, with the last answer in `raw_response` and the reason plus
 `(gave up after 3 attempts)` in `error`. If a later attempt ends at the
 provider instead (a non-transient error, or transient retries running out), the
 error is the provider's, prefixed `provider failure: `, and the last invalid
-answer is still kept in `raw_response` so it can be re-checked. Every error
+answer is still kept in `raw_response` so it can be re-checked (so is an
+earlier answer when the last invalid one has no text). Every error
 from the provider carries that prefix, so a stored answer alone does not make a
 row an invalid answer: `extraction.interfaces.is_failed_call` (and
 `failed_call_sql`, the same rule for queries) tells the two apart. Trying a prompt in the playground
@@ -348,8 +349,10 @@ run derives, then the extraction as `succeeded` with `response` and
 `item_count` set and `error` cleared, keeping its `run_id` and `completed_at`.
 An answer still invalid stays `failed`, and its `error` is rewritten with the
 detailed reason if that differs (an error a run stored with
-`(gave up after N attempts)` keeps its count). Failed calls with no stored
-answer, stored answers that are not a tool-call message, and prompts with no
+`(gave up after N attempts)` keeps its count). A failed call that kept an
+earlier invalid answer (`provider failure: `) is accepted if that answer now
+passes and otherwise left as it is, so it still counts as a failed call to run
+again. Failed calls with no stored answer, stored answers that are not a tool-call message, and prompts with no
 output contract are left as they are and counted. It prints before/after counts
 by prompt, model and reason, writes nothing on `--dry-run`, and a second run
 finds nothing to do. It does not project: the next projection run picks up the

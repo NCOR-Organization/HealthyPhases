@@ -18,7 +18,11 @@ the answer is read through the same code as a live call
 - an answer still invalid stays ``failed``; its ``error`` is rewritten with the
   detailed reason only if that differs from the stored one;
 - a failed call with no stored answer is not touched, nor is a stored answer
-  that is not a tool-call message, or one whose prompt has no output contract.
+  that is not a tool-call message, or one whose prompt has no output contract;
+- a failed call that kept an earlier invalid answer (its error starts with
+  :data:`~phases_v2.extraction.interfaces.PROVIDER_FAILURE`) is accepted if
+  that answer now passes, and otherwise left as it is: its error keeps saying
+  the call failed, so the chunk is still counted as a failed call to run again.
 
 A run may write to the same rows while this is working. Run it while no
 extraction run is active; in any case every planned row is read again just
@@ -74,6 +78,7 @@ from phases_v2.extraction.interfaces import (
     ExtractedItemRecord,
     ExtractionRecord,
     InvalidAnswer,
+    is_failed_call,
 )
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.sql import in_list
@@ -99,6 +104,7 @@ CHANGED = "left as is: changed by a run since it was read"
 NO_PROMPT = "left as is: prompt is not registered"
 NO_CHUNK = "left as is: chunk no longer exists"
 ID_MISMATCH = "left as is: extraction id does not match its chunk, model and prompt"
+FAILED_CALL = "left as is: failed call whose kept answer is still invalid"
 
 
 _GAVE_UP = re.compile(r" \(gave up after \d+ attempts\)$")
@@ -184,6 +190,7 @@ class Report:
             NO_PROMPT,
             NO_CHUNK,
             ID_MISMATCH,
+            FAILED_CALL,
         ):
             if self.outcomes[kind] or kind in (ACCEPTED, REWRITTEN, UNCHANGED):
                 lines.append(f"{kind}: {self.outcomes[kind]}")
@@ -264,6 +271,10 @@ def _recheck(failed: _Failed, read: Reader) -> tuple[str, Any]:
     except UnknownOutput:
         return NO_CONTRACT, None
     except (InvalidAnswer, UnusableResponse) as failure:
+        if is_failed_call(record.raw_response, record.error):
+            # The chunk never got its answers: rewriting the error with the
+            # kept answer's reason would count it as an invalid answer.
+            return FAILED_CALL, None
         error = str(failure)
         # A run stores the same reason followed by its attempt count; that
         # count is kept.

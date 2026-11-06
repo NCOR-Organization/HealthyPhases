@@ -17,7 +17,7 @@ from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
 )
 from phases_v2.extraction.domain import run_extraction
 from phases_v2.extraction.fakes import FakeExtractionStore
-from phases_v2.extraction.interfaces import ChunkRef
+from phases_v2.extraction.interfaces import PROVIDER_FAILURE, ChunkRef, is_failed_call
 from phases_v2.migrations.recheck_failed_extractions import reason, recheck
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
@@ -420,6 +420,70 @@ def test_a_reason_stored_with_its_attempt_count_is_kept(dataset):
     assert report.changed == 0
     assert report.outcomes["still invalid, reason unchanged"] == 1
     assert "nothing to do" in report.render()
+
+
+CALL_FAILED = PROVIDER_FAILURE + "Connection error. (gave up after 3 attempts)"
+
+
+def test_a_failed_call_whose_kept_answer_is_still_invalid_is_left_as_it_is(dataset):
+    _register(dataset, RELATIONS)
+    row = _failed("c9", GPT, RELATIONS, args={"relations": [ALTERS]}, error=CALL_FAILED)
+    store.write_rows(dataset, "extractions", [row])
+
+    first = recheck(dataset)
+    again = recheck(dataset)
+
+    after = _extraction(dataset, "c9")
+    assert (after["status"], after["raw_response"], after["error"]) == (
+        "failed",
+        row["raw_response"],
+        CALL_FAILED,
+    )
+    # Still counted as a call to run again, not as an invalid answer.
+    assert is_failed_call(after["raw_response"], after["error"])
+    for report in (first, again):
+        assert report.changed == 0
+        assert (
+            report.outcomes[
+                "left as is: failed call whose kept answer is still invalid"
+            ]
+            == 1
+        )
+        assert "nothing to do" in report.render()
+
+
+def test_a_failed_call_whose_kept_answer_now_passes_is_accepted(dataset):
+    _register(dataset, RELATIONS)
+    store.write_rows(
+        dataset,
+        "chunks",
+        [
+            {
+                "chunk_id": "c9",
+                "paper_id": "paper-c9",
+                "chunker_id": "window",
+                "seq": 0,
+                "text": "text",
+            }
+        ],
+    )
+    args = {"relations": [RELATION, LONG]}
+    store.write_rows(
+        dataset,
+        "extractions",
+        [_failed("c9", GPT, RELATIONS, args=args, error=CALL_FAILED)],
+    )
+
+    report = recheck(dataset)
+
+    after = _extraction(dataset, "c9")
+    assert (after["status"], after["error"], after["item_count"]) == (
+        "succeeded",
+        None,
+        2,
+    )
+    assert report.outcomes["now accepted"] == 1
+    assert recheck(dataset).changed == 0
 
 
 def test_a_row_a_run_writes_while_the_recheck_reads_is_left_as_the_run_wrote_it(
