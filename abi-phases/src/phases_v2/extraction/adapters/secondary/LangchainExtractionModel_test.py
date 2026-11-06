@@ -5,11 +5,15 @@ import json
 import pytest
 from langchain_core.messages import AIMessage
 
+from phases_v2.extraction.adapters.secondary.extraction_tool_schema import (
+    UnknownOutput,
+)
 from phases_v2.extraction.adapters.secondary.LangchainExtractionModel import (
     LangchainExtractionModel,
+    NotAToolCallMessage,
     is_transient,
 )
-from phases_v2.extraction.interfaces import ModelFailed
+from phases_v2.extraction.interfaces import InvalidAnswer, ModelFailed
 from phases_v2.extraction.tests.extraction_model__secondary_adapter__generic_test import (
     ExtractionModelContract,
 )
@@ -99,7 +103,7 @@ class TestLangchainExtractionModel(ExtractionModelContract):
             {"results": [42]},
             {"results": [{}]},
             {"results": [""]},
-            {"results": ["x"] * 11},
+            {"results": ["x"] * 31},
             {"results": [], "extra": "no"},
         ],
     )
@@ -201,7 +205,7 @@ def test_valid_relation_is_preserved_as_an_object():
     "changes",
     [
         {"direction": "perhaps"},
-        {"evidence_text": "x" * 201},
+        {"evidence_text": "x" * 501},
         {"subject_process": ""},
         {"target_process": None},
         {"extra": "no"},
@@ -214,11 +218,186 @@ def test_relation_proto_validation_rejects_invalid_fields(changes):
 
 
 def test_missing_relation_fields_and_too_many_relations_are_rejected():
-    for relations in [[{"direction": "increases"}], [RELATION] * 9]:
+    for relations in [[{"direction": "increases"}], [RELATION] * 31]:
         with pytest.raises(ModelFailed):
             LangchainExtractionModel(
                 _StubChat(_message({"relations": relations})), "relations"
             ).complete("x")
+
+
+# -- what we accept, beyond what we ask for ---------------------------------
+
+
+def _relations(**changes):
+    return LangchainExtractionModel(
+        _StubChat(_message({"relations": [RELATION | changes]})), "relations"
+    )
+
+
+@pytest.mark.parametrize("length", [200, 201, 500])
+def test_evidence_up_to_500_characters_is_accepted(length):
+    result = _relations(evidence_text="x" * length).complete("x")
+    assert len(json.loads(result)["relations"][0]["evidence_text"]) == length
+
+
+def test_30_relations_and_30_statements_are_accepted():
+    relations = {"relations": [RELATION] * 30}
+    statements = {"conditional_statement": ["If a, then b."] * 30}
+    for output_key, args in (
+        ("relations", relations),
+        ("conditional_statement", statements),
+    ):
+        model = LangchainExtractionModel(_StubChat(_message(args)), output_key)
+        assert json.loads(model.complete("x")) == args
+
+
+@pytest.mark.parametrize("output_key", ["what", "causes", "how", "when", "where"])
+def test_every_listed_output_accepts_30_items_and_rejects_31(output_key):
+    accepted = {output_key: ["a claim"] * 30}
+    model = LangchainExtractionModel(_StubChat(_message(accepted)), output_key)
+    assert json.loads(model.complete("x")) == accepted
+    with pytest.raises(InvalidAnswer, match=f"{output_key}: 31 items exceed 30"):
+        LangchainExtractionModel(
+            _StubChat(_message({output_key: ["a claim"] * 31})), output_key
+        ).complete("x")
+
+
+@pytest.mark.parametrize(
+    ("output_key", "args", "error"),
+    [
+        (
+            "relations",
+            {
+                "relations": [
+                    RELATION,
+                    RELATION,
+                    RELATION | {"evidence_text": "x" * 612},
+                ]
+            },
+            "invalid RelationsOutput: relations[2].evidence_text: "
+            "length 612 exceeds 500",
+        ),
+        (
+            "relations",
+            {"relations": [RELATION | {"evidence_text": "x" * 501}]},
+            "invalid RelationsOutput: relations[0].evidence_text: "
+            "length 501 exceeds 500",
+        ),
+        (
+            "relations",
+            {"relations": [RELATION] * 31},
+            "invalid RelationsOutput: relations: 31 items exceed 30",
+        ),
+        (
+            "relations",
+            {"relations": [RELATION | {"direction": "alters"}]},
+            "invalid RelationsOutput: relations[0].direction: 'alters' is not one "
+            "of increases, decreases, no-effect",
+        ),
+        (
+            "relations",
+            {"relations": [RELATION | {"target_process": ""}]},
+            "invalid RelationsOutput: relations[0].target_process: is empty",
+        ),
+        (
+            "relations",
+            {"relations": [RELATION | {"evidence_text": ""}]},
+            "invalid RelationsOutput: relations[0].evidence_text: is empty",
+        ),
+        (
+            "relations",
+            {"relations": [RELATION | {"confidence": "high"}]},
+            "invalid RelationsOutput: relations[0]: unexpected field(s) confidence",
+        ),
+        (
+            "relations",
+            {"relations": [{"direction": "increases"}]},
+            "invalid RelationsOutput: relations[0]: missing field(s) "
+            "subject_process, subject_participant, target_process, evidence_text",
+        ),
+        (
+            "conditional_statement",
+            {"conditional_statement": ["If a, then b."] * 31},
+            "invalid ConditionalStatementOutput: conditional_statement: "
+            "31 items exceed 30",
+        ),
+        (
+            "conditional_statement",
+            {"conditional_statement": ["If a, then b.", ""]},
+            "invalid ConditionalStatementOutput: conditional_statement[1]: is empty",
+        ),
+        (
+            "what",
+            {"what": [], "extra": "no"},
+            "invalid WhatOutput: arguments: unexpected field(s) extra",
+        ),
+        (
+            "what",
+            {"what": "a single string"},
+            "invalid WhatOutput: what: must be a list",
+        ),
+        (
+            "what",
+            {"what": [42]},
+            "invalid WhatOutput: what[0]: must be a string",
+        ),
+    ],
+)
+def test_a_rejected_answer_names_the_field_and_the_rule(output_key, args, error):
+    message = _message(args)
+    with pytest.raises(InvalidAnswer) as caught:
+        LangchainExtractionModel(_StubChat(message), output_key).complete("x")
+    assert str(caught.value) == error
+    assert caught.value.transient is False
+    assert json.loads(caught.value.raw_response) == json.loads(
+        message.model_dump_json()
+    )
+
+
+def test_many_rule_failures_are_summarised():
+    args = {"relations": [RELATION | {"direction": "alters"}] * 5}
+    with pytest.raises(InvalidAnswer) as caught:
+        LangchainExtractionModel(_StubChat(_message(args)), "relations").complete("x")
+    assert str(caught.value).endswith("; and 2 more")
+    assert str(caught.value).count("'alters' is not one of") == 3
+
+
+def test_a_stored_answer_is_reread_exactly_as_a_live_call_reads_it():
+    args = {"relations": [RELATION | {"evidence_text": "x" * 230}]}
+    stored = _message(args).model_dump_json()
+
+    live = LangchainExtractionModel(_StubChat(_message(args)), "relations")
+
+    assert LangchainExtractionModel.reread(stored, "relations") == live.complete("x")
+
+
+def test_a_stored_answer_that_is_still_invalid_says_why():
+    stored = _message({"relations": [RELATION | {"direction": "modulates"}]})
+    with pytest.raises(InvalidAnswer, match=r"relations\[0\]\.direction: 'modulates'"):
+        LangchainExtractionModel.reread(stored.model_dump_json(), "relations")
+
+
+@pytest.mark.parametrize(
+    "stored",
+    [
+        '{"relations": []',  # not JSON
+        '{"results": ["x"]}',  # a bare answer object
+        '{"content": "", "tool_calls": []}',  # message-like, but not one
+        "[]",
+        "null",
+        '"text"',
+        "42",
+        '{"type": "ai", "content": 42, "tool_calls": "x"}',
+    ],
+)
+def test_a_stored_answer_that_is_not_a_message_cannot_be_reread(stored):
+    with pytest.raises(NotAToolCallMessage):
+        LangchainExtractionModel.reread(stored, "relations")
+
+
+def test_a_stored_answer_for_an_unknown_output_cannot_be_reread():
+    with pytest.raises(UnknownOutput):
+        LangchainExtractionModel.reread(_message().model_dump_json(), "no_such_key")
 
 
 def test_real_langchain_client_sends_forced_tool_and_parses_arguments():

@@ -4,6 +4,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+import rdflib
 from naas_abi_core.services.dataset.adapters.secondary.DatasetSecondaryAdapterDuckLake import (
     DatasetSecondaryAdapterDuckLake,
 )
@@ -20,8 +21,13 @@ from phases_v2.migrations.rename_prompt import (
     OLD_NAME,
     MigrationError,
     QdrantVectorPoints,
+    TripleStoreGraphTriples,
+    main,
     migrate,
 )
+from phases_v2.ontologies import vocabulary
+from phases_v2.projection import graph as graph_projection
+from phases_v2.projection.adapters.secondary.TripleStoreSink import TripleStoreSink
 from phases_v2.projection.interfaces import GRAPH, VECTOR_ITEMS
 from phases_v2.prompts.domain import PromptTemplate
 from phases_v2.prompts.templates import declared_prompts
@@ -87,6 +93,59 @@ def qdrant() -> QdrantClient:
         vectors_config=qm.VectorParams(size=2, distance=qm.Distance.COSINE),
     )
     return client
+
+
+class _TripleStore:
+    """The triple store calls the migration makes, over an in-memory dataset."""
+
+    def __init__(self):
+        self.data = rdflib.Dataset()
+
+    def insert(self, triples, graph_name):
+        graph = self.data.graph(graph_name)
+        for triple in triples:
+            graph.add(triple)
+
+    def remove(self, triples, graph_name):
+        graph = self.data.graph(graph_name)
+        for triple in triples:
+            graph.remove(triple)
+
+    def query(self, sparql):
+        result = self.data.query(sparql)
+        return result.graph if result.type == "CONSTRUCT" else result
+
+    def quads(self) -> list[str]:
+        return sorted(
+            f"{s.n3()} {p.n3()} {o.n3()} {g.n3() if hasattr(g, 'n3') else g}"
+            for s, p, o, g in self.data.quads((None, None, None, None))
+        )
+
+    def subjects(self) -> set[str]:
+        return {str(s) for s, _p, _o, _g in self.data.quads((None, None, None, None))}
+
+
+@pytest.fixture
+def triples() -> _TripleStore:
+    return _TripleStore()
+
+
+def _project_to_graph(dataset, triples, extraction_ids):
+    """Write these extractions to the graph as the graph projection does."""
+    rows = dataset.query(
+        f"SELECT * FROM extractions WHERE extraction_id IN {tuple(extraction_ids)!r}",
+        namespace=NAMESPACE,
+    ).rows
+    items = dataset.query(
+        f"SELECT * FROM extracted_items WHERE extraction_id IN {tuple(extraction_ids)!r}",
+        namespace=NAMESPACE,
+    ).rows
+    graph_projection._project_extractions(TripleStoreSink(triples), rows, items)
+    store.write_rows(
+        dataset,
+        "projections",
+        [{"target": GRAPH, "key": key, "projected_at": WHEN} for key in extraction_ids],
+    )
 
 
 def _prompt_row(prompt: PromptTemplate, name=None) -> dict:
@@ -159,7 +218,7 @@ def _seed_point(qdrant, item_id, prompt_id, prompt_name, vector=(1.0, 0.0)):
 
 
 @pytest.fixture
-def seeded(dataset, qdrant):
+def seeded(dataset, qdrant, triples):
     """Two chunks on gpt-4.1-mini and one on claude (one of them a failure),
     one chunk that also has a succeeded extraction under the current
     conditional_statement text, and an unrelated prompt that must not move."""
@@ -306,6 +365,12 @@ def seeded(dataset, qdrant):
         _seed_point(qdrant, key, OLD_ID, OLD_NAME)
     for key in other_items:
         _seed_point(qdrant, key, OTHER.prompt_id, "solitude_what")
+    # Only succeeded extractions are projected to the graph.
+    _project_to_graph(
+        dataset,
+        triples,
+        [old["c1-gpt"], old["c2-gpt"], old["c1-claude"], current, other],
+    )
     return {"old": old, "current": current, "other": other, "old_items": old_items}
 
 
@@ -315,8 +380,13 @@ def _ids(dataset, sql):
     )
 
 
-def _run(dataset, qdrant, **kwargs):
-    return migrate(dataset, QdrantVectorPoints(qdrant), **kwargs)
+def _run(dataset, qdrant, triples, **kwargs):
+    return migrate(
+        dataset,
+        QdrantVectorPoints(qdrant),
+        TripleStoreGraphTriples(triples),
+        **kwargs,
+    )
 
 
 def _points(qdrant, **match):
@@ -336,9 +406,9 @@ def _points(qdrant, **match):
 
 
 def test_the_new_prompt_carries_the_stored_text_and_the_old_prompt_is_gone(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     prompts = dataset.query(
         "SELECT prompt_id, name, template, output_key, prompt_sha256 FROM prompts "
@@ -361,9 +431,9 @@ def test_the_new_prompt_carries_the_stored_text_and_the_old_prompt_is_gone(
 
 
 def test_extractions_are_rekeyed_by_identity_and_keep_their_responses(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     rows = {
         row["chunk_id"] + "/" + row["model_id"]: row
@@ -390,9 +460,9 @@ def test_extractions_are_rekeyed_by_identity_and_keep_their_responses(
 
 
 def test_items_are_rekeyed_from_their_new_extraction_with_text_and_order_kept(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     items = dataset.query(
         f"SELECT * FROM extracted_items WHERE prompt_id = '{NEW_ID}'",
@@ -419,8 +489,8 @@ def test_items_are_rekeyed_from_their_new_extraction_with_text_and_order_kept(
     ) == [0]
 
 
-def test_a_chunk_with_both_versions_keeps_both(dataset, qdrant, seeded):
-    _run(dataset, qdrant)
+def test_a_chunk_with_both_versions_keeps_both(dataset, qdrant, triples, seeded):
+    _run(dataset, qdrant, triples)
 
     rows = dataset.query(
         "SELECT prompt_id, status FROM extractions "
@@ -433,13 +503,13 @@ def test_a_chunk_with_both_versions_keeps_both(dataset, qdrant, seeded):
     assert all(row["status"] == "succeeded" for row in rows)
 
 
-def test_unrelated_rows_are_not_touched(dataset, qdrant, seeded):
+def test_unrelated_rows_are_not_touched(dataset, qdrant, triples, seeded):
     before = _ids(
         dataset,
         f"SELECT extraction_id FROM extractions WHERE prompt_id = '{OTHER.prompt_id}'",
     )
 
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     assert before == _ids(
         dataset,
@@ -450,9 +520,9 @@ def test_unrelated_rows_are_not_touched(dataset, qdrant, seeded):
 
 
 def test_runs_pipelines_and_requests_are_pointed_at_the_new_prompt(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     runs = {
         row["run_id"]: row["prompt_id"]
@@ -480,16 +550,17 @@ def test_runs_pipelines_and_requests_are_pointed_at_the_new_prompt(
 
 
 def test_old_vector_points_and_ledger_entries_are_deleted_so_they_project_again(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
     old_items = set(seeded["old_items"])
+    old_extractions = set(seeded["old"].values())
     ledger_before = set(_ids(dataset, "SELECT key FROM projections"))
     assert old_items <= ledger_before
 
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     ledger_after = set(_ids(dataset, "SELECT key FROM projections"))
-    assert ledger_after == ledger_before - old_items
+    assert ledger_after == ledger_before - old_items - old_extractions
     assert "c1" in ledger_after
     assert _points(qdrant, prompt_name=OLD_NAME) == 0
     assert _points(qdrant, prompt_id=OLD_ID) == 0
@@ -504,17 +575,20 @@ def test_old_vector_points_and_ledger_entries_are_deleted_so_they_project_again(
     assert not new_items & ledger_after
 
 
-def test_the_report_counts_before_and_after(dataset, qdrant, seeded):
-    report = _run(dataset, qdrant)
+def test_the_report_counts_before_and_after(dataset, qdrant, triples, seeded):
+    report = _run(dataset, qdrant, triples)
 
     assert report.before["prompts named logical_sentences"] == 1
     assert report.before["extractions, old prompt id"] == 4
     assert report.before["extracted_items, old prompt id"] == 4
     assert report.before["extraction_runs, old prompt id"] == 2
-    assert report.before["projections ledger, old item/extraction ids"] == 4
+    # 4 vector items and the graph entries of the 3 succeeded extractions.
+    assert report.before["projections ledger, old item/extraction ids"] == 7
     assert report.before["pipelines naming the old prompt"] == 1
     assert report.before["run_requests naming the old prompt"] == 1
     assert report.before["qdrant points, old prompt"] == 4
+    # 5 triples for each of 3 extractions, 7 for each of their 4 items.
+    assert report.before["graph triples, old extractions and items"] == 43
     assert report.before["extractions, new prompt id"] == 0
     assert report.after["prompts named logical_sentences"] == 0
     assert report.after["extractions, old prompt id"] == 0
@@ -522,6 +596,8 @@ def test_the_report_counts_before_and_after(dataset, qdrant, seeded):
     assert report.after["extracted_items, new prompt id"] == 4
     assert report.after["extraction_runs, new prompt id"] == 2
     assert report.after["qdrant points, old prompt"] == 0
+    assert report.after["graph triples, old extractions and items"] == 0
+    assert report.after["projections ledger, old item/extraction ids"] == 0
     assert "before" in report.render()
     assert "extractions, new prompt id" in report.render()
 
@@ -529,7 +605,7 @@ def test_the_report_counts_before_and_after(dataset, qdrant, seeded):
 # -- dry run and re-run -------------------------------------------------
 
 
-def _snapshot(dataset, qdrant):
+def _snapshot(dataset, qdrant, triples):
     tables = (
         "prompts",
         "extractions",
@@ -551,35 +627,38 @@ def _snapshot(dataset, qdrant):
             for t in tables
         },
         qdrant.count(ITEMS_COLLECTION, exact=True).count,
+        triples.quads(),
     )
 
 
-def test_a_dry_run_changes_nothing_and_predicts_the_real_run(dataset, qdrant, seeded):
-    before = _snapshot(dataset, qdrant)
+def test_a_dry_run_changes_nothing_and_predicts_the_real_run(
+    dataset, qdrant, triples, seeded
+):
+    before = _snapshot(dataset, qdrant, triples)
 
-    dry = _run(dataset, qdrant, dry_run=True)
+    dry = _run(dataset, qdrant, triples, dry_run=True)
 
-    assert _snapshot(dataset, qdrant) == before
+    assert _snapshot(dataset, qdrant, triples) == before
     assert dry.dry_run is True
     assert "dry run" in dry.render()
-    real = _run(dataset, qdrant)
+    real = _run(dataset, qdrant, triples)
     assert dry.before == real.before
     assert dry.after == real.after
 
 
-def test_running_again_does_nothing(dataset, qdrant, seeded):
-    _run(dataset, qdrant)
-    finished = _snapshot(dataset, qdrant)
+def test_running_again_does_nothing(dataset, qdrant, triples, seeded):
+    _run(dataset, qdrant, triples)
+    finished = _snapshot(dataset, qdrant, triples)
 
-    again = _run(dataset, qdrant)
+    again = _run(dataset, qdrant, triples)
 
-    assert _snapshot(dataset, qdrant) == finished
+    assert _snapshot(dataset, qdrant, triples) == finished
     assert all(count == 0 for count in again.before.values())
     assert again.before == again.after
 
 
 def test_a_run_that_stopped_before_deleting_resumes(
-    dataset, qdrant, seeded, monkeypatch
+    dataset, qdrant, triples, seeded, monkeypatch
 ):
     from phases_v2.migrations import rename_prompt
 
@@ -588,7 +667,7 @@ def test_a_run_that_stopped_before_deleting_resumes(
 
     monkeypatch.setattr(rename_prompt, "_drop_old", stop)
     with pytest.raises(RuntimeError):
-        _run(dataset, qdrant)
+        _run(dataset, qdrant, triples)
     # Re-keyed rows exist beside the old ones; nothing has been deleted.
     assert _ids(
         dataset, f"SELECT count(*) FROM extractions WHERE prompt_id = '{NEW_ID}'"
@@ -598,7 +677,7 @@ def test_a_run_that_stopped_before_deleting_resumes(
     ) == [4]
     monkeypatch.undo()
 
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     assert _ids(
         dataset, f"SELECT count(*) FROM extractions WHERE prompt_id = '{NEW_ID}'"
@@ -613,7 +692,7 @@ def test_a_run_that_stopped_before_deleting_resumes(
 
 
 def test_a_succeeded_result_already_under_the_new_id_is_not_overwritten(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
     (kept,) = _seed_extractions(
         dataset,
@@ -625,7 +704,7 @@ def test_a_succeeded_result_already_under_the_new_id_is_not_overwritten(
         ),
     )
 
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     row = dataset.query(
         f"SELECT response FROM extractions WHERE extraction_id = '{kept}'",
@@ -638,40 +717,53 @@ def test_a_succeeded_result_already_under_the_new_id_is_not_overwritten(
     ) == ["If rerun, then newer."]
 
 
+def test_old_graph_triples_and_ledger_entries_are_deleted_so_they_project_again(
+    dataset, qdrant, triples, seeded
+):
+    old_subjects = {
+        str(vocabulary.extraction_uri(key)) for key in seeded["old"].values()
+    } | {str(vocabulary.item_uri(key)) for key in seeded["old_items"]}
+    kept = triples.subjects() - old_subjects
+    assert triples.subjects() & old_subjects
+    assert str(vocabulary.extraction_uri(seeded["current"])) in kept
+
+    _run(dataset, qdrant, triples)
+
+    assert triples.subjects() == kept
+    graph_ledger = set(
+        _ids(dataset, f"SELECT key FROM projections WHERE target = '{GRAPH}'")
+    )
+    assert graph_ledger == {seeded["current"], seeded["other"]}
+    # The graph projection writes the re-keyed extractions on its next run.
+    new_extractions = set(
+        _ids(
+            dataset,
+            "SELECT extraction_id FROM extractions "
+            f"WHERE prompt_id = '{NEW_ID}' AND status = 'succeeded'",
+        )
+    )
+    assert len(new_extractions) == 3
+    assert not new_extractions & graph_ledger
+
+
 # -- refusals -----------------------------------------------------------
 
 
-def test_extractions_already_in_the_graph_stop_the_migration_untouched(
-    dataset, qdrant, seeded
-):
-    store.write_rows(
-        dataset,
-        "projections",
-        [{"target": GRAPH, "key": seeded["old"]["c1-gpt"], "projected_at": WHEN}],
-    )
-    before = _snapshot(dataset, qdrant)
-
-    with pytest.raises(MigrationError, match="graph"):
-        _run(dataset, qdrant)
-
-    assert _snapshot(dataset, qdrant) == before
-
-
 def test_an_item_without_its_extraction_stops_the_migration_untouched(
-    dataset, qdrant, seeded
+    dataset, qdrant, triples, seeded
 ):
     store.delete_rows(
         dataset, "extractions", "extraction_id", [seeded["old"]["c2-gpt"]]
     )
-    before = _snapshot(dataset, qdrant)
+    before = _snapshot(dataset, qdrant, triples)
 
     with pytest.raises(MigrationError, match="no row"):
-        _run(dataset, qdrant)
+        _run(dataset, qdrant, triples)
 
-    assert _snapshot(dataset, qdrant) == before
+    assert _snapshot(dataset, qdrant, triples) == before
 
 
-def test_the_migrated_prompt_is_the_one_the_code_declares(dataset, qdrant):
+def test_the_migrated_prompt_is_the_one_the_code_declares(dataset, qdrant, triples):
     # The stored text, taken from the declared version of it, gives the id the
     # engine registers on start; the two must agree or the prompt would exist
     # twice.
@@ -688,7 +780,7 @@ def test_the_migrated_prompt_is_the_one_the_code_declares(dataset, qdrant):
         ],
     )
 
-    _run(dataset, qdrant)
+    _run(dataset, qdrant, triples)
 
     rows = dataset.query(
         "SELECT prompt_id, name, template, output_key FROM prompts",
@@ -706,3 +798,40 @@ def test_the_migrated_prompt_is_the_one_the_code_declares(dataset, qdrant):
 
 def test_nothing_in_the_declared_catalog_is_named_after_the_old_prompt():
     assert OLD_NAME not in {template.name for template in declared_prompts()}
+
+
+class _UnconnectedQdrantStore:
+    """A vector store whose Qdrant adapter connects only when initialised, as
+    the engine's does."""
+
+    def __init__(self, client: QdrantClient):
+        from naas_abi_core.services.vector_store.adapters.QdrantAdapter import (
+            QdrantAdapter,
+        )
+
+        self.adapter = QdrantAdapter.__new__(QdrantAdapter)
+        self.adapter.client = None
+        self._client = client
+
+    def initialize(self) -> None:
+        self.adapter.client = self._client
+
+
+def test_main_connects_the_vector_store_before_reading_it(
+    dataset, qdrant, triples, seeded, capsys
+):
+    from types import SimpleNamespace
+
+    engine = SimpleNamespace(
+        services=SimpleNamespace(
+            dataset=dataset,
+            vector_store=_UnconnectedQdrantStore(qdrant),
+            triple_store=triples,
+        )
+    )
+
+    report = main(engine, ["--dry-run"])
+
+    assert report.dry_run is True
+    assert report.before["qdrant points, old prompt"] > 0
+    assert "dry run" in capsys.readouterr().out

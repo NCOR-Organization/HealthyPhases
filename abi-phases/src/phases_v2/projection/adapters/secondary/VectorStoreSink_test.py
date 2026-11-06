@@ -123,3 +123,65 @@ def test_actual_qdrant_adapter_accepts_hash_ids_and_upserts_on_retry():
         assert points[0].payload["chunk_id"] == doc.id
         assert points[0].payload["payload"]["text"] == "original"
         assert points[0].vector == [0.0, 1.0]
+
+
+class _FlakyService(_ServiceDouble):
+    """Fails the first ``failures`` writes with ``error``, then stores."""
+
+    def __init__(self, failures, error):
+        super().__init__()
+        self.failures = failures
+        self.error = error
+        self.calls = []
+
+    def add_documents(
+        self, collection_name, ids, vectors, metadata=None, payloads=None
+    ):
+        self.calls.append(ids)
+        if len(self.calls) <= self.failures:
+            raise self.error
+        super().add_documents(collection_name, ids, vectors, metadata, payloads)
+
+
+def _no_response():
+    from qdrant_client.http.exceptions import ResponseHandlingException
+
+    return ResponseHandlingException(
+        ConnectionError("Server disconnected without sending a response.")
+    )
+
+
+def test_a_write_that_got_no_response_is_sent_again_with_the_same_points():
+    service = _FlakyService(failures=2, error=_no_response())
+    pauses = []
+
+    VectorStoreSink(service, sleep=pauses.append).store("c", [_doc()], [[0.1]])
+
+    assert len(service.calls) == 3
+    assert service.calls[0] == service.calls[1] == service.calls[2]
+    assert len(service.added) == 1
+    assert pauses == [1, 2]
+
+
+def test_a_write_still_unanswered_after_the_last_attempt_fails():
+    import pytest
+    from qdrant_client.http.exceptions import ResponseHandlingException
+
+    service = _FlakyService(failures=3, error=_no_response())
+
+    with pytest.raises(ResponseHandlingException):
+        VectorStoreSink(service, sleep=lambda _s: None).store("c", [_doc()], [[0.1]])
+
+    assert len(service.calls) == 3
+    assert service.added == []
+
+
+def test_other_errors_are_not_retried():
+    import pytest
+
+    service = _FlakyService(failures=1, error=ValueError("wrong dimension"))
+
+    with pytest.raises(ValueError):
+        VectorStoreSink(service, sleep=lambda _s: None).store("c", [_doc()], [[0.1]])
+
+    assert len(service.calls) == 1

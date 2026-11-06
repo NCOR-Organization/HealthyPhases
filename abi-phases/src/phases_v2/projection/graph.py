@@ -13,6 +13,12 @@ Three separate properties, three mechanisms:
 The ledger is written *after* the triples. A crash between them leaves the row
 unrecorded and it is projected again next time, which RDF absorbs. The reverse
 order would lose the triples permanently.
+
+Outstanding extractions are written in batches of ``BATCH_SIZE``, each batch's
+ledger entries right after its triples. One insert of a whole corpus can take
+longer than the triple store's request timeout, and the store then rejects the
+cut-off request; in batches each insert stays small, and a run that stops part
+way keeps what it wrote.
 """
 
 from __future__ import annotations
@@ -28,12 +34,17 @@ from phases_v2.projection.interfaces import (
     TripleSink,
 )
 
+#: Extractions per insert. A thousand, with their items and chunks, is a few
+#: megabytes of SPARQL: seconds for the store, far inside its timeout.
+BATCH_SIZE = 1000
+
 
 def project_graph(
     *,
     reader: ExtractionReader,
     sink: TripleSink,
     ledger: ProjectionLedger,
+    batch_size: int = BATCH_SIZE,
 ) -> ProjectionReport:
     """Project every succeeded extraction that has not been projected yet."""
     extractions = reader.succeeded_extractions()
@@ -46,34 +57,40 @@ def project_graph(
     if not outstanding:
         return report
 
-    ids = [e["extraction_id"] for e in outstanding]
-    items = reader.items_for(ids)
-    chunk_ids = {e["chunk_id"] for e in outstanding}
-
-    _project_corpus(reader, sink, chunk_ids)
-    _project_extractions(sink, outstanding, items)
-
-    ledger.record(GRAPH, ids)
-    report.projected = len(outstanding)
+    chunks = {chunk["chunk_id"]: chunk for chunk in reader.chunks()}
+    papers = {paper["paper_id"]: paper for paper in reader.papers()}
+    # Chunks whose triples this run already inserted: a chunk shared by
+    # several batches (one extraction per prompt) sends its text only once.
+    inserted: set[str] = set()
+    for start in range(0, len(outstanding), batch_size):
+        batch = outstanding[start : start + batch_size]
+        ids = [e["extraction_id"] for e in batch]
+        new_chunks = {e["chunk_id"] for e in batch} - inserted
+        _project_corpus(sink, chunks, papers, new_chunks)
+        inserted |= new_chunks
+        _project_extractions(sink, batch, reader.items_for(ids))
+        ledger.record(GRAPH, ids)
+        report.projected += len(batch)
     return report
 
 
 def _project_corpus(
-    reader: ExtractionReader, sink: TripleSink, chunk_ids: set[str]
+    sink: TripleSink,
+    chunks_by_id: dict[str, dict],
+    papers_by_id: dict[str, dict],
+    chunk_ids: set[str],
 ) -> None:
-    """Papers and chunks the outstanding extractions refer to."""
-    chunks = [chunk for chunk in reader.chunks() if chunk["chunk_id"] in chunk_ids]
+    """Papers and chunks the given extractions refer to."""
+    chunks = [chunks_by_id[c] for c in sorted(chunk_ids) if c in chunks_by_id]
     paper_ids = {chunk["paper_id"] for chunk in chunks}
-    papers = [paper for paper in reader.papers() if paper["paper_id"] in paper_ids]
+    papers = [papers_by_id[p] for p in sorted(paper_ids) if p in papers_by_id]
 
     triples: list[tuple] = []
     for paper in papers:
         uri = v.paper_uri(paper["paper_id"])
         triples.append((uri, rdflib.RDF.type, v.DOC.PDFPaperFile))
         if paper.get("file_name"):
-            triples.append(
-                (uri, v.DOC.file_name, rdflib.Literal(paper["file_name"]))
-            )
+            triples.append((uri, v.DOC.file_name, rdflib.Literal(paper["file_name"])))
 
     for chunk in chunks:
         uri = v.chunk_uri(chunk["chunk_id"])
@@ -86,9 +103,7 @@ def _project_corpus(
             ]
         )
         if chunk.get("chunker_id"):
-            triples.append(
-                (uri, v.DOC.chunker_id, rdflib.Literal(chunk["chunker_id"]))
-            )
+            triples.append((uri, v.DOC.chunker_id, rdflib.Literal(chunk["chunker_id"])))
 
     if triples:
         sink.insert(str(v.PAPERS_GRAPH), triples)

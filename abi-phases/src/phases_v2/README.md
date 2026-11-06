@@ -190,7 +190,8 @@ phases_v2/
 ├── prompts/                # templates declared in code + their text
 ├── playground/             # trying a prompt on a few chunks of one paper; writes nothing
 ├── models/                 # the models a run may use
-├── migrations/             # one-off data migrations (re-keying rows, clearing projections)
+├── migrations/             # one-off data migrations (re-keying rows, re-checking stored answers)
+├── coverage/               # read-only report: what every source has run, failed or missed
 ├── ontologies/             # this module's own copy of the TTLs + the URIs it emits
 ├── orchestrations/         # Dagster jobs and the run-request sensor
 ├── app/                    # the workspace app's services and HTTP endpoints
@@ -291,8 +292,78 @@ such failures (`ModelFailed.transient`); the retry loop is in
 `extraction/domain.py` (`RetryPolicy`). A chunk that stays failed records the
 provider's message and `(gave up after N attempts)`.
 
-Invalid output is never retried. A response that is not valid for the prompt's
-schema costs one call and is recorded as failed with its reason, as before.
+This budget is for the provider only. An answer that arrives but is not valid
+has a separate budget, described next.
+
+### Accepted answers and invalid-answer retries
+
+What a model is *asked* for and what is *accepted* from it are kept apart, so
+that a slightly long answer is kept without changing any prompt version.
+
+- **Asked:** `extraction/contracts/extraction_output.proto` is the one place
+  for the limits we ask for. The tool schema sent with every call is derived
+  from it (`maxLength` 200 for `evidence_text`, `maxItems` 8 relations and 10
+  items for every other output), and the prompt texts state the same limits.
+  Neither changes, so no prompt id changes and nothing already extracted has
+  to run again. `extraction_tool_schema_test.py` pins the schemas and the ids.
+- **Accepted:** `ACCEPTED_MAX_LEN` (500) and `ACCEPTED_MAX_ITEMS` (30) in
+  `extraction/adapters/secondary/extraction_tool_schema.py` are the one place
+  for what we accept. Validation runs the proto's own Protovalidate rules from a
+  copy of the descriptor in which every `max_len` and `max_items` is raised to
+  those values. Everything else is the proto's, unchanged: the `direction`
+  values (`increases`, `decreases`, `no-effect`), non-empty strings, no unknown
+  or missing fields, and the list shapes.
+
+A rejected answer's error names the field and the rule, e.g.
+`invalid RelationsOutput: relations[2].evidence_text: length 612 exceeds 500`
+(the first three problems, then `and N more`).
+
+During a run, an answer that fails validation or parsing is asked for again
+with the identical request, with nothing added, up to 3 answers in all
+(`ANSWER_ATTEMPTS` in `extraction/domain.py`). Each answer has its own
+transient-failure budget. A chunk still invalid after the third answer is
+recorded `failed`, with the last answer in `raw_response` and the reason plus
+`(gave up after 3 attempts)` in `error`. If a later attempt ends at the
+provider instead (a non-transient error, or transient retries running out), the
+error is the provider's, prefixed `provider failure: `, and the last invalid
+answer is still kept in `raw_response` so it can be re-checked (so is an
+earlier answer when the last invalid one has no text). Every error
+from the provider carries that prefix, so a stored answer alone does not make a
+row an invalid answer: `extraction.interfaces.is_failed_call` (and
+`failed_call_sql`, the same rule for queries) tells the two apart. Trying a prompt in the playground
+(`POST /prompts/try`) asks once, because of its 90-second deadline, and accepts
+the same answers as a run.
+
+Answers stored as failures before these limits were relaxed can be recovered
+without calling the model again:
+
+```
+uv run abi run script src/phases_v2/migrations/recheck_failed_extractions.py -- --dry-run
+uv run abi run script src/phases_v2/migrations/recheck_failed_extractions.py
+```
+
+For every `failed` extraction with a stored answer (any model, any prompt), it
+reads `raw_response` through the same code as a live call. An answer that now
+passes is written as a live success would be: its items first, with the ids a
+run derives, then the extraction as `succeeded` with `response` and
+`item_count` set and `error` cleared, keeping its `run_id` and `completed_at`.
+An answer still invalid stays `failed`, and its `error` is rewritten with the
+detailed reason if that differs (an error a run stored with
+`(gave up after N attempts)` keeps its count). A failed call that kept an
+earlier invalid answer (`provider failure: `) is accepted if that answer now
+passes and otherwise left as it is, so it still counts as a failed call to run
+again. Failed calls with no stored answer, stored answers that are not a tool-call message, and prompts with no
+output contract are left as they are and counted. It prints before/after counts
+by prompt, model and reason, writes nothing on `--dry-run`, and a second run
+finds nothing to do. It does not project: the next projection run picks up the
+new items.
+
+Run it while no extraction run is active. As a guard, every row it is about to
+write is read again first, and one whose status, stored answer or error changed
+since the re-check read it (a run finished that chunk meanwhile) is left as the
+run wrote it. The `extraction_runs` totals are not changed: a run whose rows
+flip to `succeeded` still counts them as failed, so read outcomes from
+`extractions`, not from run totals.
 
 ### Renaming a prompt
 
@@ -312,12 +383,66 @@ uv run abi run script src/phases_v2/migrations/rename_prompt.py
 
 It re-derives each extraction and item id under the new prompt id, repoints
 `extraction_runs`, `pipelines` and `run_requests`, deletes the old projection
-ledger entries and Qdrant points (so the next vector projection embeds the items
+ledger entries, Qdrant points, and the old extractions' and items' triples in the
+extractions graph (so the next vector and graph projections write them again
 under their new ids), then deletes the old rows. It prints before/after counts,
 changes nothing on `--dry-run`, and a second run finds nothing to do. Stored
 templates and responses are not edited: they are what the model received and
 returned.
 
+
+### Checking ingestion coverage
+
+`coverage/ingestion_status.py` answers "has every paper we hold run through
+every prompt, with this model, and what went wrong?" It reads only: no dataset
+write, no projection, no run request.
+
+```
+uv run abi run script src/phases_v2/coverage/ingestion_status.py -- \
+    [--model openai/gpt-4.1-mini ...] [--prompt-id ID ...] [--chunker-id ID] [--json] [--strict]
+```
+
+Starting the engine publishes the module's prompts, chunkers and models, as
+every engine start does. To read without starting it, run
+`uv run python -m phases_v2.coverage.ingestion_status` with the same flags: it
+loads only the dataset and object storage services from the configuration.
+
+By default it checks `openai/gpt-4.1-mini`, the current version of each
+declared prompt (`templates.current_prompts`), and the declared chunker.
+`--model` and `--prompt-id` repeat; `--prompt-id` replaces the default prompts.
+
+It reports, for every non-archived collection (legacy ones included, resolved
+with `paper_collections.domain.resolve`), every saved PubMed search with
+downloaded PDFs (searches with the same PDFs are one source, listing all their
+ids), and everything we hold (collection papers, downloaded PubMed PDFs and
+ingested papers, once each by content):
+
+- PDFs, PDFs not ingested, ingested papers not chunked with the chunker;
+- per prompt version and model: chunks, succeeded, not run, and failed, split
+  into **failed calls** (the call failed at the provider, or no answer is
+  stored, by `extraction.interfaces.is_failed_call`) and **invalid answers**
+  (the stored answer broke the output contract), each by reason.
+
+Then, overall: failures of every prompt version and model by reason, prompt
+names in `extractions` that are no longer declared, run requests not
+`succeeded`, and the projection backlog per ledger target (`graph`: succeeded
+extractions; `vector_chunks`: chunks; `vector_items`: items of succeeded
+extractions; `probabilistic_relations_v1`: those items whose prompt answers with
+`relations`), overall and within the selection. The relations projector never
+records an item its contract rejects, so such an item stays outstanding; each
+outstanding item is checked with the projector's own `relation_rows`, and the
+rejected ones are counted and listed apart.
+
+Every count is read at one dataset snapshot and aggregated in SQL. A folder
+document nothing has ingested is read once to learn its content hash, so a
+copy of a PubMed PDF in a folder counts once. Object storage has no snapshot.
+
+`--json` prints the same report for machines. `--strict` exits 1 when, for the
+selected prompts and models, a member cannot be read, or any PDFs are not
+ingested, papers not chunked, chunks not run, calls failed or projections are
+behind. Invalid answers and rejected relation items are listed but never fail
+it: some answers stay invalid after every retry. A bad flag or an unknown prompt
+id exits 2.
 
 ## Authoring pipelines in the web app
 
@@ -741,4 +866,5 @@ published dataset, not by relaxing the collection root restriction.
 
 PubMed requests carry a `dataset:pubmed:<query_id>` source marker, and collection
 requests `dataset:collection:<collection_id>`. Any `dataset:` request whose manifest is
-missing fails instead of treating the source as a prefix.
+missing fails instead of treating the source as a prefix. Like `POST /requests`,
+`POST /sources/pubmed/requests` takes an optional `requested_by`, recorded on the request.

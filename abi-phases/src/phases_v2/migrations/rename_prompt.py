@@ -12,9 +12,11 @@ the new prompt carries the stored text, not a rewrite of it), every
 extraction's ``response`` and ``raw_response``, and its model, run and
 timestamps. What changes: the prompt's name, and every id derived from it.
 
-The vector collection is a projection, so it is not re-keyed. The old points and
-their ledger entries are deleted, and the next vector projection embeds the
-items again under their new ids.
+The vector collection and the graph are projections, so they are not re-keyed.
+The old points, the old extractions' and items' triples, and their ledger
+entries are deleted, and the next vector and graph projections write them again
+under their new ids. Papers and chunks in the graph are shared with other
+extractions and are left as they are.
 
 Safe to run more than once. Re-keying is an upsert, deleting what is already
 gone does nothing, and the old rows are the work list, so a run that stopped
@@ -34,6 +36,7 @@ import sys
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
+import rdflib
 from naas_abi_core.services.dataset.DatasetService import DatasetService
 
 from phases_v2 import identity
@@ -41,7 +44,7 @@ from phases_v2.datasets import store
 from phases_v2.datasets.row_store import DatasetRowStore
 from phases_v2.datasets.schemas import NAMESPACE
 from phases_v2.extraction.interfaces import SUCCEEDED
-from phases_v2.projection.interfaces import GRAPH
+from phases_v2.ontologies import vocabulary
 from phases_v2.prompts.domain import PromptTemplate, register_prompts
 from phases_v2.sql import in_list, literal
 
@@ -107,6 +110,56 @@ class QdrantVectorPoints:
         )
 
 
+class GraphTriples(Protocol):
+    """The graph triples whose subject is one of the given URIs."""
+
+    def count(self, subjects: list[str]) -> int: ...
+
+    def delete(self, subjects: list[str]) -> None: ...
+
+
+class TripleStoreGraphTriples:
+    """The extractions graph, through the engine's triple store.
+
+    The graph projection writes every triple of an extraction or an item with
+    that row's URI as its subject, so selecting by subject finds all of them.
+    Each batch is read back first and removed as read, so only triples that
+    exist are named in the delete.
+    """
+
+    def __init__(
+        self, triple_store: Any, graph: str = str(vocabulary.EXTRACTIONS_GRAPH)
+    ):
+        self._triple_store = triple_store
+        self._graph = rdflib.URIRef(graph)
+
+    def _pattern(self, subjects: list[str]) -> str:
+        values = " ".join(f"<{subject}>" for subject in subjects)
+        return f"GRAPH <{self._graph}> {{ VALUES ?s {{ {values} }} ?s ?p ?o }}"
+
+    def _triples(self, subjects: list[str]) -> rdflib.Graph:
+        result = self._triple_store.query(
+            f"CONSTRUCT {{ ?s ?p ?o }} WHERE {{ {self._pattern(subjects)} }}"
+        )
+        return result if isinstance(result, rdflib.Graph) else result.graph
+
+    def _count(self, subjects: list[str]) -> int:
+        # Only the number comes back, not the triples.
+        result = self._triple_store.query(
+            f"SELECT (COUNT(*) AS ?n) WHERE {{ {self._pattern(subjects)} }}"
+        )
+        return sum(int(row[0]) for row in result)
+
+    def count(self, subjects: list[str]) -> int:
+        return sum(self._count(batch) for batch in _batches(subjects))
+
+    def delete(self, subjects: list[str]) -> None:
+        for batch in _batches(subjects):
+            triples = self._triples(batch)
+            if len(triples):
+                self._triple_store.remove(triples, graph_name=self._graph)
+
+
 @dataclass
 class Report:
     dry_run: bool
@@ -156,15 +209,13 @@ def _count(
     table: str,
     column: str,
     values: list[str],
-    *,
-    where: str = "TRUE",
 ) -> int:
     return sum(
         int(
             _query(
                 dataset,
                 f"SELECT count(*) AS n FROM {table} "  # nosec B608
-                f"WHERE {column} IN {in_list(batch)} AND {where}",
+                f"WHERE {column} IN {in_list(batch)}",
             )[0]["n"]
         )
         for batch in _batches(values)
@@ -216,6 +267,12 @@ class _Plan:
     @property
     def prompt_map(self) -> dict[str, str]:
         return {old: new.prompt_id for old, new in self.prompts.items()}
+
+    @property
+    def old_graph_subjects(self) -> list[str]:
+        return [str(vocabulary.extraction_uri(key)) for key in self.extraction_map] + [
+            str(vocabulary.item_uri(key)) for key in self.item_map
+        ]
 
 
 def _plan(dataset: DatasetService) -> _Plan:
@@ -272,7 +329,7 @@ def _references(dataset: DatasetService, table: str, column: str, ids: set[str])
 
 
 def _survey(
-    dataset: DatasetService, points: VectorPoints, plan: _Plan
+    dataset: DatasetService, points: VectorPoints, graph: GraphTriples, plan: _Plan
 ) -> dict[str, int]:
     old, new = plan.old_prompt_ids, plan.new_prompt_ids
     old_keys = list(plan.item_map) + list(plan.extraction_map)
@@ -309,6 +366,9 @@ def _survey(
             _references(dataset, "run_requests", "prompt_ids", old_set)
         ),
         "qdrant points, old prompt": points.count(old, OLD_NAME),
+        "graph triples, old extractions and items": graph.count(
+            plan.old_graph_subjects
+        ),
     }
 
 
@@ -409,7 +469,9 @@ def _verify(dataset: DatasetService, plan: _Plan) -> None:
             )
 
 
-def _drop_old(dataset: DatasetService, points: VectorPoints, plan: _Plan) -> None:
+def _drop_old(
+    dataset: DatasetService, points: VectorPoints, graph: GraphTriples, plan: _Plan
+) -> None:
     """Delete the old projections first, then the rows they were made from.
 
     The old rows are the work list, so they go last: a run that stops before
@@ -419,6 +481,7 @@ def _drop_old(dataset: DatasetService, points: VectorPoints, plan: _Plan) -> Non
     store.delete_rows(dataset, "projections", "key", old_keys)
     if points.count(plan.old_prompt_ids, OLD_NAME):
         points.delete(plan.old_prompt_ids, OLD_NAME)
+    graph.delete(plan.old_graph_subjects)
 
     store.delete_rows(dataset, "extracted_items", "prompt_id", plan.old_prompt_ids)
     store.delete_rows(dataset, "extractions", "prompt_id", plan.old_prompt_ids)
@@ -456,29 +519,20 @@ def _expected_after(
 
 
 def migrate(
-    dataset: DatasetService, points: VectorPoints, *, dry_run: bool = False
+    dataset: DatasetService,
+    points: VectorPoints,
+    graph: GraphTriples,
+    *,
+    dry_run: bool = False,
 ) -> Report:
     plan = _plan(dataset)
     report = Report(dry_run=dry_run)
-    report.before = _survey(dataset, points, plan)
+    report.before = _survey(dataset, points, graph, plan)
 
     if report.before["probabilistic_relations, old prompt id"]:
         raise MigrationError(
             f"{OLD_NAME} has relation rows, which this migration does not re-key"
         )
-    in_graph = _count(
-        dataset,
-        "projections",
-        "key",
-        list(plan.extraction_map),
-        where=f"target = {literal(GRAPH)}",
-    )
-    if in_graph:
-        raise MigrationError(
-            f"{in_graph} {OLD_NAME} extractions are in the graph, which this "
-            "migration does not rewrite"
-        )
-
     if dry_run:
         report.after = _expected_after(dataset, report.before, plan)
         return report
@@ -488,8 +542,8 @@ def migrate(
         _verify(dataset, plan)
     # Also when no old prompt is left: points written by an earlier projection
     # can outlive the rows they were made from.
-    _drop_old(dataset, points, plan)
-    report.after = _survey(dataset, points, plan)
+    _drop_old(dataset, points, graph, plan)
+    report.after = _survey(dataset, points, graph, plan)
     return report
 
 
@@ -498,12 +552,16 @@ def main(engine: Any, argv: list[str]) -> Report:
         QdrantAdapter,
     )
 
-    adapter = engine.services.vector_store.adapter
+    vector_store = engine.services.vector_store
+    adapter = vector_store.adapter
     if not isinstance(adapter, QdrantAdapter):
         raise MigrationError("the vector store is not Qdrant; nothing was changed")
+    # The adapter connects on first use; until then it has no client.
+    vector_store.initialize()
     report = migrate(
         engine.services.dataset,
         QdrantVectorPoints(adapter.client),
+        TripleStoreGraphTriples(engine.services.triple_store),
         dry_run="--dry-run" in argv,
     )
     print(report.render(), flush=True)

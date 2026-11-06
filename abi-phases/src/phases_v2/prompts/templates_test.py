@@ -1,8 +1,10 @@
 """The declared templates must be valid, stable, and literally what is sent."""
 
+from pathlib import Path
+
 from phases_v2.extraction.interfaces import LEGACY_OUTPUT_KEYS
 from phases_v2.prompts.domain import CHUNK_PLACEHOLDER, validate
-from phases_v2.prompts.templates import declared_prompts
+from phases_v2.prompts.templates import current_prompts, declared_prompts
 
 
 def test_every_declared_template_is_valid():
@@ -90,3 +92,15 @@ def test_the_earlier_conditional_statement_version_is_the_text_the_model_receive
     assert earlier.output_key == "conditional_statement"
     # It still asks the model for its answer under the name it had before.
     assert '"logical_sentences"' in earlier.template
+
+
+def test_current_prompts_are_one_per_name_and_never_the_earlier_wording():
+    current = current_prompts()
+    earlier = (
+        Path(__file__).parent / "templates" / "conditional_statement_v1.txt"
+    ).read_text()
+
+    assert len(current) == 8
+    assert len({prompt.name for prompt in current}) == 8
+    assert all(prompt in declared_prompts() for prompt in current)
+    assert all(prompt.template != earlier for prompt in current)

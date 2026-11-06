@@ -59,6 +59,9 @@ def submit_pubmed(rows, requests, catalog, payload):
         chunker_id=command.chunker_id,
         prompt_ids=list(command.prompt_ids),
         model_id=command.model_id,
+        requested_by=(
+            command.requested_by if command.HasField("requested_by") else None
+        ),
     )
 
 

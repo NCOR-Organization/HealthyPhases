@@ -1,9 +1,13 @@
 # Extraction tool contract
 
-`extraction_output.proto` is the source of truth for tool arguments. Its
-Protovalidate annotations are executed locally for every tool response. The
-adapter derives the tool JSON Schema from the same descriptor, including list
-limits, nonempty strings, direction values, and evidence length. Semantic
+`extraction_output.proto` is the source of truth for tool arguments, and for
+the limits we ask the model to keep to. The adapter derives the tool JSON Schema
+from the descriptor as checked in, including list limits, nonempty strings,
+direction values, and evidence length. Its Protovalidate annotations are
+executed locally for every tool response, with every `max_len` and `max_items`
+raised to the accepted limits (`ACCEPTED_MAX_LEN`, `ACCEPTED_MAX_ITEMS` in
+`extraction_tool_schema.py`); see "Accepted answers and invalid-answer retries"
+in the module README. Semantic
 requirements (grounding, process wording, and conditional statement phrasing) still
 belong to the prompts; shape validation cannot prove them.
 
@@ -28,4 +32,6 @@ LangChain message when one was returned. There is no silent text fallback.
 
 Prompt text and IDs remain unchanged to preserve successful-work deduplication.
 On rerun, failed rows receive fresh model calls and are overwritten by the usual
-upsert. Old failed text is not repaired, and successes are not deleted.
+upsert, and successes are not deleted. Stored failed answers can be read again
+under the accepted limits, without model calls, by
+`migrations/recheck_failed_extractions.py`.

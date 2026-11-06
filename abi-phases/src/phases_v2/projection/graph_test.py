@@ -133,3 +133,87 @@ def test_nothing_to_project_writes_nothing():
 
     assert report.projected == 0
     assert sink.inserts == 0
+
+
+def test_a_large_projection_is_written_in_batches_each_then_recorded():
+    reader = _reader(n=5)
+    sink = FakeTripleSink()
+    ledger = FakeProjectionLedger()
+    recorded_after_insert: list[int] = []
+    record = ledger.record
+
+    def record_and_count(target, keys):
+        recorded_after_insert.append(sink.inserts)
+        record(target, keys)
+
+    ledger.record = record_and_count
+
+    report = project_graph(reader=reader, sink=sink, ledger=ledger, batch_size=2)
+
+    assert report.projected == 5
+    # Three batches, each a corpus insert and an extraction insert, each
+    # recorded only once its triples are in.
+    assert sink.inserts == 6
+    assert recorded_after_insert == [2, 4, 6]
+    assert ledger.keys[GRAPH] == {f"e{i}" for i in range(5)}
+    _report, unbatched, _ledger = _project(_reader(n=5))
+    assert {n: set(t) for n, t in sink.graphs.items()} == {
+        n: set(t) for n, t in unbatched.graphs.items()
+    }
+
+
+def test_a_batch_that_fails_leaves_the_earlier_batches_recorded():
+    reader = _reader(n=5)
+    ledger = FakeProjectionLedger()
+
+    class FailingSink(FakeTripleSink):
+        def insert(self, graph_uri, triples):
+            if self.inserts == 2:
+                raise ConnectionError("timed out")
+            super().insert(graph_uri, triples)
+
+    try:
+        project_graph(reader=reader, sink=FailingSink(), ledger=ledger, batch_size=2)
+    except ConnectionError:
+        pass
+
+    assert ledger.keys[GRAPH] == {"e0", "e1"}
+    report = project_graph(
+        reader=reader, sink=FakeTripleSink(), ledger=ledger, batch_size=2
+    )
+    assert report.already_projected == 2
+    assert report.projected == 3
+
+
+class _RecordingSink(FakeTripleSink):
+    def __init__(self) -> None:
+        super().__init__()
+        self.sent: list[tuple] = []
+
+    def insert(self, graph_uri, triples):
+        self.sent.extend(triples)
+        super().insert(graph_uri, triples)
+
+
+def test_a_chunk_shared_by_several_batches_is_sent_once():
+    one = _reader()
+    reader = FakeExtractionReader(
+        papers=one.papers(),
+        chunks=one.chunks(),
+        extractions=[
+            {"extraction_id": f"e{n}", "chunk_id": "c0", "model_id": "m",
+             "prompt_id": f"pr{n}", "item_count": 0}
+            for n in range(4)
+        ],
+    )
+    sink = _RecordingSink()
+
+    report = project_graph(
+        reader=reader, sink=sink, ledger=FakeProjectionLedger(), batch_size=2
+    )
+
+    assert report.projected == 4
+    texts = [t for t in sink.sent if t[1] == v.DOC.chunk_text]
+    assert len(texts) == 1
+    # Two batches: the corpus with the first, the extractions of each.
+    assert sink.inserts == 3

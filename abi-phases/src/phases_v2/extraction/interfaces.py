@@ -2,12 +2,49 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Protocol
 
 SUCCEEDED = "succeeded"
 FAILED = "failed"
+
+#: Starts the stored ``error`` of an extraction whose last call failed at the
+#: provider (a dropped connection, a timeout, a rate limit, a 5xx) rather than
+#: returning an answer that breaks the output contract. Such a row may still
+#: keep an earlier invalid answer in ``raw_response``, so whether an answer is
+#: stored does not tell the two apart; this marker does.
+PROVIDER_FAILURE = "provider failure: "
+
+
+#: What counts as blank in a stored answer, for :func:`is_failed_call` and
+#: :func:`failed_call_sql` alike. Both use this one pattern, so Python and the
+#: query engine (whose ``trim`` strips only spaces) cannot disagree.
+_BLANK = r"[ \t\n\r\f\v]*"
+
+
+def is_failed_call(raw_response: str | None, error: str | None) -> bool:
+    """Whether a failed extraction failed at the provider, with no answer to judge.
+
+    True when no answer is stored (every failure recorded before answers were
+    kept across attempts), or only blanks, or when the error carries
+    :data:`PROVIDER_FAILURE`. :func:`failed_call_sql` is the same rule for
+    queries.
+    """
+    return re.fullmatch(_BLANK, raw_response or "") is not None or (
+        error or ""
+    ).startswith(PROVIDER_FAILURE)
+
+
+def failed_call_sql(raw_response: str, error: str) -> str:
+    """:func:`is_failed_call` as a SQL condition on the two given columns."""
+    marker = PROVIDER_FAILURE.replace("'", "''")
+    return (
+        f"(regexp_full_match(coalesce({raw_response}, ''), '{_BLANK}') "
+        f"OR starts_with(coalesce({error}, ''), '{marker}'))"
+    )
+
 
 # Answer keys a prompt's output used to be returned under. A prompt that was
 # renamed keeps the wording its earlier extractions were made with, and that
@@ -22,8 +59,7 @@ class ModelFailed(Exception):
 
     ``transient`` is the adapter's statement that trying the same call again
     may succeed — a dropped connection, a timeout, a rate limit, a provider
-    5xx. It is never set for unusable output: asking again for a different
-    answer is a decision about the prompt, not about the network.
+    5xx. It is never set for unusable output; that is :class:`InvalidAnswer`.
     """
 
     def __init__(
@@ -36,6 +72,15 @@ class ModelFailed(Exception):
         super().__init__(message)
         self.raw_response = raw_response
         self.transient = transient
+
+
+class InvalidAnswer(ModelFailed):
+    """The model answered, but the answer breaks the output contract.
+
+    The message names the field and the rule that failed. Asking again with
+    the identical request may well produce a valid answer, so a run gives it a
+    small budget of its own, separate from the transient-failure retries.
+    """
 
 
 @dataclass(frozen=True)
@@ -105,7 +150,8 @@ class ExtractionModel(Protocol):
 
         Raises :class:`ModelFailed` for anything that stops one unit of work,
         so a single bad call is recorded and the run continues. Failures worth
-        retrying carry ``transient=True``; the domain does the retrying.
+        retrying carry ``transient=True``, and an answer that breaks the output
+        contract raises :class:`InvalidAnswer`; the domain does the retrying.
         """
         ...
 

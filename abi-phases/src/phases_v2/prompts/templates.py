@@ -56,3 +56,15 @@ def declared_prompts() -> tuple[PromptTemplate, ...]:
         )
         for name, stem, output_key in _DECLARED
     )
+
+
+def current_prompts() -> tuple[PromptTemplate, ...]:
+    """The version of each declared prompt that a new run uses: one per name.
+
+    A name's first declaration above is its current text; later ones are the
+    earlier versions kept for the extractions they made.
+    """
+    current: dict[str, PromptTemplate] = {}
+    for prompt in declared_prompts():
+        current.setdefault(prompt.name, prompt)
+    return tuple(current.values())
